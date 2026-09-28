@@ -6,9 +6,11 @@ requires-python = ">=3.13,<3.14"
 dependencies = [
     "alembic>=1.18,<2.0",
     "fastapi[standard]==0.140.3",
+    "pillow>=11,<13",
     "psycopg[binary,pool]>=3.3,<4.0",
     "pwdlib[argon2]>=0.3,<1.0",
     "pydantic-settings>=2.0,<3.0",
+    "pypdf>=6,<7",
     "sqlalchemy[asyncio]>=2.0,<2.1",
     "work-management-ai",
 ]

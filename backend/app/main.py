@@ -40,6 +40,10 @@ from app.modules.planning_runs.application.approval_service import ApprovalServi
 from app.modules.planning_runs.application.event_service import WorkflowEventService
 from app.modules.planning_runs.application.proposal_service import ProposalService
 from app.modules.planning_runs.application.run_service import PlanningRunService
+from app.modules.progress.adapters.evidence_repository import SqlAlchemyEvidenceTransactionFactory
+from app.modules.progress.adapters.filesystem_storage import FilesystemEvidenceStorage
+from app.modules.progress.api.evidence_routes import router as evidence_router
+from app.modules.progress.application.evidence_service import EvidenceService
 from app.modules.work.adapters.project_repository import SqlAlchemyProjectTransactionFactory
 from app.modules.work.adapters.task_repository import SqlAlchemyTaskTransactionFactory
 from app.modules.work.api.routes import router as project_router
@@ -104,6 +108,7 @@ def create_app(
     team_requirement_service: TeamRequirementService | None = None,
     team_recommendation_service: TeamRecommendationService | None = None,
     explicit_assignment_service: ExplicitTaskAssignmentService | None = None,
+    evidence_service: EvidenceService | None = None,
 ) -> FastAPI:
     """Build an isolated application instance for runtime or tests."""
 
@@ -167,6 +172,13 @@ def create_app(
             database_engine = create_database_engine(resolved_settings)
         resolved_manual_planning_service = ManualPlanningService(
             SqlAlchemyManualPlanningTransactionFactory(create_session_factory(database_engine))
+        )
+    if evidence_service is None:
+        if database_engine is None:
+            database_engine = create_database_engine(resolved_settings)
+        evidence_service = EvidenceService(
+            SqlAlchemyEvidenceTransactionFactory(create_session_factory(database_engine)),
+            FilesystemEvidenceStorage(resolved_settings.evidence_storage_root),
         )
     runtime = PlanningAIRuntime()
     resolved_planning_run_service = planning_run_service
@@ -246,6 +258,7 @@ def create_app(
         debug=resolved_settings.debug,
         lifespan=lifespan,
     )
+    app.state.evidence_service = evidence_service
     app.state.settings = resolved_settings
     app.state.auth_service = resolved_auth_service
     app.state.project_service = resolved_project_service
@@ -268,7 +281,13 @@ def create_app(
         allow_origins=[resolved_settings.frontend_origin],
         allow_credentials=True,
         allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-        allow_headers=["Content-Type", "X-Request-ID", "Idempotency-Key", "If-Match"],
+        allow_headers=[
+            "Content-Type",
+            "X-Request-ID",
+            "Idempotency-Key",
+            "If-Match",
+            "X-Evidence-Filename",
+        ],
     )
 
     @app.middleware("http")
@@ -283,6 +302,7 @@ def create_app(
         return response
 
     register_error_handlers(app)
+    app.include_router(evidence_router, prefix="/api/v1")
     app.include_router(auth_router, prefix="/api/v1")
     app.include_router(project_router, prefix="/api/v1")
     app.include_router(task_router, prefix="/api/v1")

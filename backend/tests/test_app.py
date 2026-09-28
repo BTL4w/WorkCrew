@@ -35,6 +35,9 @@ async def test_openapi_document_is_available() -> None:
     assert response.status_code == 200
     assert response.json()["info"]["title"] == "Work Management API"
     assert set(response.json()["paths"]) == {
+        "/api/v1/evidence",
+        "/api/v1/evidence/{evidence_id}/versions/{version}",
+        "/api/v1/evidence/{evidence_id}/versions/{version}/content",
         "/api/v1/auth/login",
         "/api/v1/auth/logout",
         "/api/v1/me",

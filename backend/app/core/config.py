@@ -1,6 +1,7 @@
 """Typed environment configuration."""
 
 from functools import lru_cache
+from pathlib import Path
 from typing import Any, Literal
 from uuid import UUID
 
@@ -57,6 +58,8 @@ class Settings(BaseSettings):
             dotenv_settings,
             file_secret_settings,
         )
+
+    evidence_storage_root: Path = Path("~/.local/share/work-management/evidence").expanduser()
 
     name: str = "Work Management API"
     version: str = "0.1.0"

@@ -294,5 +294,26 @@
     "currentTeamUnknownMember": "Member name unavailable",
     "currentTeamNoAssignments": "No Task was assigned by this team decision.",
     "errors": { "load": "Team requirements are unavailable.", "mutation": "The requirement change could not be completed.", "stale": "Requirements changed. Reload the newest data." }
+  },
+  "evidence": {
+    "title": "Evidence files",
+    "description": "Upload a private original (PDF, DOCX, JPG or PNG, up to 20 MiB). Unconfirmed files expire after 7 days. Uploading does not submit a daily report.",
+    "choose": "Choose evidence",
+    "uploading": "Uploading…",
+    "download": "Download",
+    "bytes": "bytes",
+    "retry": "Retry upload",
+    "error": {
+      "EVIDENCE_TOO_LARGE": "The file exceeds the 20 MiB limit.",
+      "EVIDENCE_INVALID_FORMAT": "Select a valid PDF, DOCX, JPG or PNG file.",
+      "EVIDENCE_STORAGE_UNAVAILABLE": "Upload is unavailable. Retry with the same file.",
+      "EVIDENCE_UPLOAD_IN_PROGRESS": "This upload is still being processed. Retry shortly.",
+      "EVIDENCE_EXPIRED": "This upload has expired. Select the file again.",
+      "IDEMPOTENCY_KEY_REUSED": "This upload key was used with another file.",
+      "INVALID_REQUEST": "The upload request is invalid.",
+      "RESOURCE_NOT_FOUND": "The evidence is unavailable.",
+      "FORBIDDEN": "You no longer have access.",
+      "EVIDENCE_INVALID_KEY": "The storage reference is invalid."
+    }
   }
 }

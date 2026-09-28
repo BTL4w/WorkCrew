@@ -8,12 +8,14 @@ from app.modules.audit.adapters import database_models as audit_models
 from app.modules.identity.adapters import database_models as identity_models
 from app.modules.organization.adapters import database_models as organization_models
 from app.modules.people_capacity.adapters import database_models as people_capacity_models
+from app.modules.progress.adapters import evidence_models
 from app.modules.work.adapters import database_models as work_models
 
 _MODEL_MODULES = (
     assistant_models,
     audit_models,
     identity_models,
+    evidence_models,
     organization_models,
     people_capacity_models,
     work_models,
@@ -22,6 +24,7 @@ _MODEL_MODULES = (
 
 def test_active_phase_tables_are_registered() -> None:
     assert set(Base.metadata.tables) == {
+        "evidence_originals",
         "organizations",
         "users",
         "memberships",

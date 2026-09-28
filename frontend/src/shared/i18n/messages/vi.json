@@ -294,5 +294,26 @@
     "currentTeamUnknownMember": "Tên thành viên chưa khả dụng",
     "currentTeamNoAssignments": "Không có task nào được giao từ quyết định đội ngũ này.",
     "errors": { "load": "Chưa thể tải yêu cầu đội ngũ.", "mutation": "Không thể hoàn tất thay đổi yêu cầu.", "stale": "Yêu cầu đã thay đổi. Hãy tải lại dữ liệu mới nhất." }
+  },
+  "evidence": {
+    "title": "Tệp bằng chứng",
+    "description": "Tải lên bản gốc riêng tư (PDF, DOCX, JPG hoặc PNG, tối đa 20 MiB). Tệp chưa xác nhận hết hạn sau 7 ngày. Tải tệp chưa gửi báo cáo hằng ngày.",
+    "choose": "Chọn bằng chứng",
+    "uploading": "Đang tải lên…",
+    "download": "Tải xuống",
+    "bytes": "byte",
+    "retry": "Thử tải lại",
+    "error": {
+      "EVIDENCE_TOO_LARGE": "Tệp vượt giới hạn 20 MiB.",
+      "EVIDENCE_INVALID_FORMAT": "Chọn tệp PDF, DOCX, JPG hoặc PNG hợp lệ.",
+      "EVIDENCE_STORAGE_UNAVAILABLE": "Chưa thể tải lên. Thử lại với cùng tệp.",
+      "EVIDENCE_UPLOAD_IN_PROGRESS": "Tệp vẫn đang được xử lý. Vui lòng thử lại sau.",
+      "EVIDENCE_EXPIRED": "Lần tải lên đã hết hạn. Chọn lại tệp.",
+      "IDEMPOTENCY_KEY_REUSED": "Mã tải lên đã được dùng cho tệp khác.",
+      "INVALID_REQUEST": "Yêu cầu tải lên không hợp lệ.",
+      "RESOURCE_NOT_FOUND": "Bằng chứng không khả dụng.",
+      "FORBIDDEN": "Bạn không còn quyền truy cập.",
+      "EVIDENCE_INVALID_KEY": "Tham chiếu lưu trữ không hợp lệ."
+    }
   }
 }

@@ -1,5 +1,6 @@
 "use client";
 
+import { EvidencePicker } from "@/features/daily-updates/evidence-picker";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useLocale, useTranslations } from "next-intl";
 import { useSearchParams } from "next/navigation";
@@ -240,6 +241,7 @@ export function WorkWorkspace({
             onProjectSection={setProjectSection}
           />
         ) : (
+          <>
           <MyTasksView
             tasks={myTasks.data ?? emptyTaskPage}
             isLoading={myTasks.isPending}
@@ -267,6 +269,8 @@ export function WorkWorkspace({
               canManage,
             }}
           />
+          <EvidencePicker />
+          </>
         );
 
   return (

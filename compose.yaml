@@ -22,6 +22,8 @@ services:
     stop_grace_period: 10s
 
   backend-api:
+    volumes:
+      - evidence_data:/var/lib/work-management/evidence
     build:
       context: .
       dockerfile: backend/Dockerfile
@@ -31,6 +33,7 @@ services:
       APP_DEBUG: "false"
       APP_DEMO_SEED_ENABLED: "true"
       APP_DEMO_SEED_PASSWORD: ${APP_DEMO_SEED_PASSWORD:-WorkDemo123!}
+      APP_EVIDENCE_STORAGE_ROOT: /var/lib/work-management/evidence
       APP_ENVIRONMENT: local
       APP_FRONTEND_ORIGIN: http://localhost:${FRONTEND_PORT:-3000}
       APP_SESSION_SECURE_COOKIE: "false"
@@ -89,6 +92,8 @@ services:
     stop_grace_period: 10s
 
   ai-worker:
+    volumes:
+      - evidence_data:/var/lib/work-management/evidence
     build:
       context: .
       dockerfile: backend/Dockerfile
@@ -98,6 +103,7 @@ services:
       APP_AI_TITLE_TIMEOUT_SECONDS: ${APP_AI_TITLE_TIMEOUT_SECONDS:-3}
       APP_AI_PROVIDER: ${APP_AI_PROVIDER:-disabled}
       APP_DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-work_management}:${POSTGRES_PASSWORD:-work_management}@postgres:5432/${POSTGRES_DB:-work_management}
+      APP_EVIDENCE_STORAGE_ROOT: /var/lib/work-management/evidence
       APP_ENVIRONMENT: local
       APP_OPENAI_API_KEY: ${APP_OPENAI_API_KEY:-}
       APP_WORKER_ORGANIZATION_IDS: ${APP_WORKER_ORGANIZATION_IDS:-[]}
@@ -111,3 +117,4 @@ services:
 
 volumes:
   postgres_data:
+  evidence_data:

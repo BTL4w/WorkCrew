@@ -8,6 +8,7 @@
     "CapacityKind": ["DEFAULT", "OVERRIDE"]
   },
   "schemas": {
+    "EvidenceResponse": {"required": ["evidence_id", "version", "filename", "mime_type", "byte_length", "sha256", "uploaded_at", "expires_at"], "properties": {"evidence_id": "string:uuid", "version": "integer", "filename": "string", "mime_type": "string", "byte_length": "integer", "sha256": "string", "uploaded_at": "string:date-time", "expires_at": "null|string:date-time"}},
     "ProjectCreateRequest": { "required": ["name"], "properties": { "name": "string[1,160]", "description": "null|string[,5000]" } },
     "ProjectUpdateRequest": { "required": [], "properties": { "name": "null|string[1,160]", "description": "null|string[,5000]" } },
     "TaskCreateRequest": { "required": ["project_id", "project_week_id", "title", "estimated_effort_hours"], "properties": { "project_id": "string:uuid", "project_week_id": "string:uuid", "milestone_id": "null|string:uuid", "title": "string[1,200]", "description": "null|string[,10000]", "assignee_membership_id": "null|string:uuid", "required_skill_labels": "array:string", "estimated_effort_hours": "integer", "due_date": "null|string:date" } },
