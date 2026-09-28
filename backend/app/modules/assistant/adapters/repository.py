@@ -2,7 +2,7 @@
 
 from dataclasses import replace
 from datetime import UTC, datetime, timedelta
-from typing import cast
+from typing import Literal, cast
 from uuid import UUID, uuid4
 
 from sqlalchemy import func, select, update
@@ -25,6 +25,7 @@ from app.modules.assistant.application.ports import (
     AssistantConversationMutationResult,
     AssistantConversationSnapshot,
     AssistantTurnMutationResult,
+    ConversationTitleInput,
     LinkedWorkflowEvent,
 )
 from app.modules.assistant.application.projection_service import advance_pending_followup
@@ -52,7 +53,7 @@ from app.modules.assistant.domain.models import (
 from app.modules.audit.adapters.database_models import AuditEventModel
 from app.modules.audit.domain.events import AuditOutcome
 from app.modules.identity.domain.auth import AuthenticatedActor
-from app.modules.planning_runs.adapters.database_models import WorkflowEventModel
+from app.modules.planning_runs.adapters.database_models import OutboxEventModel, WorkflowEventModel
 from app.modules.planning_runs.domain.models import WorkflowEvent
 from app.modules.work.adapters.database_models import IdempotencyRecordModel, IdempotencyState
 from app.modules.work.planning.assignment.adapters.database_models import TeamRequirementSetModel
@@ -137,7 +138,9 @@ def _job(model: AssistantJobModel) -> AssistantJob:
         turn_id=model.turn_id,
         orchestration_run_id=model.orchestration_run_id,
         requester_membership_id=model.requester_membership_id,
-        job_type="assistant.turn.execute",
+        job_type=cast(
+            Literal["assistant.turn.execute", "assistant.conversation.title"], model.job_type
+        ),
         payload=model.payload,
         status=AssistantJobStatus(model.status),
         attempt_count=model.attempt_count,
@@ -221,6 +224,120 @@ def _tool_invocation(model: ToolInvocationModel) -> ToolInvocation:
 class PostgreSQLAssistantRepository:
     def __init__(self, session: AsyncSession) -> None:
         self._session = session
+
+    async def get_conversation_title_input(
+        self, *, actor: AuthenticatedActor, job: AssistantJob
+    ) -> ConversationTitleInput | None:
+        if (
+            job.organization_id != actor.organization_id
+            or job.requester_membership_id != actor.membership_id
+            or job.job_type != "assistant.conversation.title"
+        ):
+            return None
+        conversation = await self._session.scalar(
+            select(AssistantConversationModel).where(
+                AssistantConversationModel.organization_id == actor.organization_id,
+                AssistantConversationModel.owner_membership_id == actor.membership_id,
+                AssistantConversationModel.id == job.conversation_id,
+                AssistantConversationModel.status == "ACTIVE",
+                AssistantConversationModel.title.is_(None),
+            )
+        )
+        if conversation is None:
+            return None
+        first = await self._session.scalar(
+            select(AssistantMessageModel).where(
+                AssistantMessageModel.organization_id == actor.organization_id,
+                AssistantMessageModel.conversation_id == job.conversation_id,
+                AssistantMessageModel.sequence == 1,
+                AssistantMessageModel.role == "USER",
+                AssistantMessageModel.turn_id == job.turn_id,
+            )
+        )
+        if first is None:
+            return None
+        message = " ".join(
+            str(block["text"]) for block in first.content_blocks if block.get("kind") == "text"
+        ).strip()
+        turn = await self._session.scalar(
+            select(AssistantTurnModel).where(
+                AssistantTurnModel.organization_id == actor.organization_id,
+                AssistantTurnModel.id == job.turn_id,
+            )
+        )
+        if not message or turn is None:
+            return None
+        return ConversationTitleInput(message, turn.locale)  # type: ignore[arg-type]
+
+    async def set_conversation_title(
+        self,
+        *,
+        actor: AuthenticatedActor,
+        job: AssistantJob,
+        title: str,
+        metadata: dict[str, object],
+    ) -> bool:
+        conversation = await self._session.scalar(
+            select(AssistantConversationModel)
+            .where(
+                AssistantConversationModel.organization_id == actor.organization_id,
+                AssistantConversationModel.owner_membership_id == actor.membership_id,
+                AssistantConversationModel.id == job.conversation_id,
+            )
+            .with_for_update()
+        )
+        # Revalidate after the model call. The lock also serializes event sequence allocation.
+        if (
+            conversation is None
+            or await self.get_conversation_title_input(actor=actor, job=job) is None
+        ):
+            return False
+        if not title.strip() or len(title) > 100:
+            raise ValueError("CONVERSATION_TITLE_INVALID")
+        now = datetime.now(UTC)
+        conversation.title = title
+        event = AssistantEvent(
+            id=uuid4(),
+            organization_id=actor.organization_id,
+            conversation_id=job.conversation_id,
+            sequence=conversation.last_event_sequence + 1,
+            event_type="assistant.conversation.titled.v1",
+            public_payload={"conversation_id": str(job.conversation_id)},
+            dedupe_key=f"conversation-title:{job.conversation_id}",
+            occurred_at=now,
+        )
+        await self.append_event(event=event)
+        self._session.add(
+            AuditEventModel(
+                id=uuid4(),
+                organization_id=actor.organization_id,
+                actor_membership_id=actor.membership_id,
+                action="assistant.conversation.titled",
+                outcome=AuditOutcome.SUCCEEDED,
+                resource_type="assistant_conversation",
+                resource_id=job.conversation_id,
+                request_id=str(job.id),
+                idempotency_key=f"conversation-title:{job.conversation_id}",
+                before_data={},
+                after_data={"status": "COMMITTED"},
+                reason_data=metadata,
+            )
+        )
+        self._session.add(
+            OutboxEventModel(
+                id=event.id,
+                organization_id=actor.organization_id,
+                event_id=event.id,
+                event_type=event.event_type,
+                aggregate_type="assistant_conversation",
+                aggregate_id=job.conversation_id,
+                envelope_version="1.0",
+                payload={"conversation_id": str(job.conversation_id)},
+                occurred_at=now,
+            )
+        )
+        await self._session.flush()
+        return True
 
     async def _idempotency(
         self,
@@ -545,6 +662,25 @@ class PostgreSQLAssistantRepository:
                 ),
             ]
         )
+        if message.sequence == 1 and not conversation_model.title and turn.objective.strip():
+            self._session.add(
+                AssistantJobModel(
+                    id=uuid4(),
+                    organization_id=job.organization_id,
+                    conversation_id=job.conversation_id,
+                    turn_id=job.turn_id,
+                    orchestration_run_id=job.orchestration_run_id,
+                    requester_membership_id=actor.membership_id,
+                    job_type="assistant.conversation.title",
+                    payload={},
+                    status="QUEUED",
+                    attempt_count=0,
+                    max_attempts=3,
+                    available_at=now,
+                    created_at=now,
+                    updated_at=now,
+                )
+            )
         conversation_model.last_message_sequence = message.sequence
         conversation_model.last_event_sequence = event.sequence
         conversation_model.version += 2
@@ -597,12 +733,14 @@ class PostgreSQLAssistantRepository:
             select(AssistantJobModel).where(
                 AssistantJobModel.organization_id == actor.organization_id,
                 AssistantJobModel.orchestration_run_id == run_model.id,
+                AssistantJobModel.job_type == "assistant.turn.execute",
             )
         )
         event_model = await self._session.scalar(
             select(AssistantEventModel).where(
                 AssistantEventModel.organization_id == actor.organization_id,
                 AssistantEventModel.turn_id == turn_id,
+                AssistantEventModel.event_type == "assistant.turn.queued.v1",
             )
         )
         if job_model is None or event_model is None:
@@ -754,11 +892,13 @@ class PostgreSQLAssistantRepository:
         worker_id: str,
         now: datetime,
         lease_until: datetime,
+        job_type: str = "assistant.turn.execute",
     ) -> AssistantJob | None:
         model = await self._session.scalar(
             select(AssistantJobModel)
             .where(
                 AssistantJobModel.organization_id == organization_id,
+                AssistantJobModel.job_type == job_type,
                 AssistantJobModel.attempt_count < AssistantJobModel.max_attempts,
                 AssistantJobModel.available_at <= now,
                 (AssistantJobModel.status == AssistantJobStatus.QUEUED.value)
@@ -1647,7 +1787,7 @@ class PostgreSQLAssistantRepository:
         model.lease_until = None
         now = datetime.now(UTC)
         model.updated_at = now
-        if terminal:
+        if terminal and model.job_type == "assistant.turn.execute":
             job = _job(model)
             await self._session.execute(
                 update(AssistantTurnModel)

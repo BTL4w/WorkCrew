@@ -75,6 +75,8 @@ class Settings(BaseSettings):
     frontend_origin: str = "http://localhost:3000"
     ai_provider: Literal["disabled", "mock", "openai"] = "disabled"
     ai_model: str = ""
+    ai_title_model: str = Field(default="gpt-4o-mini", min_length=1)
+    ai_title_timeout_seconds: float = Field(default=3, gt=0, le=10)
     openai_api_key: SecretStr | None = None
     langsmith_tracing: bool = False
     langsmith_api_key: SecretStr | None = None

@@ -39,6 +39,7 @@ def _create_chat_model(
     api_key: SecretStr,
     timeout_seconds: float,
     use_responses_api: bool,
+    max_output_tokens: int | None = None,
 ) -> _ChatModel:
     """Create the external LangChain adapter without leaking it into contracts."""
 
@@ -48,6 +49,7 @@ def _create_chat_model(
         timeout=timeout_seconds,
         max_retries=0,
         use_responses_api=use_responses_api,
+        max_completion_tokens=max_output_tokens,
     )
     return cast(_ChatModel, model)
 
@@ -73,11 +75,17 @@ class OpenAIModelGateway:
         """Invoke OpenAI with typed output and normalize all provider failures."""
 
         try:
+            generation_options = (
+                {"max_output_tokens": request.max_output_tokens}
+                if request.max_output_tokens is not None
+                else {}
+            )
             chat_model = self._chat_model_factory(
                 model_name=self._model_name,
                 api_key=self._api_key,
                 timeout_seconds=request.timeout_seconds,
                 use_responses_api=True,
+                **generation_options,
             )
             structured_model = chat_model.with_structured_output(
                 request.output_schema,

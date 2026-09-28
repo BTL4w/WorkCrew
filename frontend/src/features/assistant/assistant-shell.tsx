@@ -14,7 +14,7 @@ import { ApiError, isDefinitiveMutationRejection } from "@/shared/api/client";
 import { assistantKeys, createConversation, getConversation, listConversations, postAssistantMessage } from "./api";
 import { Composer } from "./composer";
 import { ConversationList, type AssistantNavigationSection } from "./conversation-list";
-import type { AssistantBlock, PostMessageInput } from "./contracts";
+import type { AssistantBlock, AssistantConversation, PostMessageInput } from "./contracts";
 import { connectAssistantEvents } from "./event-source";
 import { Transcript } from "./transcript";
 
@@ -104,6 +104,10 @@ export function AssistantShell({
   const conversations = useQuery({
     queryKey: conversationsKey,
     queryFn: listConversations,
+    refetchInterval: (query) => query.state.data?.some((item) =>
+      item.title === null && item.last_message_sequence > 0
+      && Date.now() - Date.parse(item.updated_at) < 60000,
+    ) ? 5000 : false,
     retry: retryTransientQuery,
     retryDelay: 100,
   });
@@ -117,6 +121,14 @@ export function AssistantShell({
     retryDelay: 100,
   });
   const projectedSequence = snapshot.data?.conversation.last_event_sequence ?? 0;
+  useEffect(() => {
+    const current = snapshot.data?.conversation;
+    if (!current) return;
+    queryClient.setQueryData<AssistantConversation[]>(assistantKeys.conversations(organizationId, membershipId), (items) =>
+      items?.map((item) => item.id === current.id && current.last_event_sequence >= item.last_event_sequence
+        ? { ...item, ...current } : item),
+    );
+  }, [snapshot.data?.conversation, queryClient, organizationId, membershipId]);
   const projectedSequenceRef = useRef(projectedSequence);
   useEffect(() => {
     projectedSequenceRef.current = projectedSequence;
@@ -158,7 +170,10 @@ export function AssistantShell({
       }
       await postAssistantMessage(conversationId, input, messageAttempt.key({ conversationId, input, version }), version);
       messageAttempt.reset(); setMessage("");
-      await queryClient.invalidateQueries({ queryKey: assistantKeys.conversation(organizationId, membershipId, conversationId) });
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: assistantKeys.conversation(organizationId, membershipId, conversationId) }),
+        queryClient.invalidateQueries({ queryKey: conversationsKey }),
+      ]);
       return true;
     } catch (caught) {
       setError(caught);

@@ -23,11 +23,13 @@ from app.modules.assistant.adapters.assignment_tools import (
     AssistantAssignmentToolAdapter,
 )
 from app.modules.assistant.adapters.planning_tools import AssistantPlanningToolAdapter
+from app.modules.assistant.adapters.title_gateway import build_title_gateway
 from app.modules.assistant.adapters.transaction import PostgreSQLAssistantTransactionFactory
 from app.modules.assistant.adapters.work_tools import RecordingToolExecutor, WorkToolExecutor
 from app.modules.assistant.application.execution_service import AssistantExecutionService
 from app.modules.assistant.application.job_service import AssistantJobService
 from app.modules.assistant.application.projection_service import AssistantProjectionService
+from app.modules.assistant.application.title_service import ConversationTitleService
 from app.modules.identity.adapters.auth_repository import SqlAlchemyAuthTransactionFactory
 from app.modules.identity.adapters.current_actor import CurrentActorResolver
 from app.modules.identity.application.current_actor_service import CurrentActorService
@@ -102,8 +104,20 @@ async def process_tenant_once(
     assistant_job_service: _AssistantRunner,
     planning_job_service: _PlanningRunner,
     projection_service: _ProjectionRunner | None = None,
+    title_job_service: _AssistantRunner | None = None,
 ) -> bool:
     """Process bounded Task-8 work in fair fixed order."""
+    # Separate job filter and task: naming cannot hold up the current answer.
+    title_task = (
+        asyncio.create_task(
+            title_job_service.run_once(
+                worker_id=worker_id,
+                organization_id=organization_id,
+            )
+        )
+        if title_job_service is not None
+        else None
+    )
     processed = False
     try:
         processed = await outbox_service.dispatch_once(worker_id, organization_id) or processed
@@ -138,6 +152,11 @@ async def process_tenant_once(
                 "Error projecting linked Planning workflows for organization %s",
                 organization_id,
             )
+    if title_task is not None:
+        try:
+            processed = await title_task or processed
+        except Exception:
+            logger.exception("Error processing naming jobs for organization %s", organization_id)
     return processed
 
 
@@ -276,6 +295,21 @@ async def _run_worker() -> None:
         organization_scopes=scopes,
         lease_seconds=settings.worker_lease_seconds,
     )
+    title_execution_service = AssistantExecutionService(
+        actor_resolver=actor_resolver,
+        runtime=ConversationTitleService(
+            transaction_factory=assistant_transaction_factory,
+            gateway=build_title_gateway(settings),
+            timeout_seconds=settings.ai_title_timeout_seconds,
+        ),
+    )
+    title_job_service = AssistantJobService(
+        transaction_factory=assistant_transaction_factory,
+        handler=title_execution_service.execute,
+        organization_scopes=scopes,
+        lease_seconds=settings.worker_lease_seconds,
+        job_type="assistant.conversation.title",
+    )
     projection_service = AssistantProjectionService(
         transaction_factory=assistant_transaction_factory
     )
@@ -313,6 +347,7 @@ async def _run_worker() -> None:
                     assistant_job_service=assistant_job_service,
                     planning_job_service=planning_job_service,
                     projection_service=projection_service,
+                    title_job_service=title_job_service,
                 )
                 or processed_any
             )

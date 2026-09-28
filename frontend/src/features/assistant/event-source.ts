@@ -2,6 +2,7 @@ const EVENT_TYPES = [
   "assistant.turn.queued.v1",
   "assistant.turn.response.v1",
   "assistant.workflow.projected.v1",
+  "assistant.conversation.titled.v1",
 ] as const;
 
 export type AssistantConnectionStatus = "connecting" | "connected" | "reconnecting";

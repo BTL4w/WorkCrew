@@ -94,6 +94,8 @@ services:
       dockerfile: backend/Dockerfile
     environment:
       APP_AI_MODEL: ${APP_AI_MODEL:-}
+      APP_AI_TITLE_MODEL: ${APP_AI_TITLE_MODEL:-gpt-4o-mini}
+      APP_AI_TITLE_TIMEOUT_SECONDS: ${APP_AI_TITLE_TIMEOUT_SECONDS:-3}
       APP_AI_PROVIDER: ${APP_AI_PROVIDER:-disabled}
       APP_DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-work_management}:${POSTGRES_PASSWORD:-work_management}@postgres:5432/${POSTGRES_DB:-work_management}
       APP_ENVIRONMENT: local

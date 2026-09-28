@@ -2,7 +2,7 @@
 
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Any, Protocol
+from typing import Any, Literal, Protocol
 from uuid import UUID
 
 from app.modules.assistant.domain.models import (
@@ -55,7 +55,26 @@ class LinkedWorkflowEvent:
     event: WorkflowEvent
 
 
+@dataclass(frozen=True, slots=True)
+class ConversationTitleInput:
+    message: str
+    locale: Literal["vi", "en"]
+
+
 class AssistantRepository(Protocol):
+    async def get_conversation_title_input(
+        self, *, actor: AuthenticatedActor, job: AssistantJob
+    ) -> ConversationTitleInput | None: ...
+
+    async def set_conversation_title(
+        self,
+        *,
+        actor: AuthenticatedActor,
+        job: AssistantJob,
+        title: str,
+        metadata: dict[str, Any],
+    ) -> bool: ...
+
     async def create_conversation_mutation(
         self,
         *,
@@ -110,6 +129,7 @@ class AssistantRepository(Protocol):
         worker_id: str,
         now: datetime,
         lease_until: datetime,
+        job_type: str = "assistant.turn.execute",
     ) -> AssistantJob | None: ...
 
     async def begin_orchestration(self, *, job: AssistantJob) -> OrchestrationRun: ...

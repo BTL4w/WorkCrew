@@ -1,3 +1,4 @@
+import asyncio
 import os
 from uuid import UUID
 
@@ -95,3 +96,49 @@ async def test_worker_iteration_is_bounded_and_fair() -> None:
 
     assert processed is True
     assert calls == ["outbox", "assistant", "planning"]
+
+
+@pytest.mark.asyncio
+async def test_naming_call_does_not_block_the_current_answer() -> None:
+    title_started, answer_completed = asyncio.Event(), asyncio.Event()
+
+    class Title:
+        async def run_once(self, *, worker_id: str, organization_id: UUID) -> bool:
+            title_started.set()
+            await answer_completed.wait()
+            return True
+
+    class Assistant:
+        async def run_once(self, *, worker_id: str, organization_id: UUID) -> bool:
+            await title_started.wait()
+            answer_completed.set()
+            return True
+
+    class Idle:
+        async def dispatch_once(self, worker_id: str, organization_id: UUID) -> bool:
+            return False
+
+        async def run_once(self, worker_id: str, organization_id: UUID) -> bool:
+            return False
+
+    assert await asyncio.wait_for(
+        process_tenant_once(
+            worker_id="worker",
+            organization_id=UUID("00000000-0000-0000-0000-000000000001"),
+            outbox_service=Idle(),
+            assistant_job_service=Assistant(),
+            planning_job_service=Idle(),
+            title_job_service=Title(),
+        ),
+        timeout=1,
+    )
+    assert answer_completed.is_set()
+
+
+def test_title_model_defaults_to_4o_mini_and_accepts_override(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("APP_AI_TITLE_MODEL", raising=False)
+    assert Settings.model_fields["ai_title_model"].default == "gpt-4o-mini"
+    monkeypatch.setenv("APP_AI_TITLE_MODEL", "custom-title-model")
+    assert Settings(environment="test").ai_title_model == "custom-title-model"

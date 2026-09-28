@@ -1,6 +1,7 @@
 import { QueryClient } from "@tanstack/react-query";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { useState } from "react";
 
 import { managerActor, renderWithAppProviders } from "@/test/render";
 
@@ -99,6 +100,83 @@ describe("AssistantShell", () => {
     globalThis.history.replaceState({}, "", "/");
     vi.unstubAllGlobals();
   });
+
+  it("updates the sidebar title when the conversation snapshot changes", async () => {
+    let title: string | null = null;
+    let poll: (() => void) | undefined;
+    vi.stubGlobal("fetch", vi.fn(async (input: RequestInfo | URL) => {
+      if (String(input) === "/api/v1/ai/conversations") {
+        return response({ items: [{ ...conversation, title }] });
+      }
+      return response({ conversation: { ...conversation, title }, messages: [] });
+    }));
+    renderWithAppProviders(<AssistantShell actor={managerActor} connectEvents={(options) => {
+        poll = options.onPoll;
+        return noEvents();
+      }} />);
+    await screen.findByRole("button", { name: "Cuộc trò chuyện mới", current: "page" });
+    await waitFor(() => expect(poll).toBeDefined());
+    title = "Kế hoạch ra mắt sản phẩm";
+    poll!();
+    expect(await screen.findByRole("button", { name: title })).toBeVisible();
+  });
+
+  it("refreshes a pending title while the user is in another section", async () => {
+    let title: string | null = null;
+    const updatedAt = new Date().toISOString();
+    vi.stubGlobal("fetch", vi.fn(async (input: RequestInfo | URL) => {
+      if (String(input) !== "/api/v1/ai/conversations") {
+        throw new Error("No selected conversation snapshot should be fetched");
+      }
+      return response({ items: [{ ...conversation, title, updated_at: updatedAt }] });
+    }));
+    renderWithAppProviders(<AssistantShell actor={managerActor} activeSection="projects"
+      workspaceTitle="Projects" workspaceContent={<p>Workspace</p>} connectEvents={noEvents} />);
+    await waitFor(() => expect(document.querySelector(".assistant-history button"))
+      .toHaveTextContent("Cuộc trò chuyện mới"));
+    title = "Kế hoạch ra mắt sản phẩm";
+    expect(await screen.findByRole("button", { name: title }, { timeout: 6500 })).toBeVisible();
+  }, 10000);
+
+  it("refreshes a new conversation title after its first post and navigation away", async () => {
+    let created = false;
+    let accepted = false;
+    let title: string | null = null;
+    const updatedAt = new Date().toISOString();
+    const current = () => ({ ...conversation, title, updated_at: updatedAt,
+      last_message_sequence: accepted ? 1 : 0 });
+    vi.stubGlobal("fetch", vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const path = String(input);
+      if (path === "/api/v1/ai/conversations" && init?.method === "POST") {
+        created = true;
+        return response(current(), 201);
+      }
+      if (path === "/api/v1/ai/conversations") {
+        return response({ items: created ? [current()] : [] });
+      }
+      if (init?.method === "POST") {
+        accepted = true;
+        return response({ conversation_id: conversationId, message_id: messageId,
+          turn_id: workflowRunId, orchestration_run_id: workflowRunId, status: "QUEUED" }, 202);
+      }
+      return response({ conversation: current(), messages: [] });
+    }));
+    function Host() {
+      const [section, setSection] = useState<"assistant" | "projects">("assistant");
+      return <AssistantShell actor={managerActor} activeSection={section}
+        workspaceTitle="Projects" workspaceContent={<p>Workspace</p>}
+        onOpenProjects={() => setSection("projects")} connectEvents={noEvents} />;
+    }
+    renderWithAppProviders(<Host />);
+    await waitFor(() => expect(screen.getByLabelText("Nhắn cho Trợ lý AI")).toBeEnabled());
+    fireEvent.change(screen.getByLabelText("Nhắn cho Trợ lý AI"), { target: { value: "Lập kế hoạch" } });
+    fireEvent.click(screen.getByRole("button", { name: /^Gửi$/ }));
+    await waitFor(() => expect(screen.getByLabelText("Nhắn cho Trợ lý AI")).toHaveValue(""));
+    fireEvent.click(screen.getByRole("button", { name: /^Projects$/ }));
+    await screen.findByText("Workspace");
+    title = "Kế hoạch ra mắt sản phẩm";
+    expect(await screen.findByRole("button", { name: title }, { timeout: 6500 })).toBeVisible();
+  }, 10000);
 
   it("stores the selected conversation in the URL for refresh reconstruction", async () => {
     vi.stubGlobal("fetch", vi.fn(async (input: RequestInfo | URL) => {

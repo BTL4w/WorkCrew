@@ -1,5 +1,6 @@
 """OpenAI adapter tests that never perform a live provider call."""
 
+from dataclasses import replace
 from typing import Any
 
 import pytest
@@ -114,6 +115,13 @@ async def test_openai_adapter_uses_function_calling_for_flexible_typed_output() 
     assert chat_model.schema is PlanningModelOutput
     assert chat_model.method == "function_calling"
     assert chat_model.structured.messages == [("user", "Plan a product launch")]
+
+
+@pytest.mark.asyncio
+async def test_openai_adapter_forwards_explicit_output_budget() -> None:
+    gateway, _, configuration = gateway_with_outcome(VALID_PLAN)
+    await gateway.generate_structured(replace(planning_request(), max_output_tokens=80))
+    assert configuration["max_output_tokens"] == 80
 
 
 @pytest.mark.asyncio

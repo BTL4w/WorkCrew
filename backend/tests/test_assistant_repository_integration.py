@@ -23,8 +23,10 @@ from app.modules.assistant.adapters.database_models import (
     AssistantTurnModel,
     OrchestrationRunModel,
 )
+from app.modules.assistant.adapters.title_gateway import DisabledTitleGateway
 from app.modules.assistant.adapters.transaction import PostgreSQLAssistantTransactionFactory
 from app.modules.assistant.application.service import AssistantService, ResourceNotFoundError
+from app.modules.assistant.application.title_service import ConversationTitleService
 from app.modules.assistant.domain.models import (
     AgentCheckpoint,
     AgentHandoffRecord,
@@ -40,7 +42,9 @@ from app.modules.assistant.domain.models import (
 from app.modules.audit.adapters.database_models import AuditEventModel
 from app.modules.identity.domain.auth import AuthenticatedActor
 from app.modules.organization.domain.roles import MembershipRole
+from app.modules.planning_runs.adapters.database_models import OutboxEventModel
 from app.modules.work.adapters.database_models import IdempotencyRecordModel
+from work_management_ai.model_gateway.mock import MockModelGateway
 
 pytestmark = [
     pytest.mark.integration,
@@ -296,7 +300,7 @@ async def test_message_turn_job_and_event_are_atomic_and_retry_safe() -> None:
                 await session.scalar(select(func.count()).select_from(AssistantMessageModel)) == 1
             )
             assert await session.scalar(select(func.count()).select_from(AssistantEventModel)) == 1
-            assert await session.scalar(select(func.count()).select_from(AssistantJobModel)) == 1
+            assert await session.scalar(select(func.count()).select_from(AssistantJobModel)) == 2
     finally:
         await engine.dispose()
 
@@ -672,5 +676,273 @@ async def test_service_persists_two_ordered_turns_and_lists_only_owner_data() ->
         )
         assert [message.sequence for message in snapshot.messages] == [1, 2]
         assert [event.sequence for event in snapshot.events] == [1, 2]
+    finally:
+        await engine.dispose()
+
+
+@pytest.mark.asyncio
+async def test_first_message_enqueues_one_title_job_and_replay_returns_turn_job() -> None:
+    engine = create_database_engine(Settings(environment="test"))
+    org, member = uuid4(), uuid4()
+    actor = _actor(org, member)
+    try:
+        async with engine.begin() as connection:
+            await _seed_members(connection, ((org, member),))
+        factory = PostgreSQLAssistantTransactionFactory(create_session_factory(engine))
+        service = AssistantService(
+            transaction_factory=factory,
+            planning_snapshot=_NoPlanningSnapshot(),
+            orchestrator_version="1.0.0",
+            orchestrator_fingerprint="test",
+        )
+        created = await service.create_conversation(
+            actor=actor, locale="en", title=None, request_id="create", idempotency_key="create"
+        )
+        kwargs = dict(
+            actor=actor,
+            conversation_id=created.conversation.id,
+            message="Plan a customer event",
+            locale="en",
+            card_action=None,
+            if_match_version=None,
+            request_id="first",
+            idempotency_key="first",
+        )
+        first = await service.post_message(**kwargs)  # type: ignore[arg-type]
+        replay = await service.post_message(**kwargs)  # type: ignore[arg-type]
+        await service.post_message(
+            actor=actor,
+            conversation_id=created.conversation.id,
+            message="Another topic",
+            locale="en",
+            card_action=None,
+            if_match_version=None,
+            request_id="second",
+            idempotency_key="second",
+        )
+        assert replay.replayed and replay.job.id == first.job.id
+        async with factory(actor) as transaction:
+            jobs = (await transaction.session.scalars(select(AssistantJobModel))).all()
+            assert sorted(job.job_type for job in jobs) == [
+                "assistant.conversation.title",
+                "assistant.turn.execute",
+                "assistant.turn.execute",
+            ]
+            title_job = next(job for job in jobs if job.job_type == "assistant.conversation.title")
+            assert title_job.turn_id == first.turn.id
+            assert "message" not in title_job.payload
+    finally:
+        await engine.dispose()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("provider_disabled", [False, True])
+async def test_title_job_is_owner_scoped_atomic_and_replay_safe(provider_disabled: bool) -> None:
+    engine = create_database_engine(Settings(environment="test"))
+    org, member, foreign_org, foreign_member = (uuid4() for _ in range(4))
+    actor, foreign = _actor(org, member), _actor(foreign_org, foreign_member)
+    try:
+        async with engine.begin() as connection:
+            await _seed_members(connection, ((org, member), (foreign_org, foreign_member)))
+        factory = PostgreSQLAssistantTransactionFactory(create_session_factory(engine))
+        service = AssistantService(
+            transaction_factory=factory,
+            planning_snapshot=_NoPlanningSnapshot(),
+            orchestrator_version="1.0.0",
+            orchestrator_fingerprint="test",
+        )
+        created = await service.create_conversation(
+            actor=actor, locale="vi", title=None, request_id="create", idempotency_key="create"
+        )
+        first = await service.post_message(
+            actor=actor,
+            conversation_id=created.conversation.id,
+            message="Lập kế hoạch ra mắt sản phẩm",
+            locale="vi",
+            card_action=None,
+            if_match_version=None,
+            request_id="first",
+            idempotency_key="first",
+        )
+        async with factory(org) as transaction:
+            now = datetime.now(UTC)
+            job = await transaction.repository.claim_job(
+                organization_id=org,
+                worker_id="title-worker",
+                now=now,
+                lease_until=now + timedelta(seconds=60),
+                job_type="assistant.conversation.title",
+            )
+            await transaction.commit()
+        assert job is not None and job.job_type == "assistant.conversation.title"
+        assert job.turn_id == first.turn.id
+        gateway = (
+            DisabledTitleGateway()
+            if provider_disabled
+            else MockModelGateway(
+                fixtures={"conversation_title.vi.v1": {"title": "Kế hoạch ra mắt sản phẩm"}},
+                model_ref="mock:title-v1",
+            )
+        )
+        naming = ConversationTitleService(transaction_factory=factory, gateway=gateway)
+        # Forged tenant/owner cannot read or mutate either at service or repository level.
+        await naming.execute_job(job=job, actor=foreign)
+        other = replace(actor, membership_id=uuid4())
+        await naming.execute_job(job=job, actor=other)
+        async with factory(foreign) as transaction:
+            assert not await transaction.repository.set_conversation_title(
+                actor=foreign, job=job, title="Foreign title", metadata={}
+            )
+            assert not await transaction.session.scalar(select(AssistantMessageModel.id))
+        await naming.execute_job(job=job, actor=actor)
+        await naming.execute_job(job=job, actor=actor)
+        snapshot = await service.get_conversation(
+            actor=actor, conversation_id=created.conversation.id
+        )
+        expected = (
+            "Lập kế hoạch ra mắt sản phẩm" if provider_disabled else "Kế hoạch ra mắt sản phẩm"
+        )
+        assert snapshot.conversation.title == expected
+        assert len(snapshot.messages) == 1  # No extra assistant message or Agent run.
+        assert len(snapshot.events) == 2
+        assert snapshot.events[-1].event_type == "assistant.conversation.titled.v1"
+        assert snapshot.turns[0].status.value == "QUEUED"
+        async with factory(actor) as transaction:
+            audits = (
+                await transaction.session.scalars(
+                    select(AuditEventModel).where(
+                        AuditEventModel.action == "assistant.conversation.titled"
+                    )
+                )
+            ).all()
+            assert len(audits) == 1
+            assert audits[0].reason_data["fallback"] is provider_disabled
+            assert audits[0].reason_data["prompt_version"] == "1.0.0"
+            outbox = (
+                await transaction.session.scalars(
+                    select(OutboxEventModel).where(
+                        OutboxEventModel.aggregate_id == created.conversation.id
+                    )
+                )
+            ).all()
+            assert len(outbox) == 1
+            assert outbox[0].id == snapshot.events[-1].id
+            assert outbox[0].event_id == snapshot.events[-1].id
+            assert outbox[0].envelope_version == "1.0"
+            assert not await transaction.repository.set_conversation_title(
+                actor=actor, job=job, title="Overwritten", metadata={}
+            )
+    finally:
+        await engine.dispose()
+
+
+@pytest.mark.asyncio
+async def test_explicit_conversation_title_does_not_enqueue_naming() -> None:
+    engine = create_database_engine(Settings(environment="test"))
+    org, member = uuid4(), uuid4()
+    actor = _actor(org, member)
+    try:
+        async with engine.begin() as connection:
+            await _seed_members(connection, ((org, member),))
+        factory = PostgreSQLAssistantTransactionFactory(create_session_factory(engine))
+        service = AssistantService(
+            transaction_factory=factory,
+            planning_snapshot=_NoPlanningSnapshot(),
+            orchestrator_version="1.0.0",
+            orchestrator_fingerprint="test",
+        )
+        created = await service.create_conversation(
+            actor=actor,
+            locale="en",
+            title="My custom name",
+            request_id="create",
+            idempotency_key="create",
+        )
+        await service.post_message(
+            actor=actor,
+            conversation_id=created.conversation.id,
+            message="Name it differently",
+            locale="en",
+            card_action=None,
+            if_match_version=None,
+            request_id="first",
+            idempotency_key="first",
+        )
+        async with factory(actor) as transaction:
+            assert (
+                await transaction.session.scalar(
+                    select(func.count()).select_from(AssistantJobModel)
+                )
+                == 1
+            )
+        snapshot = await service.get_conversation(
+            actor=actor, conversation_id=created.conversation.id
+        )
+        assert snapshot.conversation.title == "My custom name"
+    finally:
+        await engine.dispose()
+
+
+@pytest.mark.asyncio
+async def test_exhausted_title_job_does_not_fail_or_add_messages_to_answer() -> None:
+    engine = create_database_engine(Settings(environment="test"))
+    org, member = uuid4(), uuid4()
+    actor = _actor(org, member)
+    try:
+        async with engine.begin() as connection:
+            await _seed_members(connection, ((org, member),))
+        factory = PostgreSQLAssistantTransactionFactory(create_session_factory(engine))
+        service = AssistantService(
+            transaction_factory=factory,
+            planning_snapshot=_NoPlanningSnapshot(),
+            orchestrator_version="1.0.0",
+            orchestrator_fingerprint="test",
+        )
+        created = await service.create_conversation(
+            actor=actor, locale="en", title=None, request_id="create", idempotency_key="create"
+        )
+        first = await service.post_message(
+            actor=actor,
+            conversation_id=created.conversation.id,
+            message="Plan a customer event",
+            locale="en",
+            card_action=None,
+            if_match_version=None,
+            request_id="first",
+            idempotency_key="first",
+        )
+        for attempt in range(3):
+            now = datetime.now(UTC)
+            async with factory(org) as transaction:
+                claimed = await transaction.repository.claim_job(
+                    organization_id=org,
+                    worker_id="title-worker",
+                    now=now,
+                    lease_until=now + timedelta(seconds=60),
+                    job_type="assistant.conversation.title",
+                )
+                assert claimed is not None and claimed.attempt_count == attempt + 1
+                assert claimed.job_type == "assistant.conversation.title"
+                await transaction.repository.fail_job(
+                    job_id=claimed.id,
+                    worker_id="title-worker",
+                    error_code="DATABASE_UNAVAILABLE",
+                    next_available_at=now,
+                )
+                await transaction.commit()
+        snapshot = await service.get_conversation(
+            actor=actor, conversation_id=created.conversation.id
+        )
+        assert snapshot.turns[0].status.value == "QUEUED"
+        assert snapshot.orchestration_runs[0].status.value == "QUEUED"
+        assert len(snapshot.messages) == len(snapshot.events) == 1
+        async with factory(org) as transaction:
+            claimed = await transaction.repository.claim_job(
+                organization_id=org,
+                worker_id="answer-worker",
+                now=datetime.now(UTC),
+                lease_until=datetime.now(UTC) + timedelta(seconds=60),
+            )
+            assert claimed is not None and claimed.id == first.job.id
     finally:
         await engine.dispose()

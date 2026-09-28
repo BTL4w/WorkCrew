@@ -49,10 +49,10 @@ def test_metadata_has_stable_constraint_naming_convention() -> None:
     assert NAMING_CONVENTION["fk"].startswith("fk_%(table_name)s")
 
 
-def test_alembic_environment_has_one_team_recommendations_head() -> None:
+def test_alembic_environment_has_one_conversation_title_head() -> None:
     backend_root = Path(__file__).resolve().parents[1]
     config = Config(backend_root / "alembic.ini")
     scripts = ScriptDirectory.from_config(config)
 
-    assert scripts.get_heads() == ["0016"]
+    assert scripts.get_heads() == ["0017"]
     assert scripts.get_bases() == ["0001"]

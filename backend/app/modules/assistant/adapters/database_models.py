@@ -519,7 +519,17 @@ class AssistantJobModel(Base):
         ),
         UniqueConstraint("organization_id", "id"),
         UniqueConstraint("organization_id", "orchestration_run_id", "job_type"),
-        CheckConstraint("job_type = 'assistant.turn.execute'", name="job_type"),
+        CheckConstraint(
+            "job_type IN ('assistant.turn.execute', 'assistant.conversation.title')",
+            name="job_type",
+        ),
+        Index(
+            "uq_assistant_jobs_conversation_title",
+            "organization_id",
+            "conversation_id",
+            unique=True,
+            postgresql_where=text("job_type = 'assistant.conversation.title'"),
+        ),
         CheckConstraint("status IN ('QUEUED', 'RUNNING', 'COMPLETED', 'FAILED')", name="status"),
         CheckConstraint("attempt_count >= 0 AND attempt_count <= max_attempts", name="attempts"),
         Index(

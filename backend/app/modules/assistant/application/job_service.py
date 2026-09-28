@@ -29,11 +29,13 @@ class AssistantJobService:
         handler: AssistantJobHandler,
         organization_scopes: set[UUID],
         lease_seconds: int = 60,
+        job_type: str = "assistant.turn.execute",
     ) -> None:
         self._transactions = transaction_factory
         self._handler = handler
         self._scopes = organization_scopes
         self._lease_seconds = lease_seconds
+        self._job_type = job_type
 
     async def run_once(self, *, worker_id: str, organization_id: UUID) -> bool:
         if organization_id not in self._scopes:
@@ -45,6 +47,7 @@ class AssistantJobService:
                 worker_id=worker_id,
                 now=now,
                 lease_until=now + timedelta(seconds=self._lease_seconds),
+                job_type=self._job_type,
             )
             if job is None:
                 return False

@@ -50,6 +50,46 @@ make dev
 Production refuses an incomplete OpenAI configuration. Live-provider tests
 remain separate, opt-in and credential-gated.
 
+## Conversation naming
+
+The first accepted text message of an unnamed conversation atomically queues
+one `assistant.conversation.title` job alongside the response job. The worker
+processes naming independently of Orchestrator execution, without another Agent
+or a business-write proposal. Deterministic policy permits this owner-scoped,
+low-risk operational metadata update; it grants no business mutation authority.
+Explicit titles are preserved. Existing conversations are not backfilled.
+
+Naming uses the same provider/API key but a dedicated model:
+
+```bash
+export APP_AI_TITLE_MODEL=gpt-4o-mini
+export APP_AI_TITLE_TIMEOUT_SECONDS=3
+```
+
+Only the first message (up to 2,000 characters) is sent, with an 80-token output
+budget and a 100-character title limit. The prompt asks for 4–6 words in the
+message's language. Mock mode returns a deterministic prefix; disabled mode,
+timeout and invalid output fall back to the first six words. No later message
+triggers renaming. Naming makes no provider retries; database/job failures use
+the existing lease/retry mechanism, and a committed title is never overwritten.
+
+The title, safe versioned audit metadata, transactional outbox record and
+`assistant.conversation.titled.v1` event commit together. The event carries only
+the conversation identifier; the authenticated UI fetches its snapshot and
+updates the sidebar. Raw model prompts/results are not stored separately.
+The existing external outbox publisher is still unsupported; naming UI delivery
+uses the durable Assistant event stream and does not depend on external dispatch.
+
+Apply migration `0017` before running the updated API/worker. Stop old workers
+during this rollout: older binaries do not distinguish naming jobs. For an
+application rollback, pause the worker until a compatible worker is available;
+retain the forward-compatible schema and job evidence. Migration downgrade
+fails safely if naming jobs exist rather than deleting them.
+
+Verify with `make lint`, `make typecheck`, `make test`, `make migration-check`,
+`make eval` and `make test-e2e`. Live naming quality/latency is credential-gated
+and is not measured by mock tests.
+
 ## Worker tenant scope
 
 The worker never discovers tenants from a client request. Obtain the seeded

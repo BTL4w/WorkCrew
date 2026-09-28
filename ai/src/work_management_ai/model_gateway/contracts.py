@@ -22,6 +22,7 @@ class StructuredModelRequest[StructuredOutputT: BaseModel]:
     messages: tuple[ModelMessage, ...]
     output_schema: type[StructuredOutputT]
     timeout_seconds: float
+    max_output_tokens: int | None = None
 
 
 @dataclass(frozen=True, slots=True)

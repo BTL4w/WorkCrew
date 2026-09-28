@@ -686,7 +686,7 @@ class AssistantJob:
     turn_id: UUID
     orchestration_run_id: UUID
     requester_membership_id: UUID
-    job_type: Literal["assistant.turn.execute"]
+    job_type: Literal["assistant.turn.execute", "assistant.conversation.title"]
     payload: dict[str, Any]
     status: AssistantJobStatus
     attempt_count: int

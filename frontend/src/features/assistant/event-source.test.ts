@@ -43,8 +43,9 @@ describe("Assistant EventSource", () => {
     source.emit("assistant.workflow.projected.v1", 5);
     source.emit("assistant.workflow.projected.v1", 5);
     source.emit("assistant.turn.response.v1", 6);
+    source.emit("assistant.conversation.titled.v1", 7);
 
-    expect(onSequence.mock.calls.map(([sequence]) => sequence)).toEqual([5, 6]);
+    expect(onSequence.mock.calls.map(([sequence]) => sequence)).toEqual([5, 6, 7]);
     connection.close();
     expect(source.closed).toBe(true);
   });
