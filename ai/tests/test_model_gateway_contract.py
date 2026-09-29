@@ -92,6 +92,8 @@ async def test_mock_gateway_returns_typed_output_and_version_metadata() -> None:
     assert response.parsed.goal.expected_outcomes == ["Hàng được thông quan trước ngày khởi hành"]
     assert response.parsed.goal.target_date == date(2026, 9, 20)
     assert response.model_ref == "mock:planning-v1"
+    assert response.usage is None
+    assert request("planning.default.vi.v1").messages[0].images == ()
 
 
 @pytest.mark.asyncio

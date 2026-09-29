@@ -4,6 +4,7 @@ from dataclasses import replace
 from typing import Any
 
 import pytest
+from langchain_core.messages import AIMessage
 from pydantic import BaseModel, SecretStr, ValidationError
 
 from work_management_ai.model_gateway.contracts import ModelMessage, StructuredModelRequest
@@ -64,9 +65,19 @@ class FakeChatModel:
         schema: type[BaseModel],
         *,
         method: str,
+        include_raw: bool = False,
     ) -> FakeStructuredModel:
         self.schema = schema
         self.method = method
+        if include_raw and not isinstance(self.structured.outcome, Exception):
+            self.structured.outcome = {
+                "raw": AIMessage(
+                    content="",
+                    usage_metadata={"input_tokens": 20, "output_tokens": 10, "total_tokens": 30},
+                ),
+                "parsed": self.structured.outcome,
+                "parsing_error": None,
+            }
         return self.structured
 
 

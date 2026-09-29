@@ -1,5 +1,12 @@
 """Normalized Model Gateway failures."""
 
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from work_management_ai.model_gateway.contracts import ModelUsage
+
 
 class ModelGatewayError(RuntimeError):
     """Base class for failures exposed through the gateway contract."""
@@ -19,6 +26,14 @@ class ModelRateLimitError(ModelGatewayError):
 
 class ModelInvalidOutputError(ModelGatewayError):
     """The provider response did not match the requested output schema."""
+
+    def __init__(self, message: str, *, usage: ModelUsage | None = None) -> None:
+        super().__init__(message)
+        self.usage = usage
+
+
+class ModelInvalidInputError(ModelGatewayError):
+    """The request violates a deterministic input or output budget."""
 
 
 def normalize_model_error(error: Exception) -> ModelGatewayError:
