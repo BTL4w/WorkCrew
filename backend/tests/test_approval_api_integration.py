@@ -704,6 +704,34 @@ async def test_postgres_approval_is_atomic_idempotent_and_reject_has_no_business
                     },
                 )
             ).one()
+        async with engine.connect() as connection:
+            baseline = await connection.scalar(
+                text(
+                    "SELECT b.payload FROM weekly_plan_baselines b JOIN project_weeks w "
+                    "ON w.organization_id=b.organization_id AND w.id=b.project_week_id "
+                    "WHERE w.project_id=:project"
+                ),
+                {"project": project_id},
+            )
+            assert baseline is not None
+            assert len(baseline["task_entries"]) == 2
+            assert {entry["effort_hours"] for entry in baseline["task_entries"]} == {"16", "8"}
+            assert sum(len(entry["predecessor_ids"]) for entry in baseline["task_entries"]) == 1
+            # Exactly two approved graphs (including concurrent approval); rejected,
+            # stale and injected-failure decisions add no baseline or outbox event.
+            total = await connection.scalar(
+                text("SELECT count(*) FROM weekly_plan_baselines WHERE organization_id=:org"),
+                {"org": organization_id},
+            )
+            assert total == 2
+            events = await connection.scalar(
+                text(
+                    "SELECT count(*) FROM outbox_events WHERE organization_id=:org "
+                    "AND event_type='weekly_plan.captured'"
+                ),
+                {"org": organization_id},
+            )
+            assert events == 2
         assert tuple(approved_counts) == (1, 1, 1, 1, 2, 2, 1, 2, 1, 1, 1, "COMPLETED", 1)
         assert tuple(rejected_counts) == ("REJECTED", "REJECTED", 0, 0)
         assert tuple(failed_counts) == ("PENDING", "READY_FOR_DECISION", 0, 0, 0, 0, 0)

@@ -554,6 +554,25 @@ async def test_manual_planning_crud_security_concurrency_and_audit() -> None:
                 assert outcomes[(f"{prefix}.deleted", "SUCCEEDED")] == 1
     finally:
         async with engine.begin() as connection:
+            # Privileged fixture cleanup only, scoped to the random test tenants.
+            # PostgreSQL restores trigger state if this transaction fails.
+            await connection.execute(
+                text("ALTER TABLE weekly_plan_baselines DISABLE TRIGGER weekly_baseline_immutable")
+            )
+            await connection.execute(
+                text(
+                    "DELETE FROM weekly_plan_baselines "
+                    "WHERE organization_id IN (:org, :foreign_org)"
+                ),
+                {"org": organization_id, "foreign_org": foreign_organization_id},
+            )
+            await connection.execute(
+                text("ALTER TABLE weekly_plan_baselines ENABLE TRIGGER weekly_baseline_immutable")
+            )
+            await connection.execute(
+                text("DELETE FROM outbox_events WHERE organization_id IN (:org, :foreign_org)"),
+                {"org": organization_id, "foreign_org": foreign_organization_id},
+            )
             for table in (
                 "acceptance_criteria",
                 "task_dependencies",

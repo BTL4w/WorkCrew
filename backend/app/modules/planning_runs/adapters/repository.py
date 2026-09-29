@@ -64,6 +64,7 @@ from app.modules.planning_runs.domain.models import (
     WorkflowRun,
     WorkflowRunStatus,
 )
+from app.modules.progress.adapters.progress_repository import capture_project_baselines
 from app.modules.work.adapters.database_models import (
     IdempotencyRecordModel,
     IdempotencyState,
@@ -398,6 +399,8 @@ class PostgreSQLPlanningRunRepository(PlanningRunRepository):
                     actor=actor,
                     content=normalized,
                     now=now,
+                    request_id=request_id,
+                    idempotency_key=idempotency_key,
                 )
             except (
                 AcceptanceCriterionError,
@@ -660,6 +663,8 @@ class PostgreSQLPlanningRunRepository(PlanningRunRepository):
         actor: AuthenticatedActor,
         content: dict[str, object],
         now: datetime,
+        request_id: str = "approved-plan-capture",
+        idempotency_key: str | None = None,
     ) -> CreatedBusinessIds:
         project_data = _mapping(content.get("project"), "project")
         goal_data = _mapping(content.get("goal"), "goal")
@@ -958,6 +963,14 @@ class PostgreSQLPlanningRunRepository(PlanningRunRepository):
                 )
             )
         await self._session.flush()
+        await capture_project_baselines(
+            self._session,
+            actor,
+            project_id,
+            "APPROVED",
+            request_id=request_id,
+            idempotency_key=idempotency_key,
+        )
         return CreatedBusinessIds(
             project_id=project_id,
             goal_id=goal_id,

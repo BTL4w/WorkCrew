@@ -541,6 +541,7 @@ async def test_task_flow_assignment_status_visibility_and_audit() -> None:
             assert transition_count == 1
     finally:
         append_only_tables = (
+            "weekly_plan_baselines",
             "recommendation_decisions",
             "recommendation_selections",
             "candidate_scores",
@@ -554,6 +555,8 @@ async def test_task_flow_assignment_status_visibility_and_audit() -> None:
         try:
             async with engine.begin() as connection:
                 for table in (
+                    "weekly_plan_baselines",
+                    "outbox_events",
                     "task_status_transitions",
                     "idempotency_records",
                     "audit_events",

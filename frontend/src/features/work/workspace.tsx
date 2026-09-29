@@ -15,6 +15,7 @@ import {
 
 import type { MeResponse } from "@/shared/api/contracts";
 import { ApiError, isDefinitiveMutationRejection } from "@/shared/api/client";
+import { WeeklyProgressPanel } from "@/features/daily-updates/weekly-progress";
 import { ProjectPlanPanel } from "@/features/planning/project-plan";
 import { listProjectWeeks } from "@/features/planning/api";
 import { AiAssistant } from "@/features/ai-proposals/ai-assistant";
@@ -358,7 +359,7 @@ function ProjectsView(props: {
           <button aria-selected={props.projectSection === "plan"} className="secondary-button" role="tab" type="button" onClick={() => props.onProjectSection("plan")}>{t("project.planTab")}</button>
           <button aria-selected={props.projectSection === "projectTeam"} className="secondary-button" role="tab" type="button" onClick={() => props.onProjectSection("projectTeam")}>{t("project.teamTab")}</button>
         </div>
-        {props.projectSection === "tasks" ? <><div className="mt-10 flex items-center justify-between"><h3 className="text-xl font-semibold">{t("task.sectionTitle")}</h3>{props.canManage ? <button className="primary-button" type="button" onClick={props.onNewTask}>{t("task.create")}</button> : null}</div><TaskCards tasks={props.tasks} isLoading={props.tasksLoading} error={props.tasksError} onRetry={props.onRetryTasks} onSelect={props.onSelectTask} /><Pagination page={props.tasks} onPage={props.onTasksPage} /></> : props.projectSection === "plan" ? <ProjectPlanPanel organizationId={props.planningContext.organizationId} actorMembershipId={props.planningContext.actorMembershipId} canManage={props.planningContext.canManage} projectId={props.selectedProject.id} tasks={props.tasks.items} /> : <div className="mt-8"><TeamPanel projectId={props.selectedProject.id} canManage={props.canManage} onOpenTask={props.onSelectTask} /></div>}
+        {props.projectSection === "tasks" ? <><div className="mt-10 flex items-center justify-between"><h3 className="text-xl font-semibold">{t("task.sectionTitle")}</h3>{props.canManage ? <button className="primary-button" type="button" onClick={props.onNewTask}>{t("task.create")}</button> : null}</div><TaskCards tasks={props.tasks} isLoading={props.tasksLoading} error={props.tasksError} onRetry={props.onRetryTasks} onSelect={props.onSelectTask} /><Pagination page={props.tasks} onPage={props.onTasksPage} /></> : props.projectSection === "plan" ? <><ProjectPlanPanel organizationId={props.planningContext.organizationId} actorMembershipId={props.planningContext.actorMembershipId} canManage={props.planningContext.canManage} projectId={props.selectedProject.id} tasks={props.tasks.items} />{props.canManage ? <WeeklyProgressPanel organizationId={props.planningContext.organizationId} actorMembershipId={props.planningContext.actorMembershipId} projectId={props.selectedProject.id} /> : null}</> : <div className="mt-8"><TeamPanel projectId={props.selectedProject.id} canManage={props.canManage} onOpenTask={props.onSelectTask} /></div>}
       </section>
     );
   }

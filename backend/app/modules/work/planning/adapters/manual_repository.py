@@ -15,6 +15,8 @@ from app.modules.audit.adapters.database_models import AuditEventModel
 from app.modules.audit.domain.events import AuditOutcome
 from app.modules.identity.domain.auth import AuthenticatedActor
 from app.modules.organization.domain.roles import MembershipRole
+from app.modules.progress.adapters.progress_models import WeeklyPlanBaselineModel
+from app.modules.progress.adapters.progress_repository import capture_project_baselines
 from app.modules.work.adapters.database_models import (
     IdempotencyRecordModel,
     IdempotencyState,
@@ -514,6 +516,13 @@ class SqlAlchemyManualPlanningRepository:
         )
         self._session.add(model)
         await self._session.flush()
+        await capture_project_baselines(
+            self._session,
+            actor,
+            model.project_id,
+            request_id=request_id,
+            idempotency_key=idempotency_key,
+        )
         resource = _project_week(model)
         self._audit(
             actor,
@@ -581,6 +590,13 @@ class SqlAlchemyManualPlanningRepository:
         model.updated_at = updated.updated_at
         model.updated_by_membership_id = actor.membership_id
         await self._session.flush()
+        await capture_project_baselines(
+            self._session,
+            actor,
+            model.project_id,
+            request_id=request_id,
+            idempotency_key=idempotency_key,
+        )
         resource = _project_week(model)
         self._audit(
             actor,
@@ -633,6 +649,17 @@ class SqlAlchemyManualPlanningRepository:
             )
             .limit(1)
         ):
+            raise ProjectWeekDeleteBlockedError
+        has_history = await self._session.scalar(
+            select(WeeklyPlanBaselineModel.id)
+            .where(
+                WeeklyPlanBaselineModel.organization_id == actor.organization_id,
+                WeeklyPlanBaselineModel.project_week_id == project_week_id,
+                func.jsonb_array_length(WeeklyPlanBaselineModel.payload["task_entries"]) > 0,
+            )
+            .limit(1)
+        )
+        if has_history is not None:
             raise ProjectWeekDeleteBlockedError
         now = datetime.now(UTC)
         record = self._record(actor, operation, idempotency_key, request_fingerprint, now)
@@ -941,6 +968,7 @@ class SqlAlchemyManualPlanningRepository:
         left, right = await self._edge_projects(actor, predecessor, successor)
         if left != right:
             raise CrossProjectDependencyError
+        await self._lock_project(actor, left)
         duplicate_query = select(TaskDependencyModel.id).where(
             TaskDependencyModel.organization_id == actor.organization_id,
             TaskDependencyModel.predecessor_task_id == predecessor,
@@ -1074,6 +1102,14 @@ class SqlAlchemyManualPlanningRepository:
         )
         self._session.add(model)
         await self._session.flush()
+        task = await self._task(actor, model.successor_task_id)
+        await capture_project_baselines(
+            self._session,
+            actor,
+            task.project_id,
+            request_id=request_id,
+            idempotency_key=idempotency_key,
+        )
         resource = _dependency(model)
         self._audit(
             actor,
@@ -1115,8 +1151,12 @@ class SqlAlchemyManualPlanningRepository:
         )
         successor = patch.successor_task_id if patch.successor_supplied else model.successor_task_id
         assert predecessor is not None and successor is not None
+        old_task = await self._task(actor, model.successor_task_id)
+        new_task = await self._task(actor, successor)
+        for affected_project_id in sorted({old_task.project_id, new_task.project_id}):
+            await self._lock_project(actor, affected_project_id)
         await self._validate_edge(actor, predecessor, successor, dependency_id)
-        return await self._update_simple(
+        result = await self._update_simple(
             actor,
             TaskDependencyModel,
             _dependency,
@@ -1132,6 +1172,16 @@ class SqlAlchemyManualPlanningRepository:
                 ("successor_task_id", patch.successor_supplied, successor),
             ),
         )
+
+        if old_task.project_id != new_task.project_id:
+            await capture_project_baselines(
+                self._session,
+                actor,
+                old_task.project_id,
+                request_id=request_id,
+                idempotency_key=idempotency_key,
+            )
+        return result
 
     async def delete_dependency(self, **kwargs: Any) -> PlanningDeleteResult:
         return await self._delete_simple("task_dependency", TaskDependencyModel, **kwargs)
@@ -1335,6 +1385,15 @@ class SqlAlchemyManualPlanningRepository:
         model.updated_at = now
         model.updated_by_membership_id = actor.membership_id
         await self._session.flush()
+        if kind == "task_dependency":
+            task = await self._task(actor, model.successor_task_id)
+            await capture_project_baselines(
+                self._session,
+                actor,
+                task.project_id,
+                request_id=request_id,
+                idempotency_key=idempotency_key,
+            )
         resource = convert(model)
         self._audit(
             actor,
@@ -1367,6 +1426,17 @@ class SqlAlchemyManualPlanningRepository:
         if replay is not None:
             assert isinstance(replay, PlanningDeleteResult)
             return replay
+        if kind == "task_dependency":
+            edge = await self._session.scalar(
+                select(TaskDependencyModel).where(
+                    TaskDependencyModel.organization_id == actor.organization_id,
+                    TaskDependencyModel.id == resource_id,
+                )
+            )
+            if edge is None:
+                raise PlanningNotFoundError
+            endpoint = await self._task(actor, edge.successor_task_id)
+            await self._lock_project(actor, endpoint.project_id)
         model = await self._session.scalar(
             select(model_type)
             .where(
@@ -1391,8 +1461,19 @@ class SqlAlchemyManualPlanningRepository:
             before={"version": model.version},
             after={},
         )
+        task = (
+            await self._task(actor, model.successor_task_id) if kind == "task_dependency" else None
+        )
         await self._session.delete(model)
         await self._session.flush()
+        if task is not None:
+            await capture_project_baselines(
+                self._session,
+                actor,
+                task.project_id,
+                request_id=request_id,
+                idempotency_key=idempotency_key,
+            )
         record.state, record.response_status, record.response_body = (
             IdempotencyState.COMPLETED,
             200,

@@ -155,5 +155,131 @@
       "AssignmentWarningResponse": { "required": ["code"], "properties": { "code": "string" } },
       "ExplicitAssignmentResponse": { "required": ["task", "warnings", "effective_capacity_hours", "workload_before_hours", "workload_after_hours"], "properties": { "task": "ref:TaskResponse", "warnings": "array:ref:AssignmentWarningResponse", "effective_capacity_hours": "integer", "workload_before_hours": "integer", "workload_after_hours": "integer" } }
     }
+  },
+  "weekly_progress": {
+    "paths": {
+      "/api/v1/projects/{project_id}/weeks/{week_id}/progress": [
+        "get"
+      ]
+    },
+    "schemas": {
+      "WeeklyProgressResponse": {
+        "required": [
+          "original",
+          "current_plan",
+          "added_task_ids",
+          "removed_task_ids",
+          "sealed"
+        ],
+        "properties": {
+          "original": "ref:WeekActuals",
+          "current_plan": "ref:WeekActuals",
+          "added_task_ids": "array:string:uuid",
+          "removed_task_ids": "array:string:uuid",
+          "sealed": "boolean"
+        }
+      },
+      "WeekActuals": {
+        "required": [
+          "baseline",
+          "evaluated_at",
+          "calendar_version",
+          "reported_percent",
+          "planned_percent",
+          "known_effort_fraction",
+          "known_effort_hours",
+          "total_effort_hours",
+          "task_coverage_fraction",
+          "unknown_progress_ids",
+          "missing_estimate_ids",
+          "stale_task_ids",
+          "remaining_hours",
+          "unknown_remaining_ids",
+          "task_actuals"
+        ],
+        "properties": {
+          "baseline": "ref:PlanBaseline",
+          "evaluated_at": "string:date-time",
+          "calendar_version": "string",
+          "reported_percent": "null|string",
+          "planned_percent": "null|string",
+          "known_effort_fraction": "null|string",
+          "known_effort_hours": "string",
+          "total_effort_hours": "string",
+          "task_coverage_fraction": "null|string",
+          "unknown_progress_ids": "array:string:uuid",
+          "missing_estimate_ids": "array:string:uuid",
+          "stale_task_ids": "array:string:uuid",
+          "remaining_hours": "null|string",
+          "unknown_remaining_ids": "array:string:uuid",
+          "task_actuals": "array:ref:TaskActual"
+        }
+      },
+      "PlanBaseline": {
+        "required": [
+          "id",
+          "project_week_id",
+          "task_entries",
+          "captured_at",
+          "kind",
+          "start_date",
+          "end_date",
+          "week_version",
+          "sealed_at"
+        ],
+        "properties": {
+          "id": "string:uuid",
+          "project_week_id": "string:uuid",
+          "task_entries": "array:ref:PlanEntry",
+          "captured_at": "string:date-time",
+          "kind": "string",
+          "start_date": "string:date",
+          "end_date": "string:date",
+          "week_version": "integer",
+          "sealed_at": "null|string:date-time"
+        }
+      },
+      "PlanEntry": {
+        "required": [
+          "task_id",
+          "task_version",
+          "title",
+          "effort_hours",
+          "due_date",
+          "predecessor_ids"
+        ],
+        "properties": {
+          "task_id": "string:uuid",
+          "task_version": "integer",
+          "title": "string",
+          "effort_hours": "null|string",
+          "due_date": "null|string:date",
+          "predecessor_ids": "array:string:uuid",
+          "captured_status": "string"
+        }
+      },
+      "TaskActual": {
+        "required": [
+          "task_id",
+          "progress_version",
+          "reported_percent",
+          "remaining_hours",
+          "observation_id",
+          "reporting_at",
+          "status",
+          "stale"
+        ],
+        "properties": {
+          "task_id": "string:uuid",
+          "progress_version": "integer",
+          "reported_percent": "null|string",
+          "remaining_hours": "null|string",
+          "observation_id": "null|string:uuid",
+          "reporting_at": "null|string:date-time",
+          "status": "string",
+          "stale": "boolean"
+        }
+      }
+    }
   }
 }

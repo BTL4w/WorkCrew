@@ -315,5 +315,33 @@
       "FORBIDDEN": "Bạn không còn quyền truy cập.",
       "EVIDENCE_INVALID_KEY": "Tham chiếu lưu trữ không hợp lệ."
     }
+  },
+  "weeklyProgress": {
+    "title": "Tiến độ tuần",
+    "unknown": "Chưa xác định",
+    "weightExplanation": "Giờ dự kiến là trọng số của task, không phải giờ đã làm. Độ bao phủ một phần không thể hiện tiến độ cả tuần.",
+    "sealed": "Lịch sử đã chốt",
+    "added": "Task thêm: {count}",
+    "removed": "Task bỏ: {count}",
+    "original": "Kế hoạch gốc",
+    "current": "Kế hoạch hiện tại",
+    "entry": "Mốc kế hoạch khi bắt đầu Phase 4",
+    "captured": "Mốc kế hoạch đã lưu",
+    "reported": "Tiến độ phần đã báo cáo: {value}",
+    "coverage": "Độ bao phủ theo giờ dự kiến: {value}",
+    "denominator": "Khối lượng có báo cáo: {known} / {total} giờ dự kiến",
+    "planned": "Tiến độ dự kiến đến ngày xem: {value}",
+    "missing": "Thiếu ước lượng: {count}",
+    "unknownReports": "Chưa biết tiến độ: {count}",
+    "stale": "Báo cáo đã cũ: {count}",
+    "remaining": "Giờ còn lại đã biết: {value}; task chưa biết: {count}",
+    "calendar": "Thứ Hai–Sáu, cuối ngày đánh giá (UTC)",
+    "effort": "{value} giờ dự kiến",
+    "week": "Tuần xem tiến độ",
+    "weekNumber": "Tuần {number}",
+    "unavailable": "Không tải được tiến độ tuần.",
+    "retry": "Thử lại",
+    "loading": "Đang tải tiến độ tuần…",
+    "empty": "Chưa có tuần dự án."
   }
 }

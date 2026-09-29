@@ -315,5 +315,33 @@
       "FORBIDDEN": "You no longer have access.",
       "EVIDENCE_INVALID_KEY": "The storage reference is invalid."
     }
+  },
+  "weeklyProgress": {
+    "title": "Weekly progress",
+    "unknown": "Unknown",
+    "weightExplanation": "Estimated hours weight each task; they are not hours spent. Partial coverage is not full-week completion.",
+    "sealed": "Sealed history",
+    "added": "Added tasks: {count}",
+    "removed": "Removed tasks: {count}",
+    "original": "Original plan",
+    "current": "Current plan",
+    "entry": "Phase 4 entry baseline",
+    "captured": "Plan captured",
+    "reported": "Progress of reported effort: {value}",
+    "coverage": "Effort coverage: {value}",
+    "denominator": "Reported effort: {known} / {total} estimated hours",
+    "planned": "Planned to date: {value}",
+    "missing": "Missing estimates: {count}",
+    "unknownReports": "Unknown reports: {count}",
+    "stale": "Stale reports: {count}",
+    "remaining": "Known remaining hours: {value}; unknown tasks: {count}",
+    "calendar": "Mon–Fri, end of evaluation date (UTC)",
+    "effort": "{value} estimated hours",
+    "week": "Progress week",
+    "weekNumber": "Week {number}",
+    "unavailable": "Weekly progress is unavailable.",
+    "retry": "Retry",
+    "loading": "Loading weekly progress…",
+    "empty": "No project weeks yet."
   }
 }

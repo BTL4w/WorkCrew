@@ -90,11 +90,13 @@ export function ProjectPlanPanel({
 
   function updatePlan(update: (current: ProjectPlan) => ProjectPlan) {
     queryClient.setQueryData<ProjectPlanBundle>(planKey, (current) => current ? { ...current, plan: update(current.plan) } : current);
+    void queryClient.invalidateQueries({ queryKey: ["work", organizationId, actorMembershipId, "weekly-progress", projectId] });
   }
 
   async function reload() {
     setEditor(null);
     await plan.refetch();
+    await queryClient.invalidateQueries({ queryKey: ["work", organizationId, actorMembershipId, "weekly-progress", projectId] });
   }
 
   if (plan.isPending) return <p className="mt-6 text-sm text-slate-600" role="status">{t("common.loading")}</p>;

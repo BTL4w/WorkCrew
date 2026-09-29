@@ -18,6 +18,7 @@ from app.modules.identity.adapters.database_models import UserModel
 from app.modules.identity.domain.auth import AuthenticatedActor
 from app.modules.organization.adapters.database_models import MembershipModel
 from app.modules.organization.domain.roles import MembershipRole
+from app.modules.progress.adapters.progress_repository import capture_project_baselines
 from app.modules.work.adapters.database_models import (
     IdempotencyRecordModel,
     IdempotencyState,
@@ -301,9 +302,11 @@ class SqlAlchemyTaskRepository:
 
     async def _require_project(self, actor: AuthenticatedActor, project_id: UUID) -> None:
         found = await self._session.scalar(
-            select(ProjectModel.id).where(
+            select(ProjectModel.id)
+            .where(
                 ProjectModel.organization_id == actor.organization_id, ProjectModel.id == project_id
             )
+            .with_for_update()
         )
         if found is None:
             raise TaskReferenceError("project_id")
@@ -490,6 +493,13 @@ class SqlAlchemyTaskRepository:
         )
         self._session.add(model)
         await self._session.flush()
+        await capture_project_baselines(
+            self._session,
+            actor,
+            model.project_id,
+            request_id=request_id,
+            idempotency_key=idempotency_key,
+        )
         task = _task_from_row(model, display_name)
         self._audit(
             actor=actor,
@@ -535,6 +545,14 @@ class SqlAlchemyTaskRepository:
         )
         if replay:
             return replay
+        project_id = await self._session.scalar(
+            select(TaskModel.project_id).where(
+                TaskModel.organization_id == actor.organization_id, TaskModel.id == task_id
+            )
+        )
+        if project_id is None:
+            raise TaskNotFoundError
+        await self._require_project(actor, project_id)
         model = await self._session.scalar(
             select(TaskModel)
             .where(TaskModel.organization_id == actor.organization_id, TaskModel.id == task_id)
@@ -605,6 +623,13 @@ class SqlAlchemyTaskRepository:
         model.updated_at = now
         model.updated_by_membership_id = actor.membership_id
         await self._session.flush()
+        await capture_project_baselines(
+            self._session,
+            actor,
+            model.project_id,
+            request_id=request_id,
+            idempotency_key=idempotency_key,
+        )
         task = _task_from_row(model, display_name)
         self._audit(
             actor=actor,
