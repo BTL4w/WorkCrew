@@ -17,7 +17,8 @@ depends_on: str | Sequence[str] | None = None
 
 def upgrade() -> None:
     op.execute(sa.text("GRANT UPDATE (context_references) ON tool_invocations TO app_runtime"))
-    op.execute(sa.text("""
+    op.execute(
+        sa.text("""
         CREATE OR REPLACE FUNCTION protect_assistant_invocation_terminal()
         RETURNS trigger LANGUAGE plpgsql AS $$
         DECLARE
@@ -42,11 +43,13 @@ def upgrade() -> None:
             RETURN NEW;
         END;
         $$
-    """))
+    """)
+    )
 
 
 def downgrade() -> None:
-    op.execute(sa.text("""
+    op.execute(
+        sa.text("""
         CREATE OR REPLACE FUNCTION protect_assistant_invocation_terminal()
         RETURNS trigger LANGUAGE plpgsql AS $$
         BEGIN
@@ -65,5 +68,6 @@ def downgrade() -> None:
             RETURN NEW;
         END;
         $$
-    """))
+    """)
+    )
     op.execute(sa.text("REVOKE UPDATE (context_references) ON tool_invocations FROM app_runtime"))

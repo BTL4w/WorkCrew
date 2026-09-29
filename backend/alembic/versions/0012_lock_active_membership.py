@@ -43,15 +43,9 @@ def upgrade() -> None:
         $function$
         """
     )
-    op.execute(
-        "ALTER FUNCTION public.lock_active_membership(uuid, uuid) OWNER TO migration_owner"
-    )
-    op.execute(
-        "REVOKE ALL ON FUNCTION public.lock_active_membership(uuid, uuid) FROM PUBLIC"
-    )
-    op.execute(
-        "GRANT EXECUTE ON FUNCTION public.lock_active_membership(uuid, uuid) TO app_runtime"
-    )
+    op.execute("ALTER FUNCTION public.lock_active_membership(uuid, uuid) OWNER TO migration_owner")
+    op.execute("REVOKE ALL ON FUNCTION public.lock_active_membership(uuid, uuid) FROM PUBLIC")
+    op.execute("GRANT EXECUTE ON FUNCTION public.lock_active_membership(uuid, uuid) TO app_runtime")
 
 
 def downgrade() -> None:

@@ -191,9 +191,7 @@ async def test_explicit_assignment_resolver_returns_clarification_for_ambiguous_
         organization_name="Tenant",
         role=MembershipRole.MANAGER,
     )
-    tasks = (
-        SimpleNamespace(id=uuid4(), project_id=uuid4(), version=1, title="Task A"),
-    ) * 2
+    tasks = (SimpleNamespace(id=uuid4(), project_id=uuid4(), version=1, title="Task A"),) * 2
     member = MemberSummary(uuid4(), "Lan", MembershipRole.EMPLOYEE, True)
 
     class Tasks:
@@ -226,9 +224,7 @@ async def test_explicit_assignment_resolver_rejects_unique_substring_matches() -
         organization_name="Tenant",
         role=MembershipRole.MANAGER,
     )
-    task = SimpleNamespace(
-        id=uuid4(), project_id=uuid4(), version=1, title="Task A follow-up"
-    )
+    task = SimpleNamespace(id=uuid4(), project_id=uuid4(), version=1, title="Task A follow-up")
     member = MemberSummary(uuid4(), "Lan Anh", MembershipRole.EMPLOYEE, True)
 
     class Tasks:

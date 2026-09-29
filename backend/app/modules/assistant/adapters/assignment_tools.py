@@ -205,8 +205,7 @@ class AssignmentApplicationService:
                     pass
                 else:
                     derived_from_exact_planning = (
-                        replayed.id == requirements.id
-                        and replayed.version == requirements.version
+                        replayed.id == requirements.id and replayed.version == requirements.version
                     )
         if requirements.incomplete_items:
             return self._requirements_pending_snapshot(

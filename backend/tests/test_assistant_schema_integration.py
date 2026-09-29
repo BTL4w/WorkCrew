@@ -48,31 +48,39 @@ async def test_tool_terminal_guard_accepts_evidence_but_keeps_input_immutable() 
     try:
         async with engine.connect() as connection:
             transaction = await connection.begin()
-            await connection.execute(text(
-                "CREATE TEMP TABLE tool_invocations "
-                "(id integer, status text, typed_input jsonb, typed_output jsonb, "
-                "context_references jsonb, safe_error_code text, completed_at timestamptz)"
-            ))
-            await connection.execute(text(
-                "CREATE TRIGGER guard BEFORE UPDATE ON tool_invocations "
-                "FOR EACH ROW EXECUTE FUNCTION protect_assistant_invocation_terminal()"
-            ))
-            await connection.execute(text(
-                "INSERT INTO tool_invocations "
-                "(id, status, typed_input, context_references) "
-                "VALUES (1, 'RUNNING', '{\"project_id\":\"exact\"}'::jsonb, '[]'::jsonb)"
-            ))
-            await connection.execute(text(
-                "UPDATE tool_invocations SET status='SUCCEEDED', "
-                "typed_output='{}'::jsonb, "
-                "context_references='[{\"source\":\"verified\"}]'::jsonb, "
-                "completed_at=now() WHERE id=1"
-            ))
+            await connection.execute(
+                text(
+                    "CREATE TEMP TABLE tool_invocations "
+                    "(id integer, status text, typed_input jsonb, typed_output jsonb, "
+                    "context_references jsonb, safe_error_code text, completed_at timestamptz)"
+                )
+            )
+            await connection.execute(
+                text(
+                    "CREATE TRIGGER guard BEFORE UPDATE ON tool_invocations "
+                    "FOR EACH ROW EXECUTE FUNCTION protect_assistant_invocation_terminal()"
+                )
+            )
+            await connection.execute(
+                text(
+                    "INSERT INTO tool_invocations "
+                    "(id, status, typed_input, context_references) "
+                    "VALUES (1, 'RUNNING', '{\"project_id\":\"exact\"}'::jsonb, '[]'::jsonb)"
+                )
+            )
+            await connection.execute(
+                text(
+                    "UPDATE tool_invocations SET status='SUCCEEDED', "
+                    "typed_output='{}'::jsonb, "
+                    'context_references=\'[{"source":"verified"}]\'::jsonb, '
+                    "completed_at=now() WHERE id=1"
+                )
+            )
             with pytest.raises(DBAPIError):
                 async with connection.begin_nested():
-                    await connection.execute(text(
-                        "UPDATE tool_invocations SET typed_input='{}'::jsonb WHERE id=1"
-                    ))
+                    await connection.execute(
+                        text("UPDATE tool_invocations SET typed_input='{}'::jsonb WHERE id=1")
+                    )
             await transaction.rollback()
     finally:
         await engine.dispose()

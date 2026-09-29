@@ -35,35 +35,15 @@ def upgrade() -> None:
         )
     )
     op.execute(
-        sa.text(
-            "UPDATE proposals "
-            "SET status = 'READY_FOR_DECISION' "
-            "WHERE status = 'READY';"
-        )
+        sa.text("UPDATE proposals SET status = 'READY_FOR_DECISION' WHERE status = 'READY';")
     )
-    op.execute(
-        sa.text(
-            "UPDATE proposals "
-            "SET status = 'STALE' "
-            "WHERE status = 'SUPERSEDED';"
-        )
-    )
+    op.execute(sa.text("UPDATE proposals SET status = 'STALE' WHERE status = 'SUPERSEDED';"))
 
     # 2. Drop legacy constraints & legacy indexes
     op.execute(
-        sa.text(
-            "ALTER TABLE workflow_runs "
-            "DROP CONSTRAINT IF EXISTS "
-            "ck_workflow_runs_status"
-        )
+        sa.text("ALTER TABLE workflow_runs DROP CONSTRAINT IF EXISTS ck_workflow_runs_status")
     )
-    op.execute(
-        sa.text(
-            "ALTER TABLE proposals "
-            "DROP CONSTRAINT IF EXISTS "
-            "ck_proposals_status"
-        )
-    )
+    op.execute(sa.text("ALTER TABLE proposals DROP CONSTRAINT IF EXISTS ck_proposals_status"))
     op.execute(
         sa.text(
             "ALTER TABLE outbox_events "
@@ -78,11 +58,7 @@ def upgrade() -> None:
             "uq_outbox_events_organization_id_event_id"
         )
     )
-    op.execute(
-        sa.text(
-            "DROP INDEX IF EXISTS ix_outbox_events_status"
-        )
-    )
+    op.execute(sa.text("DROP INDEX IF EXISTS ix_outbox_events_status"))
 
     # 3. Add physical check constraints
     op.create_check_constraint(
@@ -95,9 +71,7 @@ def upgrade() -> None:
     op.create_check_constraint(
         "ck_proposals_status",
         "proposals",
-        "status IN ("
-        "'DRAFT', 'VALIDATING', 'READY_FOR_DECISION', "
-        "'APPROVED', 'REJECTED', 'STALE')",
+        "status IN ('DRAFT', 'VALIDATING', 'READY_FOR_DECISION', 'APPROVED', 'REJECTED', 'STALE')",
     )
 
     # 4. Add proposal_versions metadata columns
@@ -111,10 +85,7 @@ def upgrade() -> None:
         ),
     )
     _validation_default = (
-        '\'{"status": "UNKNOWN", '
-        '"is_valid": null, '
-        '"errors": [], '
-        '"warnings": []}\'::jsonb'
+        '\'{"status": "UNKNOWN", "is_valid": null, "errors": [], "warnings": []}\'::jsonb'
     )
     op.add_column(
         "proposal_versions",
@@ -191,8 +162,7 @@ def upgrade() -> None:
     op.create_check_constraint(
         "ck_proposal_versions_creator_type",
         "proposal_versions",
-        "creator_type IN ("
-        "'AI_SYSTEM', 'HUMAN_MANAGER', 'UNKNOWN')",
+        "creator_type IN ('AI_SYSTEM', 'HUMAN_MANAGER', 'UNKNOWN')",
     )
 
     # 5. Adjust outbox_events schema
@@ -255,8 +225,7 @@ def upgrade() -> None:
     op.create_check_constraint(
         "ck_outbox_events_status",
         "outbox_events",
-        "status IN ("
-        "'PENDING', 'DISPATCHING', 'DISPATCHED', 'FAILED')",
+        "status IN ('PENDING', 'DISPATCHING', 'DISPATCHED', 'FAILED')",
     )
     op.create_unique_constraint(
         "uq_outbox_events_organization_event",
@@ -283,12 +252,7 @@ def upgrade() -> None:
             "TO app_runtime;"
         )
     )
-    op.execute(
-        sa.text(
-            "GRANT SELECT, INSERT "
-            "ON workflow_runs TO app_runtime;"
-        )
-    )
+    op.execute(sa.text("GRANT SELECT, INSERT ON workflow_runs TO app_runtime;"))
     op.execute(
         sa.text(
             "GRANT UPDATE "
@@ -296,19 +260,8 @@ def upgrade() -> None:
             "ON workflow_runs TO app_runtime;"
         )
     )
-    op.execute(
-        sa.text(
-            "GRANT SELECT, INSERT, UPDATE "
-            "ON proposals TO app_runtime;"
-        )
-    )
-    op.execute(
-        sa.text(
-            "GRANT SELECT, INSERT "
-            "ON approvals, outbox_events "
-            "TO app_runtime;"
-        )
-    )
+    op.execute(sa.text("GRANT SELECT, INSERT, UPDATE ON proposals TO app_runtime;"))
+    op.execute(sa.text("GRANT SELECT, INSERT ON approvals, outbox_events TO app_runtime;"))
     op.execute(
         sa.text(
             "GRANT UPDATE ("
@@ -411,13 +364,16 @@ def downgrade() -> None:
     op.drop_column("proposal_versions", "prompt_version")
     op.drop_column("proposal_versions", "workflow_version")
     op.drop_column(
-        "proposal_versions", "source_reference_snapshot",
+        "proposal_versions",
+        "source_reference_snapshot",
     )
     op.drop_column(
-        "proposal_versions", "validation_result",
+        "proposal_versions",
+        "validation_result",
     )
     op.drop_column(
-        "proposal_versions", "field_provenance",
+        "proposal_versions",
+        "field_provenance",
     )
 
     # 5. Restore exact 0006-era grants
@@ -434,39 +390,22 @@ def downgrade() -> None:
         "outbox_events",
     )
     for table in _all_tables:
-        op.execute(
-            sa.text(
-                f'REVOKE ALL ON "{table}" FROM app_runtime'
-            )
-        )
+        op.execute(sa.text(f'REVOKE ALL ON "{table}" FROM app_runtime'))
 
     # Deletable: full CRUD
     for table in ("workflow_checkpoints", "workflow_jobs"):
-        op.execute(
-            sa.text(
-                "GRANT SELECT, INSERT, UPDATE, DELETE "
-                f'ON "{table}" TO app_runtime'
-            )
-        )
+        op.execute(sa.text(f'GRANT SELECT, INSERT, UPDATE, DELETE ON "{table}" TO app_runtime'))
 
     # Stateful: SELECT, INSERT, UPDATE
-    op.execute(
-        sa.text(
-            "GRANT SELECT, INSERT, UPDATE "
-            "ON proposals TO app_runtime"
-        )
-    )
+    op.execute(sa.text("GRANT SELECT, INSERT, UPDATE ON proposals TO app_runtime"))
 
     # Update-only: SELECT, INSERT + column UPDATE
     for table in (
-        "workflow_runs", "approvals", "outbox_events",
+        "workflow_runs",
+        "approvals",
+        "outbox_events",
     ):
-        op.execute(
-            sa.text(
-                f'GRANT SELECT, INSERT '
-                f'ON "{table}" TO app_runtime'
-            )
-        )
+        op.execute(sa.text(f'GRANT SELECT, INSERT ON "{table}" TO app_runtime'))
 
     op.execute(
         sa.text(
@@ -500,9 +439,4 @@ def downgrade() -> None:
         "model_invocations",
         "context_references",
     ):
-        op.execute(
-            sa.text(
-                f'GRANT SELECT, INSERT '
-                f'ON "{table}" TO app_runtime'
-            )
-        )
+        op.execute(sa.text(f'GRANT SELECT, INSERT ON "{table}" TO app_runtime'))

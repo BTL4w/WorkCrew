@@ -139,12 +139,15 @@ async def test_explicit_assignment_requires_team_membership_version_and_manager_
         assert "error" in missing_key.json()
         assert invalid_version.status_code == 422
         assert "error" in invalid_version.json()
-        assert await case.connection.scalar(
-            text(
-                "SELECT count(*) FROM audit_events "
-                "WHERE action='task.assignment.transport.rejected'"
+        assert (
+            await case.connection.scalar(
+                text(
+                    "SELECT count(*) FROM audit_events "
+                    "WHERE action='task.assignment.transport.rejected'"
+                )
             )
-        ) == 2
+            == 2
+        )
         not_on_team = await client.post(url, headers=headers(), json=payload)
         assert not_on_team.status_code == 422
         assert not_on_team.json()["error"]["code"] == "VALIDATION_FAILED"
@@ -227,10 +230,16 @@ async def test_outbox_failure_rolls_back_task_audit_and_idempotency(
             )
         ).one()
         assert task_row == (None, 1)
-        assert await case.connection.scalar(
-            text("SELECT count(*) FROM audit_events WHERE action='task.assigned.explicit'")
-        ) == 0
-        assert await case.connection.scalar(
-            text("SELECT count(*) FROM idempotency_records WHERE id=:id"),
-            {"id": idempotency_id},
-        ) == 0
+        assert (
+            await case.connection.scalar(
+                text("SELECT count(*) FROM audit_events WHERE action='task.assigned.explicit'")
+            )
+            == 0
+        )
+        assert (
+            await case.connection.scalar(
+                text("SELECT count(*) FROM idempotency_records WHERE id=:id"),
+                {"id": idempotency_id},
+            )
+            == 0
+        )

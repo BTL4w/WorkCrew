@@ -308,7 +308,7 @@ async def test_manual_planning_crud_security_concurrency_and_audit() -> None:
                         "project_week_id": project_week_id,
                         "milestone_id": milestone_id,
                         "title": f"Customs task {index}",
-                            "required_skill_labels": ["customs"],
+                        "required_skill_labels": ["customs"],
                         "estimated_effort_hours": 8,
                         "due_date": "2026-08-20",
                     },

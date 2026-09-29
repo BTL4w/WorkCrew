@@ -203,9 +203,7 @@ async def test_writer_transport_rejections_are_audited(
         response = await client.request(method, resolved_path, json=body, headers=headers)
 
     assert response.status_code == expected_status
-    audit = next(
-        values for name, values in service.calls if name == "audit_transport_rejection"
-    )
+    audit = next(values for name, values in service.calls if name == "audit_transport_rejection")
     assert audit["actor"] == actor
     assert audit["reason_code"] in {"VALIDATION_FAILED", "INVALID_REQUEST"}
 
@@ -254,9 +252,7 @@ async def test_oversized_idempotency_key_does_not_break_rejection_audit() -> Non
         )
 
     assert response.status_code == 422
-    audit = next(
-        values for name, values in service.calls if name == "audit_transport_rejection"
-    )
+    audit = next(values for name, values in service.calls if name == "audit_transport_rejection")
     assert audit["idempotency_key"] is None
 
 
@@ -801,9 +797,7 @@ async def test_postgres_people_skills_authorization_idempotency_and_stale_contra
             assert tombstone.status_code == 200
             assert tombstone.headers["ETag"] == '"3"'
             assert tombstone.json()["active"] is False
-            tombstone_list = await client.get(
-                f"/api/v1/members/{employee_id}/skills"
-            )
+            tombstone_list = await client.get(f"/api/v1/members/{employee_id}/skills")
             listed_tombstone = next(
                 item for item in tombstone_list.json() if item["skill_id"] == skill_id
             )

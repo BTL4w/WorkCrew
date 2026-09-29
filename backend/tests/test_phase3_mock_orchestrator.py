@@ -25,10 +25,6 @@ def test_mock_provider_keeps_combined_team_step_behind_project_plan() -> None:
 
 def test_mock_plan_uses_seeded_skills_for_combined_team_requirement_derivation() -> None:
     tasks = cast(list[dict[str, object]], _mock_plan()["tasks"])
-    labels = {
-        label
-        for task in tasks
-        for label in cast(list[str], task["required_skill_labels"])
-    }
+    labels = {label for task in tasks for label in cast(list[str], task["required_skill_labels"])}
 
     assert labels == {"Project Management", "Manual Testing"}

@@ -44,6 +44,7 @@ from app.modules.identity.domain.auth import AuthenticatedActor
 from app.modules.organization.domain.roles import MembershipRole
 from app.modules.planning_runs.adapters.database_models import OutboxEventModel
 from app.modules.work.adapters.database_models import IdempotencyRecordModel
+from work_management_ai.conversation_title import TITLE_PROMPT_VERSION
 from work_management_ai.model_gateway.mock import MockModelGateway
 
 pytestmark = [
@@ -799,9 +800,7 @@ async def test_title_job_is_owner_scoped_atomic_and_replay_safe(provider_disable
         snapshot = await service.get_conversation(
             actor=actor, conversation_id=created.conversation.id
         )
-        expected = (
-            "Lập kế hoạch ra mắt sản phẩm" if provider_disabled else "Kế hoạch ra mắt sản phẩm"
-        )
+        expected = "Lập kế hoạch ra mắt sản" if provider_disabled else "Kế hoạch ra mắt sản phẩm"
         assert snapshot.conversation.title == expected
         assert len(snapshot.messages) == 1  # No extra assistant message or Agent run.
         assert len(snapshot.events) == 2
@@ -817,7 +816,7 @@ async def test_title_job_is_owner_scoped_atomic_and_replay_safe(provider_disable
             ).all()
             assert len(audits) == 1
             assert audits[0].reason_data["fallback"] is provider_disabled
-            assert audits[0].reason_data["prompt_version"] == "1.0.0"
+            assert audits[0].reason_data["prompt_version"] == TITLE_PROMPT_VERSION
             outbox = (
                 await transaction.session.scalars(
                     select(OutboxEventModel).where(

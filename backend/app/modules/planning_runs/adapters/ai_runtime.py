@@ -306,6 +306,7 @@ class _Phase2MockModelGateway:
             )
 
         planning_available = any(is_planning_entry(item) for item in catalog)
+
         def is_assignment_entry(item: object) -> bool:
             if not isinstance(item, dict):
                 return False

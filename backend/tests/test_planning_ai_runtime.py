@@ -6,9 +6,7 @@ from typing import cast
 
 from app.modules.planning_runs.adapters.ai_runtime import PlanningAIRuntime
 
-_PLANNING_FIXTURE = (
-    Path(__file__).parents[2] / "ai" / "tests" / "fixtures" / "planning_vi.json"
-)
+_PLANNING_FIXTURE = Path(__file__).parents[2] / "ai" / "tests" / "fixtures" / "planning_vi.json"
 
 
 def test_validated_proposal_content_is_json_serializable() -> None:

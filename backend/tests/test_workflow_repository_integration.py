@@ -441,8 +441,7 @@ async def test_outbox_claim_publish_failure_and_idempotency() -> None:
             transaction = await connection.begin()
             await connection.execute(
                 text(
-                    "INSERT INTO organizations (id, slug, name) "
-                    "VALUES (:id, :slug, 'Outbox Org')"
+                    "INSERT INTO organizations (id, slug, name) VALUES (:id, :slug, 'Outbox Org')"
                 ),
                 {"id": org_id, "slug": f"outbox-test-{org_id.hex}"},
             )
