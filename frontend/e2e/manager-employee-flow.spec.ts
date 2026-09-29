@@ -33,7 +33,7 @@ test("invalid credentials can be corrected without losing the login flow", async
   await expect(page.getByRole("heading", { name: "Projects" })).toBeVisible();
 });
 
-test("Manager plans a week, explicitly assigns a Task, and Employee completes it", async ({ page }) => {
+test("Manager assigns a Task and Employee reports evidence before completion", async ({ page }) => {
   const suffix = `${Date.now()}`;
   const projectName = `E2E Project ${suffix}`;
   const taskTitle = `E2E Task ${suffix}`;
@@ -93,18 +93,34 @@ test("Manager plans a week, explicitly assigns a Task, and Employee completes it
   await page.getByRole("tab", { name: "Tasks" }).click();
   await page.getByRole("button", { name: taskTitle }).click();
   await page.getByLabel("Giao task từ Project Team").getByRole("button", { name: "Giao task" }).click();
-  await page.getByLabel("Thành viên dự án").selectOption({ label: "Đỗ Ngọc Nam" });
-  await page.getByRole("button", { name: "Xác nhận giao cho Đỗ Ngọc Nam" }).click();
-  await expect(page.getByText("Đã giao cho Đỗ Ngọc Nam")).toBeVisible();
+  const approvedMember = (await page.getByLabel("Thành viên dự án").locator("option").nth(1).textContent())?.trim() ?? "";
+  expect(["Đỗ Ngọc Nam", "Bùi Thảo Nguyên"]).toContain(approvedMember);
+  await page.getByLabel("Thành viên dự án").selectOption({ label: approvedMember });
+  await page.getByRole("button", { name: `Xác nhận giao cho ${approvedMember}` }).click();
+  await expect(page.getByText(`Đã giao cho ${approvedMember}`)).toBeVisible();
   expect(assistantMutations).toEqual([]);
   await signOut(page);
 
-  await signIn(page, "nam.do@example.test");
+  await signIn(page, approvedMember === "Đỗ Ngọc Nam" ? "nam.do@example.test" : "nguyen.bui@example.test");
   await page.getByRole("button", { name: taskTitle }).click();
   await expect(page.getByRole("button", { name: "Sửa task" })).toHaveCount(0);
   await page.getByRole("button", { name: "Bắt đầu task" }).click();
   await expect(page.getByText("Đang thực hiện")).toBeVisible();
-  await page.getByRole("button", { name: "Hoàn thành" }).click();
+  await expect(page.getByRole("button", { name: "Hoàn tất" })).toBeDisabled();
+  const proof = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGP4//8/AAX+Av4N70a4AAAAAElFTkSuQmCC", "base64");
+  const reporting = page.locator("#daily-update-form");
+  await reporting.getByLabel("Chọn bằng chứng").setInputFiles({
+    name: "completion.png", mimeType: "image/png", buffer: proof,
+  });
+  await expect(reporting.getByRole("link", { name: "Tải xuống" })).toBeVisible();
+  await reporting.getByLabel("Tiến độ báo cáo (%)").fill("100");
+  await reporting.getByLabel("Công việc đã làm").fill("Completed the assigned work");
+  await reporting.getByRole("group", { name: "Chọn minh chứng cho task này" }).getByRole("checkbox").check();
+  await reporting.getByRole("button", { name: "Xem lại báo cáo" }).click();
+  await reporting.getByRole("button", { name: "Xác nhận báo cáo" }).click();
+  await expect(reporting.getByRole("status")).toHaveText("Đã xác nhận báo cáo");
+  await expect(page.getByRole("button", { name: "Hoàn tất" })).toBeEnabled();
+  await page.getByRole("button", { name: "Hoàn tất" }).click();
   await expect(page.getByText("Hoàn thành")).toBeVisible();
   await signOut(page);
 

@@ -8,11 +8,11 @@ import { EvidencePicker } from "./evidence-picker";
 import { DailyUpdateHistory } from "./daily-update-history";
 import type { DailyDraft,Observation,ReportingItem,SelectedEvidence } from "./reporting-contracts";
 
-export function DailyUpdateForm({taskId,organizationId,actorMembershipId}:{taskId:string;organizationId:string;actorMembershipId:string}){
+export function DailyUpdateForm({taskId,taskVersion,organizationId,actorMembershipId}:{taskId:string;taskVersion:number;organizationId:string;actorMembershipId:string}){
  const t=useTranslations("dailyUpdate");
  const queryClient=useQueryClient();
  const scope=["work",organizationId,actorMembershipId,"daily-update",taskId];
- const context=useQuery({queryKey:[...scope,"context"],queryFn:()=>getReportingContext(taskId)});
+ const context=useQuery({queryKey:[...scope,"context",taskVersion],queryFn:()=>getReportingContext(taskId)});
  const history=useQuery({queryKey:[...scope,"history"],queryFn:()=>getUpdateHistory(taskId)});
  const [percent,setPercent]=useState("");const [remaining,setRemaining]=useState("");const [spent,setSpent]=useState("");
  const [date,setDate]=useState("");const [done,setDone]=useState("");const [next,setNext]=useState("");const [reason,setReason]=useState("");
@@ -38,7 +38,7 @@ export function DailyUpdateForm({taskId,organizationId,actorMembershipId}:{taskI
   if(!draft||!confirmKey.current)return;
   setError(null);setBusy(true);
   try{await submitDailyDraft(draft,confirmKey.current);setSaved(true);setUncertain(false);setDraft(null);setCorrection(null);setReason("");setSelected([]);setUploaded([]);confirmKey.current=null;
-   await queryClient.invalidateQueries({queryKey:scope});await queryClient.invalidateQueries({queryKey:["work",organizationId,actorMembershipId,"weekly-progress"]});
+   await queryClient.invalidateQueries({queryKey:scope});await queryClient.invalidateQueries({queryKey:["completion",organizationId,actorMembershipId,taskId]});await queryClient.invalidateQueries({queryKey:["work",organizationId,actorMembershipId,"weekly-progress"]});
   }catch(failure){showError(failure);setUncertain(!isDefinitiveMutationRejection(failure));}
   finally{setBusy(false);}
  }

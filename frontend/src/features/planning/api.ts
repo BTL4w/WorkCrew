@@ -115,6 +115,10 @@ export function listProjectWeeks(projectId: string): Promise<ProjectWeek[]> {
   return allPages(`projects/${projectId}/weeks`, {}, projectWeekPageSchema);
 }
 
+export async function listAcceptanceCriteria(taskId: string): Promise<AcceptanceCriterion[]> {
+  return allPages("acceptance-criteria", { task_id: taskId }, acceptanceCriterionPageSchema);
+}
+
 export async function getProjectPlan(projectId: string): Promise<ProjectPlan> {
   return (await getProjectPlanBundle(projectId)).plan;
 }

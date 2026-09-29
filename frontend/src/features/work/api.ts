@@ -10,6 +10,7 @@ import {
   taskCreateSchema,
   taskPageSchema,
   taskSchema,
+  taskStatusRequestSchema,
   type TaskStatus,
 } from "./contracts";
 import type { z } from "zod";
@@ -118,6 +119,7 @@ export function transitionTask(
   toStatus: TaskStatus,
   version: number,
   idempotencyKey: string,
+  attestations: Array<{ criterion_id: string; version: number; confirmed: boolean; evidence_refs: Array<{ evidence_id: string; version: number }> }> = [],
 ) {
   return requestJsonWithMetadata(`/api/v1/tasks/${taskId}/status`, {
     schema: taskSchema,
@@ -128,7 +130,7 @@ export function transitionTask(
         "Idempotency-Key": idempotencyKey,
         "If-Match": `"${version}"`,
       },
-      body: JSON.stringify({ to_status: toStatus }),
+      body: JSON.stringify(taskStatusRequestSchema.parse({ to_status: toStatus, attestations })),
     },
   });
 }

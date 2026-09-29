@@ -6,6 +6,8 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
+from app.modules.progress.domain.completion import CriterionAttestation
+from app.modules.progress.domain.daily_updates import SelectedEvidence
 from app.modules.work.application.task_ports import TaskPage
 from app.modules.work.domain.tasks import Task, TaskStatus
 from app.modules.work.planning.assignment.application.assignment_service import (
@@ -45,9 +47,27 @@ class TaskUpdateRequest(BaseModel):
     estimated_effort_hours: int | None = Field(default=None, ge=1, le=10_000)
 
 
+class CriterionAttestationRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    criterion_id: UUID
+    version: int = Field(ge=1)
+    confirmed: bool
+    evidence_refs: list[SelectedEvidence] = Field(
+        default_factory=lambda: list[SelectedEvidence](), max_length=20
+    )
+
+    def domain(self) -> CriterionAttestation:
+        return CriterionAttestation(
+            self.criterion_id, self.version, self.confirmed, tuple(self.evidence_refs)
+        )
+
+
 class TaskStatusRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
     to_status: TaskStatus
+    attestations: list[CriterionAttestationRequest] = Field(
+        default_factory=lambda: list[CriterionAttestationRequest]()
+    )
 
 
 class ExplicitAssignmentRequest(BaseModel):

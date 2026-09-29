@@ -19,6 +19,7 @@ from app.core.config import Settings
 from app.modules.identity.api.dependencies import ActorDependency, get_authenticated_actor
 from app.modules.identity.application.auth_service import AuthService
 from app.modules.organization.domain.roles import MembershipRole
+from app.modules.progress.domain.completion import CompletionRequirementError
 from app.modules.work.api.task_dependencies import (
     ExplicitAssignmentServiceDependency,
     TaskServiceDependency,
@@ -115,6 +116,10 @@ def _version(value: str | None) -> int:
 
 
 def _raise(error: TaskError) -> NoReturn:
+    if isinstance(error, CompletionRequirementError):
+        raise ApplicationError(
+            status_code=409, code=error.code, message_key=f"task.error.{error.code}"
+        ) from error
     if isinstance(error, AssignmentError):
         if error.code == "FORBIDDEN":
             mapped = ApplicationError(
@@ -373,6 +378,7 @@ async def transition_task(
             expected_version=_version(if_match),
             request_id=str(request.state.request_id),
             idempotency_key=idempotency_key,
+            attestations=tuple(item.domain() for item in payload.attestations),
         )
     except TaskError as error:
         _raise(error)

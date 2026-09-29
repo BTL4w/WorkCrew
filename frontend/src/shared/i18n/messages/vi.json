@@ -391,5 +391,19 @@
       "STALE_CORRECTION": "Báo cáo này đã được sửa.",
       "ASSESSMENT_UNAVAILABLE": "Chưa thể đánh giá; tải lại bản nháp."
     }
+  },
+  "completion": {
+    "complete": "Hoàn tất",
+    "reportRequired": "Để hoàn tất task, hãy xác nhận báo cáo 100% có minh chứng.",
+    "reportUnavailable": "Chưa tải được báo cáo hiện tại. Hãy tải lại trước khi hoàn tất.",
+    "openReport": "Mở báo cáo hằng ngày",
+    "criteriaUnavailable": "Chưa tải được Tiêu chí nghiệm thu. Hãy tải lại trước khi hoàn tất.",
+    "error": {
+      "COMPLETION_REPORT_REQUIRED": "Cần báo cáo 100% mới, đã xác nhận và có minh chứng.",
+      "COMPLETION_CRITERIA_REQUIRED": "Hãy xác nhận toàn bộ Tiêu chí nghiệm thu hiện hành.",
+      "COMPLETION_CRITERIA_STALE": "Tiêu chí nghiệm thu đã đổi. Hãy tải lại và xác nhận lại.",
+      "COMPLETION_EVIDENCE_INVALID": "Minh chứng không khả dụng hoặc không liên quan đến task.",
+      "UNKNOWN": "Chưa lưu được trạng thái hoàn tất. Hãy thử lại hoặc tải lại task."
+    }
   }
 }

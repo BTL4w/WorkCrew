@@ -24,6 +24,8 @@ import {
   taskPageSchema,
   taskSchema,
   taskStatusRequestSchema,
+  criterionAttestationRequestSchema,
+  completionEvidenceRefSchema,
   taskStatusSchema,
   taskUpdateSchema,
 } from "./contracts";
@@ -55,6 +57,8 @@ const runtimeSchemas: Record<string, ZodType> = {
   TaskCreateRequest: taskCreateSchema,
   TaskUpdateRequest: taskUpdateSchema,
   TaskStatusRequest: taskStatusRequestSchema,
+  CriterionAttestationRequest: criterionAttestationRequestSchema,
+  SelectedEvidence: completionEvidenceRefSchema,
   ProjectResponse: projectSchema,
   ProjectPageResponse: projectPageSchema,
   MemberResponse: memberSchema,

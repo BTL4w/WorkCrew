@@ -8,6 +8,7 @@ from typing import Protocol
 from uuid import UUID
 
 from app.modules.identity.domain.auth import AuthenticatedActor
+from app.modules.progress.domain.completion import CriterionAttestation
 from app.modules.work.domain.tasks import Task, TaskDraft, TaskPatch, TaskStatus
 
 
@@ -74,6 +75,7 @@ class TaskRepository(Protocol):
         request_id: str,
         idempotency_key: str,
         request_fingerprint: str,
+        attestations: tuple[CriterionAttestation, ...],
     ) -> TaskMutationResult: ...
     async def audit_rejection(
         self,

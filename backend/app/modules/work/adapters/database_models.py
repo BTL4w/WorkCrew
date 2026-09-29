@@ -166,6 +166,7 @@ class TaskStatusTransitionModel(Base):
 
     __tablename__ = "task_status_transitions"
     __table_args__ = (
+        UniqueConstraint("organization_id", "id"),
         ForeignKeyConstraint(
             ["organization_id", "task_id"],
             ["tasks.organization_id", "tasks.id"],

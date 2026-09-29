@@ -18,7 +18,10 @@ from app.modules.identity.adapters.database_models import UserModel
 from app.modules.identity.domain.auth import AuthenticatedActor
 from app.modules.organization.adapters.database_models import MembershipModel
 from app.modules.organization.domain.roles import MembershipRole
+from app.modules.progress.adapters.completion_models import TaskCompletionCheckModel
 from app.modules.progress.adapters.progress_repository import capture_project_baselines
+from app.modules.progress.application.completion_policy import validate_status_completion
+from app.modules.progress.domain.completion import CriterionAttestation
 from app.modules.work.adapters.database_models import (
     IdempotencyRecordModel,
     IdempotencyState,
@@ -671,6 +674,7 @@ class SqlAlchemyTaskRepository:
         request_id: str,
         idempotency_key: str,
         request_fingerprint: str,
+        attestations: tuple[CriterionAttestation, ...] = (),
     ) -> TaskMutationResult:
         await self._activate(actor)
         operation = f"task.status:{task_id}"
@@ -700,6 +704,9 @@ class SqlAlchemyTaskRepository:
             (TaskStatus.DONE, TaskStatus.IN_PROGRESS),
         }:
             raise InvalidStatusTransitionError
+        observation, _ = await validate_status_completion(
+            self._session, actor, task_id, target, attestations
+        )
         display_name = await self._assignee_name(actor, model.assignee_membership_id)
         now = datetime.now(UTC)
         record = self._record(
@@ -714,9 +721,10 @@ class SqlAlchemyTaskRepository:
         model.version += 1
         model.updated_at = now
         model.updated_by_membership_id = actor.membership_id
+        transition_id = uuid4()
         self._session.add(
             TaskStatusTransitionModel(
-                id=uuid4(),
+                id=transition_id,
                 organization_id=actor.organization_id,
                 task_id=model.id,
                 from_status=previous,
@@ -726,6 +734,30 @@ class SqlAlchemyTaskRepository:
                 occurred_at=now,
             )
         )
+        await self._session.flush()
+        if target is TaskStatus.DONE:
+            for attestation in attestations or (None,):
+                self._session.add(
+                    TaskCompletionCheckModel(
+                        id=uuid4(),
+                        organization_id=actor.organization_id,
+                        task_id=task_id,
+                        transition_id=transition_id,
+                        actor_membership_id=actor.membership_id,
+                        task_version_after=model.version,
+                        criterion_id=attestation.criterion_id if attestation else None,
+                        criterion_version=attestation.version if attestation else None,
+                        confirmed=True,
+                        observation_id=observation.id if observation else None,
+                        evidence_refs=[
+                            {"evidence_id": str(ref.evidence_id), "version": ref.version}
+                            for ref in attestation.evidence_refs
+                        ]
+                        if attestation
+                        else [],
+                        occurred_at=now,
+                    )
+                )
         await self._session.flush()
         task = _task_from_row(model, display_name)
         self._audit(

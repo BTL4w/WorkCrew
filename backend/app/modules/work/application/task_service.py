@@ -9,6 +9,7 @@ from uuid import UUID
 
 from app.modules.identity.domain.auth import AuthenticatedActor
 from app.modules.organization.domain.roles import MembershipRole
+from app.modules.progress.domain.completion import CriterionAttestation
 from app.modules.work.application.shared_commands import build_task_draft
 from app.modules.work.application.task_ports import (
     TaskMutationResult,
@@ -332,11 +333,27 @@ class TaskService:
         expected_version: int,
         request_id: str,
         idempotency_key: str,
+        attestations: tuple[CriterionAttestation, ...] = (),
     ) -> TaskMutationResult:
-        fingerprint = _fingerprint(
-            "task.status",
-            {"task_id": task_id, "target": target, "expected_version": expected_version},
-        )
+        values: dict[str, object] = {
+            "task_id": task_id,
+            "target": target,
+            "expected_version": expected_version,
+        }
+        if attestations:
+            values["attestations"] = [
+                {
+                    "criterion_id": str(item.criterion_id),
+                    "version": item.version,
+                    "confirmed": item.confirmed,
+                    "evidence_refs": [
+                        {"evidence_id": str(ref.evidence_id), "version": ref.version}
+                        for ref in item.evidence_refs
+                    ],
+                }
+                for item in attestations
+            ]
+        fingerprint = _fingerprint("task.status", values)
         try:
             async with self._transactions() as repository:
                 return await repository.transition_task(
@@ -347,6 +364,7 @@ class TaskService:
                     request_id=request_id,
                     idempotency_key=idempotency_key,
                     request_fingerprint=fingerprint,
+                    attestations=attestations,
                 )
         except TaskError as error:
             await self._audit_error(

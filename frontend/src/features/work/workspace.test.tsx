@@ -192,7 +192,7 @@ describe("WorkWorkspace", () => {
     expect(await within(taskCard).findByText("Đã giao cho Demo Employee")).toBeVisible();
   });
 
-  it("lets an Employee progress an assigned Task without edit controls", async () => {
+  it("lets an Employee start a Task but requires a report before completion", async () => {
     const employeeActor = {
       ...managerActor,
       user: { ...managerActor.user, display_name: "Demo Employee", email: "employee@example.test" },
@@ -205,6 +205,8 @@ describe("WorkWorkspace", () => {
         const path = String(input);
         if (path === "/api/v1/me") return response(employeeActor);
         if (path.startsWith("/api/v1/my-tasks") && !init?.method) return response(page([currentTask]));
+        if (path.startsWith("/api/v1/acceptance-criteria?")) return response({items:[],page:1,page_size:100,total:0});
+        if (path.endsWith("/reporting-context")) return response({task_id:task.id,task_version:currentTask.version,progress_version:0,reported_percent:null,remaining_hours:null,reporting_timezone:"UTC",reporting_date:"2026-09-29",project_week_state:"LINKED",evidence_refs:[]});
         if (path.endsWith("/status") && init?.method === "POST") {
           const target = JSON.parse(String(init.body)).to_status as "IN_PROGRESS" | "DONE";
           currentTask = { ...currentTask, status: target, version: currentTask.version + 1 };
@@ -224,9 +226,8 @@ describe("WorkWorkspace", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Bắt đầu task" }));
     expect(await screen.findByText("Đang thực hiện")).toBeVisible();
-    fireEvent.click(screen.getByRole("button", { name: "Hoàn thành" }));
-
-    await waitFor(() => expect(screen.getByText("Hoàn thành")).toBeVisible());
+    expect(await screen.findByRole("button", { name: "Hoàn tất" })).toBeDisabled();
+    expect(await screen.findByRole("link", { name: "Mở báo cáo hằng ngày" })).toBeVisible();
   });
 
   it("never reuses actor-independent cached work data for another account", async () => {

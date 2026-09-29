@@ -36,7 +36,17 @@ export const taskUpdateSchema = z.object({
   required_skill_labels: z.array(z.string()).max(20).nullable().optional(),
   estimated_effort_hours: z.number().int().positive().nullable().optional(),
 });
-export const taskStatusRequestSchema = z.object({ to_status: taskStatusSchema });
+export const completionEvidenceRefSchema = z.object({
+  evidence_id: z.uuid(), version: z.number().int().positive(),
+});
+export const criterionAttestationRequestSchema = z.object({
+  criterion_id: z.uuid(), version: z.number().int().positive(), confirmed: z.boolean(),
+  evidence_refs: z.array(completionEvidenceRefSchema).default([]),
+});
+export const taskStatusRequestSchema = z.object({
+  to_status: taskStatusSchema,
+  attestations: z.array(criterionAttestationRequestSchema).default([]),
+});
 
 export const explicitAssignmentRequestSchema = z.object({
   assignee_membership_id: z.uuid(),

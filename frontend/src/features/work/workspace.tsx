@@ -2,6 +2,7 @@
 
 import { EvidencePicker } from "@/features/daily-updates/evidence-picker";
 import { DailyUpdateForm } from "@/features/daily-updates/daily-update-form";
+import { CompletionChecklist } from "@/features/daily-updates/completion-checklist";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useLocale, useTranslations } from "next-intl";
 import { useSearchParams } from "next/navigation";
@@ -467,6 +468,7 @@ function TaskDetail({ task, canEdit, onEdit, onUpdated, onBack, onOpenTeam, onRe
   const t = useTranslations("work");
   const locale = useLocale();
   const attempt = useMutationAttempt();
+  const queryClient = useQueryClient();
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showCriteria, setShowCriteria] = useState(false);
@@ -480,13 +482,14 @@ function TaskDetail({ task, canEdit, onEdit, onUpdated, onBack, onOpenTeam, onRe
     try {
       const payload = { taskId: task.id, target, version: task.version };
       onUpdated((await transitionTask(task.id, target, task.version, attempt.keyFor(payload))).data);
+      await queryClient.invalidateQueries({queryKey:["work",planningContext.organizationId,planningContext.actorMembershipId,"daily-update",task.id,"context"]});
     }
     catch (caught) {
       setError(errorMessage(caught, t));
       if (isDefinitiveMutationRejection(caught)) attempt.reset();
     } finally { setSubmitting(false); }
   }
-  return <section className="work-view work-detail"><button className="text-button" type="button" onClick={onBack}>← {t("action.back")}</button><div className="work-view-heading mt-6 flex flex-wrap items-start justify-between gap-4"><div><span className={`status-pill status-${task.status.toLowerCase()}`}>{t(`status.${task.status}`)}</span><h2 className="page-title mt-4">{task.title}</h2></div>{canEdit ? <button className="secondary-button" type="button" onClick={onEdit}>{t("task.edit")}</button> : null}</div><dl className="work-detail-grid mt-8 grid gap-5 sm:grid-cols-2"><Detail label={t("task.assignee")} value={task.assignee?.display_name ?? t("task.unassigned")} /><Detail label={t("task.dueDate")} value={task.due_date ? formatCalendarDate(task.due_date, locale) : t("task.noDueDate")} /><Detail label={t("task.description")} value={task.description || t("common.noDescription")} /></dl>{canEdit ? <TaskAssignmentControl task={task} onAssigned={onUpdated} onOpenTeam={onOpenTeam ?? onBack} onReloadTask={onReloadTask ?? onBack} /> : null}<div className="mt-8"><h3 className="font-semibold">{t("task.availableActions")}</h3><div className="mt-3 flex flex-wrap gap-3">{transitions[task.status].map((item) => <button key={item.target} className="primary-button" disabled={submitting} type="button" onClick={() => transition(item.target)}>{item.label}</button>)}</div>{error ? <p className="error-message" role="alert">{error}</p> : null}</div><button className="secondary-button mt-8" type="button" aria-expanded={showCriteria} onClick={() => setShowCriteria((value) => !value)}>{t("task.acceptanceCriteria")}</button>{showCriteria ? <ProjectPlanPanel organizationId={planningContext.organizationId} actorMembershipId={planningContext.actorMembershipId} canManage={planningContext.canManage} projectId={task.project_id} taskId={task.id} tasks={tasks.length ? tasks : [task]} /> : null}{task.assignee?.membership_id === planningContext.actorMembershipId ? <DailyUpdateForm key={task.id} taskId={task.id} organizationId={planningContext.organizationId} actorMembershipId={planningContext.actorMembershipId} /> : null}</section>;
+  return <section className="work-view work-detail"><button className="text-button" type="button" onClick={onBack}>← {t("action.back")}</button><div className="work-view-heading mt-6 flex flex-wrap items-start justify-between gap-4"><div><span className={`status-pill status-${task.status.toLowerCase()}`}>{t(`status.${task.status}`)}</span><h2 className="page-title mt-4">{task.title}</h2></div>{canEdit ? <button className="secondary-button" type="button" onClick={onEdit}>{t("task.edit")}</button> : null}</div><dl className="work-detail-grid mt-8 grid gap-5 sm:grid-cols-2"><Detail label={t("task.assignee")} value={task.assignee?.display_name ?? t("task.unassigned")} /><Detail label={t("task.dueDate")} value={task.due_date ? formatCalendarDate(task.due_date, locale) : t("task.noDueDate")} /><Detail label={t("task.description")} value={task.description || t("common.noDescription")} /></dl>{canEdit ? <TaskAssignmentControl task={task} onAssigned={onUpdated} onOpenTeam={onOpenTeam ?? onBack} onReloadTask={onReloadTask ?? onBack} /> : null}<div className="mt-8"><h3 className="font-semibold">{t("task.availableActions")}</h3><div className="mt-3 flex flex-wrap gap-3">{transitions[task.status].filter(item => item.target !== "DONE").map((item) => <button key={item.target} className="primary-button" disabled={submitting} type="button" onClick={() => transition(item.target)}>{item.label}</button>)}{task.status === "IN_PROGRESS" && <CompletionChecklist taskId={task.id} version={task.version} isEmployee={!canEdit} organizationId={planningContext.organizationId} actorMembershipId={planningContext.actorMembershipId} onCompleted={onUpdated} />}</div>{error ? <p className="error-message" role="alert">{error}</p> : null}</div><button className="secondary-button mt-8" type="button" aria-expanded={showCriteria} onClick={() => setShowCriteria((value) => !value)}>{t("task.acceptanceCriteria")}</button>{showCriteria ? <ProjectPlanPanel organizationId={planningContext.organizationId} actorMembershipId={planningContext.actorMembershipId} canManage={planningContext.canManage} projectId={task.project_id} taskId={task.id} tasks={tasks.length ? tasks : [task]} /> : null}{task.assignee?.membership_id === planningContext.actorMembershipId ? <div id="daily-update-form"><DailyUpdateForm key={task.id} taskId={task.id} taskVersion={task.version} organizationId={planningContext.organizationId} actorMembershipId={planningContext.actorMembershipId} /></div> : null}</section>;
 }
 
 function Dialog({ title, children, onClose }: { title: string; children: ReactNode; onClose: () => void }) {

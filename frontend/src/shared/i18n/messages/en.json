@@ -391,5 +391,19 @@
       "STALE_CORRECTION": "This report has already been corrected.",
       "ASSESSMENT_UNAVAILABLE": "Assessment is unavailable; refresh the draft."
     }
+  },
+  "completion": {
+    "complete": "Complete",
+    "reportRequired": "To complete this Task, confirm a 100% report with evidence.",
+    "reportUnavailable": "Current report details are unavailable. Reload before completing.",
+    "openReport": "Open daily update",
+    "criteriaUnavailable": "Acceptance Criteria are unavailable. Reload before completing.",
+    "error": {
+      "COMPLETION_REPORT_REQUIRED": "A fresh confirmed 100% report with evidence is required.",
+      "COMPLETION_CRITERIA_REQUIRED": "Confirm every current Acceptance Criterion.",
+      "COMPLETION_CRITERIA_STALE": "Acceptance Criteria changed. Reload and confirm them again.",
+      "COMPLETION_EVIDENCE_INVALID": "Criterion evidence is unavailable or unrelated to this Task.",
+      "UNKNOWN": "Completion could not be saved. Retry or reload the Task."
+    }
   }
 }

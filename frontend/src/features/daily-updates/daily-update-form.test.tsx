@@ -16,7 +16,7 @@ it("prepares a manual draft and confirms without changing Task status",async()=>
   return new Response(JSON.stringify(body),{status:options?.method==="POST"?201:200,headers:{"Content-Type":"application/json"}});
  });
  vi.stubGlobal("fetch",fetchMock);
- render(<QueryClientProvider client={new QueryClient({defaultOptions:{queries:{retry:false}}})}><AppLocaleProvider initialLocale="en"><DailyUpdateForm taskId={taskId} organizationId="org" actorMembershipId="member"/></AppLocaleProvider></QueryClientProvider>);
+ render(<QueryClientProvider client={new QueryClient({defaultOptions:{queries:{retry:false}}})}><AppLocaleProvider initialLocale="en"><DailyUpdateForm taskId={taskId} taskVersion={1} organizationId="org" actorMembershipId="member"/></AppLocaleProvider></QueryClientProvider>);
  await screen.findByLabelText("Reported progress (%)");
  expect(screen.getByText(/No Project Week/)).toBeVisible();
  fireEvent.change(screen.getByLabelText("Reported progress (%)"),{target:{value:"99"}});
@@ -44,7 +44,7 @@ it("retries an uncertain confirmation with the same draft and idempotency key",a
   return new Response(JSON.stringify(payload),{status:options?.method==="POST"?201:200,headers:{"Content-Type":"application/json"}});
  });
  vi.stubGlobal("fetch",fetchMock);
- render(<QueryClientProvider client={new QueryClient({defaultOptions:{queries:{retry:false}}})}><AppLocaleProvider initialLocale="en"><DailyUpdateForm taskId={taskId} organizationId="org" actorMembershipId="member"/></AppLocaleProvider></QueryClientProvider>);
+ render(<QueryClientProvider client={new QueryClient({defaultOptions:{queries:{retry:false}}})}><AppLocaleProvider initialLocale="en"><DailyUpdateForm taskId={taskId} taskVersion={1} organizationId="org" actorMembershipId="member"/></AppLocaleProvider></QueryClientProvider>);
  await screen.findByLabelText("Reported progress (%)");
  fireEvent.change(screen.getByLabelText("Reported progress (%)"),{target:{value:"99"}});
  fireEvent.change(screen.getByLabelText("Work completed"),{target:{value:"Prepared"}});
