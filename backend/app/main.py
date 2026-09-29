@@ -40,11 +40,14 @@ from app.modules.planning_runs.application.approval_service import ApprovalServi
 from app.modules.planning_runs.application.event_service import WorkflowEventService
 from app.modules.planning_runs.application.proposal_service import ProposalService
 from app.modules.planning_runs.application.run_service import PlanningRunService
+from app.modules.progress.adapters.daily_update_repository import SqlAlchemyDailyUpdateTransactions
 from app.modules.progress.adapters.evidence_repository import SqlAlchemyEvidenceTransactionFactory
 from app.modules.progress.adapters.filesystem_storage import FilesystemEvidenceStorage
 from app.modules.progress.adapters.progress_repository import SqlAlchemyProgressTransactionFactory
+from app.modules.progress.api.daily_update_routes import router as daily_update_router
 from app.modules.progress.api.evidence_routes import router as evidence_router
 from app.modules.progress.api.progress_routes import router as progress_router
+from app.modules.progress.application.daily_update_service import DailyUpdateService
 from app.modules.progress.application.evidence_service import EvidenceService
 from app.modules.progress.application.weekly_progress_service import WeeklyProgressService
 from app.modules.work.adapters.project_repository import SqlAlchemyProjectTransactionFactory
@@ -267,6 +270,10 @@ def create_app(
     app.state.weekly_progress_service = WeeklyProgressService(
         SqlAlchemyProgressTransactionFactory(create_session_factory(database_engine))
     )
+    app.state.daily_update_service = DailyUpdateService(
+        SqlAlchemyDailyUpdateTransactions(create_session_factory(database_engine)),
+        resolved_settings.reporting_timezone,
+    )
     app.state.settings = resolved_settings
     app.state.auth_service = resolved_auth_service
     app.state.project_service = resolved_project_service
@@ -312,6 +319,7 @@ def create_app(
     register_error_handlers(app)
     app.include_router(evidence_router, prefix="/api/v1")
     app.include_router(progress_router, prefix="/api/v1")
+    app.include_router(daily_update_router, prefix="/api/v1")
     app.include_router(auth_router, prefix="/api/v1")
     app.include_router(project_router, prefix="/api/v1")
     app.include_router(task_router, prefix="/api/v1")

@@ -17,13 +17,14 @@ from app.modules.identity.adapters import database_models as identity_models
 from app.modules.organization.adapters import database_models as organization_models
 from app.modules.people_capacity.adapters import database_models as people_capacity_models
 from app.modules.planning_runs.adapters import database_models as planning_runs_models
-from app.modules.progress.adapters import evidence_models, progress_models
+from app.modules.progress.adapters import daily_update_models, evidence_models, progress_models
 from app.modules.work.adapters import database_models as work_models
 from app.modules.work.planning.adapters import database_models as planning_models
 from app.modules.work.planning.assignment.adapters import database_models as team_requirement_models
 from app.modules.work.planning.assignment.adapters import recommendation_models
 
 _MODEL_MODULES = (
+    daily_update_models,
     evidence_models,
     progress_models,
     audit_models,

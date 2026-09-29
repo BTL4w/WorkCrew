@@ -34,6 +34,7 @@ services:
       APP_DEMO_SEED_ENABLED: "true"
       APP_DEMO_SEED_PASSWORD: ${APP_DEMO_SEED_PASSWORD:-WorkDemo123!}
       APP_EVIDENCE_STORAGE_ROOT: /var/lib/work-management/evidence
+      APP_REPORTING_TIMEZONE: ${APP_REPORTING_TIMEZONE:-Asia/Ho_Chi_Minh}
       APP_ENVIRONMENT: local
       APP_FRONTEND_ORIGIN: http://localhost:${FRONTEND_PORT:-3000}
       APP_SESSION_SECURE_COOKIE: "false"
@@ -104,6 +105,7 @@ services:
       APP_AI_PROVIDER: ${APP_AI_PROVIDER:-disabled}
       APP_DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-work_management}:${POSTGRES_PASSWORD:-work_management}@postgres:5432/${POSTGRES_DB:-work_management}
       APP_EVIDENCE_STORAGE_ROOT: /var/lib/work-management/evidence
+      APP_REPORTING_TIMEZONE: ${APP_REPORTING_TIMEZONE:-Asia/Ho_Chi_Minh}
       APP_ENVIRONMENT: local
       APP_OPENAI_API_KEY: ${APP_OPENAI_API_KEY:-}
       APP_WORKER_ORGANIZATION_IDS: ${APP_WORKER_ORGANIZATION_IDS:-[]}

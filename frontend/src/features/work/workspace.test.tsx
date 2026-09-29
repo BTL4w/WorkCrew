@@ -305,6 +305,8 @@ describe("WorkWorkspace", () => {
       const path = String(input);
       if (path === "/api/v1/me") return response(employeeActor);
       if (path.startsWith("/api/v1/my-tasks")) return response(page([task]));
+      if (path.endsWith("/reporting-context")) return response({task_id:task.id,task_version:1,progress_version:0,reported_percent:null,remaining_hours:null,reporting_timezone:"UTC",reporting_date:"2026-09-29",project_week_state:"LINKED",evidence_refs:[]});
+      if (path.startsWith("/api/v1/daily-updates?")) return response([]);
       if (path.endsWith("/status") && init?.method === "POST") {
         keys.push(new Headers(init.headers).get("Idempotency-Key"));
         if (keys.length === 1) throw new TypeError("simulated connection loss");

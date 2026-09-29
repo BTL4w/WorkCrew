@@ -557,6 +557,19 @@ async def test_manual_planning_crud_security_concurrency_and_audit() -> None:
             # Privileged fixture cleanup only, scoped to the random test tenants.
             # PostgreSQL restores trigger state if this transaction fails.
             await connection.execute(
+                text("ALTER TABLE weekly_actual_snapshots DISABLE TRIGGER daily_fact_immutable")
+            )
+            await connection.execute(
+                text(
+                    "DELETE FROM weekly_actual_snapshots "
+                    "WHERE organization_id IN (:org,:foreign_org)"
+                ),
+                {"org": organization_id, "foreign_org": foreign_organization_id},
+            )
+            await connection.execute(
+                text("ALTER TABLE weekly_actual_snapshots ENABLE TRIGGER daily_fact_immutable")
+            )
+            await connection.execute(
                 text("ALTER TABLE weekly_plan_baselines DISABLE TRIGGER weekly_baseline_immutable")
             )
             await connection.execute(

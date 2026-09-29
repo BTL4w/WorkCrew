@@ -14,6 +14,11 @@ from app.modules.audit.adapters.database_models import AuditEventModel
 from app.modules.audit.domain.events import AuditOutcome
 from app.modules.identity.domain.auth import AuthenticatedActor
 from app.modules.planning_runs.adapters.database_models import OutboxEventModel
+from app.modules.progress.adapters.daily_update_models import (
+    TaskActualProjectionModel,
+    TaskProgressObservationModel,
+    WeeklyActualSnapshotModel,
+)
 from app.modules.progress.adapters.progress_models import WeeklyPlanBaselineModel
 from app.modules.progress.application.progress_ports import ProgressRepository
 from app.modules.progress.domain.weekly_progress import PlanBaseline, PlanEntry, TaskActual
@@ -147,11 +152,10 @@ async def capture_project_baselines(
                 else set()
             )
             current_ids = {UUID(entry["task_id"]) for entry in payload["task_entries"]}
-            payload["sealed_actuals"] = [
-                {"task_id": str(task.id), "status": str(task.status)}
-                for task in tasks
-                if task.id in original_ids | current_ids
-            ]
+            frozen_actuals = await load_task_actuals(
+                session, actor, [task for task in tasks if task.id in original_ids | current_ids]
+            )
+            payload["sealed_actuals"] = [actual_payload(actual) for actual in frozen_actuals]
 
         # Task version provenance is updated only when the plan facts change.
         def comparable(value: dict[str, Any]) -> dict[str, Any]:
@@ -179,6 +183,18 @@ async def capture_project_baselines(
                 payload=payload,
             )
         )
+        if week.status == "COMPLETED":
+            session.add(
+                WeeklyActualSnapshotModel(
+                    id=uuid4(),
+                    organization_id=actor.organization_id,
+                    project_week_id=week.id,
+                    owner_membership_id=actor.membership_id,
+                    kind="FINAL",
+                    captured_at=now,
+                    payload={"actuals": payload["sealed_actuals"]},
+                )
+            )
         session.add(
             AuditEventModel(
                 id=uuid4(),
@@ -212,6 +228,79 @@ async def capture_project_baselines(
             )
         )
     await session.flush()
+
+
+def actual_payload(actual: TaskActual) -> dict[str, Any]:
+    return {
+        "task_id": str(actual.task_id),
+        "progress_version": actual.progress_version,
+        "reported_percent": str(actual.reported_percent)
+        if actual.reported_percent is not None
+        else None,
+        "remaining_hours": str(actual.remaining_hours)
+        if actual.remaining_hours is not None
+        else None,
+        "observation_id": str(actual.observation_id) if actual.observation_id else None,
+        "reporting_at": actual.reporting_at.isoformat() if actual.reporting_at else None,
+        "status": actual.status,
+        "stale": actual.stale,
+    }
+
+
+def actual_from_payload(item: dict[str, Any]) -> TaskActual:
+    return TaskActual(
+        UUID(item["task_id"]),
+        item.get("progress_version", 0),
+        Decimal(item["reported_percent"]) if item.get("reported_percent") is not None else None,
+        Decimal(item["remaining_hours"]) if item.get("remaining_hours") is not None else None,
+        UUID(item["observation_id"]) if item.get("observation_id") else None,
+        datetime.fromisoformat(item["reporting_at"]) if item.get("reporting_at") else None,
+        item["status"],
+        item.get("stale", False),
+    )
+
+
+async def load_task_actuals(
+    session: AsyncSession, actor: AuthenticatedActor, tasks: list[TaskModel]
+) -> tuple[TaskActual, ...]:
+    rows = (
+        await session.execute(
+            select(TaskActualProjectionModel, TaskProgressObservationModel)
+            .outerjoin(
+                TaskProgressObservationModel,
+                (
+                    TaskActualProjectionModel.organization_id
+                    == TaskProgressObservationModel.organization_id
+                )
+                & (TaskActualProjectionModel.observation_id == TaskProgressObservationModel.id),
+            )
+            .where(
+                TaskActualProjectionModel.organization_id == actor.organization_id,
+                TaskActualProjectionModel.task_id.in_([task.id for task in tasks]),
+            )
+        )
+    ).all()
+    lookup = {projection.task_id: (projection, observation) for projection, observation in rows}
+    result: list[TaskActual] = []
+    for task in tasks:
+        pair = lookup.get(task.id)
+        projection, observation = pair if pair else (None, None)
+        stale = bool(
+            observation and (observation.owner_membership_id != task.assignee_membership_id)
+        )
+        result.append(
+            TaskActual(
+                task.id,
+                projection.progress_version if projection else 0,
+                observation.reported_percent if observation else None,
+                observation.remaining_hours if observation else None,
+                observation.id if observation else None,
+                observation.reporting_at if observation else None,
+                str(task.status),
+                stale,
+            )
+        )
+    return tuple(result)
 
 
 class SqlAlchemyProgressRepository:
@@ -286,12 +375,7 @@ class SqlAlchemyProgressRepository:
             return (
                 original,
                 current,
-                tuple(
-                    TaskActual(
-                        UUID(item["task_id"]), 0, None, None, None, None, item["status"], False
-                    )
-                    for item in frozen
-                ),
+                tuple(actual_from_payload(item) for item in frozen),
             )
         ids = {entry.task_id for plan in (original, current) for entry in plan.task_entries}
         tasks = (
@@ -301,11 +385,7 @@ class SqlAlchemyProgressRepository:
                 )
             )
         ).all()
-        # Task status is a distinct fact. No report exists yet in this slice.
-        actuals = tuple(
-            TaskActual(task.id, 0, None, None, None, None, str(task.status), False)
-            for task in tasks
-        )
+        actuals = await load_task_actuals(self.session, self.actor, list(tasks))
         return original, current, actuals
 
 

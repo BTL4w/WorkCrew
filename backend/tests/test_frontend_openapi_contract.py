@@ -229,3 +229,21 @@ def test_weekly_progress_openapi_matches_frontend_manifest() -> None:
             "required": contract.get("required", []),
             "properties": {key: _describe(value, schemas) for key, value in properties.items()},
         } == expected
+
+
+def test_daily_updates_openapi_matches_frontend_manifest() -> None:
+    schema = app.openapi()
+    manifest_path = (
+        Path(__file__).resolve().parents[2] / "frontend/src/features/work/openapi-contract.json"
+    )
+    manifest = json.loads(manifest_path.read_text())["daily_updates"]
+    schemas = cast(dict[str, object], schema["components"]["schemas"])
+    for path, methods in manifest["paths"].items():
+        assert set(schema["paths"][path]) == set(methods)
+    for name, expected in manifest["schemas"].items():
+        contract = cast(dict[str, object], schemas[name])
+        properties = cast(dict[str, dict[str, object]], contract["properties"])
+        assert {
+            "required": contract.get("required", []),
+            "properties": {key: _describe(value, schemas) for key, value in properties.items()},
+        } == expected

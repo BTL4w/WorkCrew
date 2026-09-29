@@ -4,6 +4,7 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Any, Literal
 from uuid import UUID
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from pydantic import Field, SecretStr, field_validator, model_validator
 from pydantic_settings import (
@@ -60,6 +61,17 @@ class Settings(BaseSettings):
         )
 
     evidence_storage_root: Path = Path("~/.local/share/work-management/evidence").expanduser()
+
+    reporting_timezone: str = "UTC"
+
+    @field_validator("reporting_timezone")
+    @classmethod
+    def validate_reporting_timezone(cls, value: str) -> str:
+        try:
+            ZoneInfo(value)
+        except ZoneInfoNotFoundError as exc:
+            raise ValueError("reporting_timezone must be an IANA timezone") from exc
+        return value
 
     name: str = "Work Management API"
     version: str = "0.1.0"

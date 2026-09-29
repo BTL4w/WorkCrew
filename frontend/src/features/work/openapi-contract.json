@@ -281,5 +281,196 @@
         }
       }
     }
+  },
+  "daily_updates": {
+    "paths": {
+      "/api/v1/daily-updates/drafts": [
+        "post"
+      ],
+      "/api/v1/daily-updates/drafts/{draft_id}": [
+        "get"
+      ],
+      "/api/v1/daily-updates/{draft_id}/draft": [
+        "patch"
+      ],
+      "/api/v1/daily-updates/{draft_id}/confirm": [
+        "post"
+      ],
+      "/api/v1/daily-updates": [
+        "post",
+        "get"
+      ],
+      "/api/v1/tasks/{task_id}/reporting-context": [
+        "get"
+      ]
+    },
+    "schemas": {
+      "ConfirmDailyUpdateCommand": {
+        "required": [
+          "draft_id",
+          "expected_draft_version"
+        ],
+        "properties": {
+          "draft_id": "string:uuid",
+          "expected_draft_version": "integer",
+          "assessment_id": "null|string:uuid",
+          "warning_acknowledgments": "array:string:uuid"
+        }
+      },
+      "ConfirmedDailyUpdate": {
+        "required": [
+          "id",
+          "draft_id",
+          "observations"
+        ],
+        "properties": {
+          "id": "string:uuid",
+          "draft_id": "string:uuid",
+          "observations": "array:ref:ConfirmedObservation",
+          "assessment_state": "literal:UNAVAILABLE"
+        }
+      },
+      "ConfirmedObservation": {
+        "required": [
+          "id",
+          "update_id",
+          "item",
+          "progress_version",
+          "reporting_at",
+          "confirmed_at",
+          "reporting_timezone",
+          "late",
+          "project_week_state"
+        ],
+        "properties": {
+          "id": "string:uuid",
+          "update_id": "string:uuid",
+          "item": "ref:DailyUpdateItemInput-Output",
+          "progress_version": "integer",
+          "reporting_at": "string:date-time",
+          "confirmed_at": "string:date-time",
+          "reporting_timezone": "string",
+          "late": "boolean",
+          "project_week_state": "literal:LINKED|NO_PROJECT_WEEK"
+        }
+      },
+      "DailyUpdateDraft": {
+        "required": [
+          "id",
+          "version",
+          "content_hash",
+          "items",
+          "reporting_timezone"
+        ],
+        "properties": {
+          "id": "string:uuid",
+          "version": "integer",
+          "content_hash": "string",
+          "items": "array:ref:DailyUpdateItemInput-Output",
+          "assessment_state": "literal:UNAVAILABLE",
+          "reporting_timezone": "string",
+          "confirmed_update_id": "null|string:uuid"
+        }
+      },
+      "DailyUpdateDraftRequest": {
+        "required": [
+          "items"
+        ],
+        "properties": {
+          "items": "array:ref:DailyUpdateItemInput-Input"
+        }
+      },
+      "DailyUpdateItemInput-Input": {
+        "required": [
+          "task_id",
+          "expected_task_version",
+          "expected_progress_version",
+          "reported_percent",
+          "reporting_date",
+          "done_text"
+        ],
+        "properties": {
+          "task_id": "string:uuid",
+          "expected_task_version": "integer",
+          "expected_progress_version": "integer",
+          "reported_percent": "number|string",
+          "remaining_hours": "null|number|string",
+          "spent_hours": "null|number|string",
+          "reporting_date": "string:date",
+          "done_text": "string[1,4000]",
+          "next_steps": "string[,4000]",
+          "evidence_refs": "array:ref:SelectedEvidence",
+          "corrects_observation_id": "null|string:uuid",
+          "correction_reason": "string[,1000]"
+        }
+      },
+      "DailyUpdateItemInput-Output": {
+        "required": [
+          "task_id",
+          "expected_task_version",
+          "expected_progress_version",
+          "reported_percent",
+          "reporting_date",
+          "done_text"
+        ],
+        "properties": {
+          "task_id": "string:uuid",
+          "expected_task_version": "integer",
+          "expected_progress_version": "integer",
+          "reported_percent": "string",
+          "remaining_hours": "null|string",
+          "spent_hours": "null|string",
+          "reporting_date": "string:date",
+          "done_text": "string[1,4000]",
+          "next_steps": "string[,4000]",
+          "evidence_refs": "array:ref:SelectedEvidence",
+          "corrects_observation_id": "null|string:uuid",
+          "correction_reason": "string[,1000]"
+        }
+      },
+      "DailyUpdateRevisionRequest": {
+        "required": [
+          "items",
+          "expected_version"
+        ],
+        "properties": {
+          "items": "array:ref:DailyUpdateItemInput-Input",
+          "expected_version": "integer"
+        }
+      },
+      "SelectedEvidence": {
+        "required": [
+          "evidence_id",
+          "version"
+        ],
+        "properties": {
+          "evidence_id": "string:uuid",
+          "version": "integer"
+        }
+      },
+      "TaskReportingContext": {
+        "required": [
+          "task_id",
+          "task_version",
+          "progress_version",
+          "reported_percent",
+          "remaining_hours",
+          "reporting_timezone",
+          "reporting_date",
+          "project_week_state"
+        ],
+        "properties": {
+          "task_id": "string:uuid",
+          "task_version": "integer",
+          "progress_version": "integer",
+          "reported_percent": "null|string",
+          "remaining_hours": "null|string",
+          "reporting_timezone": "string",
+          "reporting_date": "string:date",
+          "project_week_state": "literal:LINKED|NO_PROJECT_WEEK",
+          "evidence_refs": "array:ref:SelectedEvidence"
+        }
+      }
+    }
   }
 }
