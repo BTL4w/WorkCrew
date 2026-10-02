@@ -18,6 +18,7 @@ from app.modules.organization.adapters import database_models as organization_mo
 from app.modules.people_capacity.adapters import database_models as people_capacity_models
 from app.modules.planning_runs.adapters import database_models as planning_runs_models
 from app.modules.progress.adapters import (
+    assessment_models,
     completion_models,
     daily_update_models,
     evidence_models,
@@ -30,6 +31,7 @@ from app.modules.work.planning.assignment.adapters import database_models as tea
 from app.modules.work.planning.assignment.adapters import recommendation_models
 
 _MODEL_MODULES = (
+    assessment_models,
     completion_models,
     daily_update_models,
     evidence_models,

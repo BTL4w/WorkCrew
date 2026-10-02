@@ -345,6 +345,33 @@
     "empty": "No project weeks yet."
   },
   "dailyUpdate": {
+    "assessment": {
+      "stale": "This assessment is outdated. Assess the evidence again.",
+      "refresh": "Refresh assessment",
+      "title": "Evidence support",
+      "meaning": "This score measures correspondence with evidence, not the probability that the report is true.",
+      "claims": "{assessed} of {total} checkable claims assessed",
+      "sources": "{processed} of {total} original sources processed",
+      "pending": "Assessment is processing. Please wait.",
+      "unknown": "Unknown",
+      "noEvidence": "Not assessed: no evidence selected.",
+      "original": "Original evidence",
+      "acknowledge": "I have read these warnings and choose to submit this report.",
+      "request": "Assess evidence",
+      "confirmDespiteWarning": "Submit despite warnings",
+      "warning": {
+        "LOW_SUPPORT": "Evidence support is below 70/100.",
+        "CONTRADICTION": "Evidence contradicts part of the report.",
+        "INSUFFICIENT_ASSESSMENT": "Some claims or sources could not be assessed."
+      },
+      "finding": {
+        "SUPPORTED": "Supported",
+        "PARTIAL": "Partially supported",
+        "UNSUPPORTED": "Unsupported",
+        "CONTRADICTED": "Contradicted",
+        "UNASSESSABLE": "Cannot assess"
+      }
+    },
     "title": "Daily update",
     "independent": "Reported progress is separate from Task status and planned hours.",
     "noWeek": "No Project Week: this report stays at Task level.",
@@ -375,6 +402,10 @@
     "correcting": "Correcting report for {date}",
     "retry": "The result is uncertain. Confirm again to retry the same submission.",
     "error": {
+      "ASSESSMENT_REQUIRED": "Assess selected evidence before submitting.",
+      "STALE_ASSESSMENT": "The assessment changed. Review the current result.",
+      "WARNING_ACKNOWLEDGMENT_REQUIRED": "Read and acknowledge every current warning before submitting.",
+      "ASSESSMENT_PENDING": "Evidence assessment is still processing.",
       "UNKNOWN": "The report could not be saved. Please retry.",
       "FORBIDDEN": "This Task is unavailable for reporting. Reload to check access.",
       "RESOURCE_NOT_FOUND": "Task ownership or access has changed. Reload the Task.",

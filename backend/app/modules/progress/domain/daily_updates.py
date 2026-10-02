@@ -11,9 +11,10 @@ from pydantic import BaseModel, ConfigDict, Field
 
 
 class DailyUpdateError(Exception):
-    def __init__(self, code: str, status: int = 409):
+    def __init__(self, code: str, status: int = 409, *, details: dict[str, object] | None = None):
         super().__init__(code)
         self.code, self.status = code, status
+        self.details = details or {}
 
 
 class ReportingContract(BaseModel):
@@ -48,7 +49,9 @@ class DailyUpdateDraft(ReportingContract):
     version: int
     content_hash: str
     items: tuple[DailyUpdateItemInput, ...]
-    assessment_state: Literal["UNAVAILABLE"] = "UNAVAILABLE"
+    assessment_state: Literal["UNAVAILABLE", "PENDING", "READY", "NOT_ASSESSED_NO_EVIDENCE"] = (
+        "UNAVAILABLE"
+    )
     reporting_timezone: str
     confirmed_update_id: UUID | None = None
 
@@ -77,7 +80,9 @@ class ConfirmedDailyUpdate(ReportingContract):
     id: UUID
     draft_id: UUID
     observations: tuple[ConfirmedObservation, ...]
-    assessment_state: Literal["UNAVAILABLE"] = "UNAVAILABLE"
+    assessment_state: Literal["UNAVAILABLE", "PENDING", "READY", "NOT_ASSESSED_NO_EVIDENCE"] = (
+        "UNAVAILABLE"
+    )
 
 
 class TaskReportingContext(ReportingContract):

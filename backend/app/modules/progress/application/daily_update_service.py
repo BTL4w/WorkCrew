@@ -34,7 +34,13 @@ class DailyUpdateRepository(Protocol):
     async def remember(
         self, operation: str, key: str, fingerprint: str, result: dict[str, object]
     ) -> None: ...
-    async def confirm(self, draft: DailyUpdateDraft, at: datetime) -> ConfirmedDailyUpdate: ...
+    async def confirm(
+        self,
+        draft: DailyUpdateDraft,
+        at: datetime,
+        command: ConfirmDailyUpdateCommand,
+        assessment_available: bool = False,
+    ) -> ConfirmedDailyUpdate: ...
     async def history(self, task_id: UUID) -> tuple[ConfirmedObservation, ...]: ...
     async def context(self, task_id: UUID, timezone: str, at: datetime) -> TaskReportingContext: ...
     async def audit(
@@ -53,31 +59,17 @@ class DailyUpdateTransactions(Protocol):
     ) -> AbstractAsyncContextManager[DailyUpdateRepository]: ...
 
 
-class DailyUpdateAssessmentPolicy(Protocol):
-    def validate_confirmation(
-        self, draft: DailyUpdateDraft, command: ConfirmDailyUpdateCommand
-    ) -> None: ...
-
-
-class UnavailableAssessmentPolicy:
-    """Manual fallback policy; an active provider is authorized in Task 7."""
-
-    def validate_confirmation(
-        self, draft: DailyUpdateDraft, command: ConfirmDailyUpdateCommand
-    ) -> None:
-        if (
-            draft.assessment_state != "UNAVAILABLE"
-            or command.assessment_id
-            or command.warning_acknowledgments
-        ):
-            raise DailyUpdateError("ASSESSMENT_UNAVAILABLE", 422)
-
-
 class DailyUpdateService:
-    def __init__(self, transactions: DailyUpdateTransactions, reporting_timezone: str = "UTC"):
+    def __init__(
+        self,
+        transactions: DailyUpdateTransactions,
+        reporting_timezone: str = "UTC",
+        *,
+        assessment_available: bool = False,
+    ):
         self.transactions = transactions
         self.reporting_timezone = reporting_timezone
-        self.assessment_policy: DailyUpdateAssessmentPolicy = UnavailableAssessmentPolicy()
+        self.assessment_available = assessment_available
 
     async def create_draft(
         self,
@@ -103,7 +95,7 @@ class DailyUpdateService:
         ).hexdigest()
         operation = "daily_update.revise" if draft_id else "daily_update.draft"
         try:
-            self._key(key)
+            self.validate_key(key)
             async with self.transactions(actor) as repo:
                 await repo.authenticate()
                 replay = await repo.replay(operation, key, fingerprint)
@@ -157,7 +149,7 @@ class DailyUpdateService:
 
         fingerprint = hashlib.sha256(command.model_dump_json().encode()).hexdigest()
         try:
-            self._key(key)
+            self.validate_key(key)
             async with self.transactions(actor) as repo:
                 await repo.authenticate()
                 replay = await repo.replay("daily_update.confirm", key, fingerprint)
@@ -167,10 +159,9 @@ class DailyUpdateService:
                 if draft.version != command.expected_draft_version or draft.confirmed_update_id:
                     raise DailyUpdateError("STALE_DRAFT")
                 # Assessment availability is server-owned; client flags cannot turn it into a pass.
-                self.assessment_policy.validate_confirmation(draft, command)
                 at = datetime.now(UTC)
                 validate_items(draft.items, at, draft.reporting_timezone)
-                result = await repo.confirm(draft, at)
+                result = await repo.confirm(draft, at, command, self.assessment_available)
                 await repo.remember(
                     "daily_update.confirm", key, fingerprint, result.model_dump(mode="json")
                 )
@@ -210,6 +201,6 @@ class DailyUpdateService:
             )
 
     @staticmethod
-    def _key(key: str) -> None:
+    def validate_key(key: str) -> None:
         if not key or len(key) > 128 or not key.isascii() or any(c.isspace() for c in key):
             raise DailyUpdateError("IDEMPOTENCY_KEY_REQUIRED", 400)

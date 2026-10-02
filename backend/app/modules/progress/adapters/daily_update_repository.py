@@ -29,6 +29,7 @@ from app.modules.progress.adapters.daily_update_models import (
 from app.modules.progress.adapters.evidence_models import EvidenceOriginalModel
 from app.modules.progress.application.daily_update_service import DailyUpdateRepository
 from app.modules.progress.domain.daily_updates import (
+    ConfirmDailyUpdateCommand,
     ConfirmedDailyUpdate,
     ConfirmedObservation,
     DailyUpdateDraft,
@@ -242,7 +243,13 @@ class SqlAlchemyDailyUpdateRepository:
         ).one_or_none()
         return (result[0], result[1]) if result else None
 
-    async def confirm(self, draft: DailyUpdateDraft, at: datetime) -> ConfirmedDailyUpdate:
+    async def confirm(
+        self,
+        draft: DailyUpdateDraft,
+        at: datetime,
+        command: ConfirmDailyUpdateCommand,
+        assessment_available: bool = False,
+    ) -> ConfirmedDailyUpdate:
         # Match the planning lock order: project, then sorted Tasks, then work-log dates.
         task_ids = sorted(i.task_id for i in draft.items)
         preliminary = [await self._task(task_id) for task_id in task_ids]
@@ -262,6 +269,14 @@ class SqlAlchemyDailyUpdateRepository:
             )
         ).all()
         by_id = {t.id: t for t in tasks}
+        from app.modules.progress.adapters.assessment_repository import (
+            SqlAlchemyAssessmentRepository,
+        )
+
+        assessments = SqlAlchemyAssessmentRepository(self.session, self.actor)
+        assessment = await assessments.validate_confirmation(
+            draft, command, assessment_available=assessment_available
+        )
         projections: dict[UUID, TaskActualProjectionModel] = {}
         corrections: dict[UUID, TaskProgressObservationModel] = {}
         dates = {i.reporting_date for i in draft.items}
@@ -481,7 +496,14 @@ class SqlAlchemyDailyUpdateRepository:
             )
         )
         await self.session.flush()
-        return ConfirmedDailyUpdate(id=update_id, draft_id=draft.id, observations=tuple(results))
+        await assessments.record_confirmation(assessment, update_id)
+        assert assessment.state != "STALE"
+        return ConfirmedDailyUpdate(
+            id=update_id,
+            draft_id=draft.id,
+            observations=tuple(results),
+            assessment_state=assessment.state,
+        )
 
     async def history(self, task_id: UUID) -> tuple[ConfirmedObservation, ...]:
         await self._task(task_id, own=False)

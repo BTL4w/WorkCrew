@@ -304,6 +304,12 @@
       ],
       "/api/v1/tasks/{task_id}/reporting-context": [
         "get"
+      ],
+      "/api/v1/daily-updates/{draft_id}/assess": [
+        "post"
+      ],
+      "/api/v1/daily-updates/{draft_id}/evidence-assessments": [
+        "get"
       ]
     },
     "schemas": {
@@ -329,7 +335,7 @@
           "id": "string:uuid",
           "draft_id": "string:uuid",
           "observations": "array:ref:ConfirmedObservation",
-          "assessment_state": "literal:UNAVAILABLE"
+          "assessment_state": "literal:UNAVAILABLE|PENDING|READY|NOT_ASSESSED_NO_EVIDENCE"
         }
       },
       "ConfirmedObservation": {
@@ -369,7 +375,7 @@
           "version": "integer",
           "content_hash": "string",
           "items": "array:ref:DailyUpdateItemInput-Output",
-          "assessment_state": "literal:UNAVAILABLE",
+          "assessment_state": "literal:UNAVAILABLE|PENDING|READY|NOT_ASSESSED_NO_EVIDENCE",
           "reporting_timezone": "string",
           "confirmed_update_id": "null|string:uuid"
         }
@@ -471,6 +477,108 @@
           "reporting_date": "string:date",
           "project_week_state": "literal:LINKED|NO_PROJECT_WEEK",
           "evidence_refs": "array:ref:SelectedEvidence"
+        }
+      },
+      "AssessmentRequest": {
+        "required": [
+          "expected_version"
+        ],
+        "properties": {
+          "expected_version": "integer"
+        }
+      },
+      "AssessmentJobRef": {
+        "required": [
+          "id",
+          "draft_id",
+          "state"
+        ],
+        "properties": {
+          "id": "string:uuid",
+          "draft_id": "string:uuid",
+          "state": "string"
+        }
+      },
+      "DraftAssessment": {
+        "required": [
+          "draft_id",
+          "draft_version",
+          "state"
+        ],
+        "properties": {
+          "id": "null|string:uuid",
+          "draft_id": "string:uuid",
+          "draft_version": "integer",
+          "state": "literal:PENDING|READY|UNAVAILABLE|NOT_ASSESSED_NO_EVIDENCE|STALE",
+          "result": "null|ref:EvidenceSupportResult",
+          "claims": "array:ref:Claim",
+          "findings": "array:ref:ClaimFinding",
+          "coverage": "ref:SourceCoverage",
+          "warnings": "array:ref:AssessmentWarning",
+          "limitation": "string"
+        }
+      },
+      "EvidenceSupportResult": {
+        "required": [
+          "score",
+          "warning_codes",
+          "assessed_count",
+          "total_count"
+        ],
+        "properties": {
+          "score": "null|string",
+          "warning_codes": "array:literal:LOW_SUPPORT|CONTRADICTION|INSUFFICIENT_ASSESSMENT",
+          "assessed_count": "integer",
+          "total_count": "integer",
+          "rule_version": "literal:evidence-support.v1"
+        }
+      },
+      "Claim": {
+        "required": [
+          "id",
+          "source_span",
+          "text"
+        ],
+        "properties": {
+          "id": "string[1,128]",
+          "source_span": "string",
+          "category": "literal:WORK|OUTPUT|ACCEPTANCE_CRITERION",
+          "checkability": "boolean",
+          "text": "string[1,4000]",
+          "task_id": "null|string:uuid",
+          "evidence_refs": "array:ref:SelectedEvidence"
+        }
+      },
+      "ClaimFinding": {
+        "required": [
+          "claim_id",
+          "finding"
+        ],
+        "properties": {
+          "claim_id": "string",
+          "finding": "literal:SUPPORTED|PARTIAL|UNSUPPORTED|CONTRADICTED|UNASSESSABLE",
+          "source_refs": "array:ref:SelectedEvidence",
+          "limitation": "string[,2000]"
+        }
+      },
+      "SourceCoverage": {
+        "required": [
+          "processed_count",
+          "total_count"
+        ],
+        "properties": {
+          "processed_count": "integer",
+          "total_count": "integer"
+        }
+      },
+      "AssessmentWarning": {
+        "required": [
+          "id",
+          "code"
+        ],
+        "properties": {
+          "id": "string:uuid",
+          "code": "literal:LOW_SUPPORT|CONTRADICTION|INSUFFICIENT_ASSESSMENT"
         }
       }
     }

@@ -40,6 +40,8 @@ async def test_openapi_document_is_available() -> None:
         "/api/v1/daily-updates/drafts/{draft_id}",
         "/api/v1/daily-updates/{draft_id}/draft",
         "/api/v1/daily-updates/{draft_id}/confirm",
+        "/api/v1/daily-updates/{draft_id}/assess",
+        "/api/v1/daily-updates/{draft_id}/evidence-assessments",
         "/api/v1/tasks/{task_id}/reporting-context",
         "/api/v1/evidence",
         "/api/v1/evidence/{evidence_id}/versions/{version}",

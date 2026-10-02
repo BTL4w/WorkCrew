@@ -9,6 +9,7 @@ from app.modules.identity.adapters import database_models as identity_models
 from app.modules.organization.adapters import database_models as organization_models
 from app.modules.people_capacity.adapters import database_models as people_capacity_models
 from app.modules.progress.adapters import (
+    assessment_models,
     completion_models,
     daily_update_models,
     evidence_models,
@@ -18,6 +19,7 @@ from app.modules.progress.adapters import (
 from app.modules.work.adapters import database_models as work_models
 
 _MODEL_MODULES = (
+    assessment_models,
     completion_models,
     assistant_models,
     audit_models,
@@ -44,6 +46,8 @@ def test_active_phase_tables_are_registered() -> None:
         "daily_update_evidence_links",
         "weekly_actual_snapshots",
         "evidence_originals",
+        "evidence_assessments",
+        "warning_acknowledgments",
         "evidence_processing_jobs",
         "evidence_segments",
         "weekly_plan_baselines",

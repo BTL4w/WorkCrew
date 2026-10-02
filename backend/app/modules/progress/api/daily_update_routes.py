@@ -8,6 +8,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, Header, Request, Response
 from fastapi.routing import APIRoute
+from pydantic import BaseModel, ConfigDict, Field
 
 from app.api.errors import ApplicationError, ErrorResponse
 from app.core.config import Settings
@@ -18,6 +19,7 @@ from app.modules.progress.api.daily_update_schemas import (
     DailyUpdateRevisionRequest,
 )
 from app.modules.progress.api.dependencies import (
+    AssessmentServiceDependency,
     DailyUpdateServiceDependency,
     get_daily_update_service,
 )
@@ -29,6 +31,7 @@ from app.modules.progress.domain.daily_updates import (
     DailyUpdateError,
     TaskReportingContext,
 )
+from app.modules.progress.domain.evidence_support import AssessmentJobRef, DraftAssessment
 
 
 class DailyUpdateRoute(APIRoute):
@@ -69,7 +72,10 @@ Key = Annotated[str | None, Header(alias="Idempotency-Key")]
 
 def error(exc: DailyUpdateError) -> ApplicationError:
     return ApplicationError(
-        status_code=exc.status, code=exc.code, message_key=f"dailyUpdate.error.{exc.code}"
+        status_code=exc.status,
+        code=exc.code,
+        message_key=f"dailyUpdate.error.{exc.code}",
+        details=exc.details,
     )
 
 
@@ -198,5 +204,50 @@ async def reporting_context(
     response.headers["Cache-Control"] = "private, no-store"
     try:
         return await service.context(actor, task_id)
+    except DailyUpdateError as exc:
+        raise error(exc) from exc
+
+
+class AssessmentRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    expected_version: int = Field(ge=1)
+
+
+@router.post(
+    "/daily-updates/{draft_id}/assess",
+    response_model=AssessmentJobRef,
+    status_code=202,
+    responses=_ERRORS,
+)
+async def assess_update(
+    draft_id: UUID,
+    body: AssessmentRequest,
+    actor: ActorDependency,
+    service: AssessmentServiceDependency,
+    request: Request,
+    response: Response,
+    key: Key = None,
+) -> AssessmentJobRef:
+    response.headers["Cache-Control"] = "private, no-store"
+    request.state.mutation_rejection_audit = None
+    try:
+        return await service.assess(
+            actor, draft_id, body.expected_version, key or "", str(request.state.request_id)
+        )
+    except DailyUpdateError as exc:
+        raise error(exc) from exc
+
+
+@router.get(
+    "/daily-updates/{draft_id}/evidence-assessments",
+    response_model=DraftAssessment,
+    responses=_ERRORS,
+)
+async def get_assessment(
+    draft_id: UUID, actor: ActorDependency, service: AssessmentServiceDependency, response: Response
+) -> DraftAssessment:
+    response.headers["Cache-Control"] = "private, no-store"
+    try:
+        return await service.get_current(actor, draft_id)
     except DailyUpdateError as exc:
         raise error(exc) from exc

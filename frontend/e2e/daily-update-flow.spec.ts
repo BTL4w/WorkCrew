@@ -30,7 +30,9 @@ test("Employee confirms a manual report and corrects hours without changing Task
  const originalImage=execFileSync("uv",["run","--directory",backend,"python","-c","from PIL import Image; import sys; Image.new('RGB',(2,2),'white').save(sys.stdout.buffer,format='PNG')"]);
  const uploadResponse=page.waitForResponse(response=>response.request().method()==="POST" && response.url().endsWith("/api/v1/evidence"));
  await page.getByLabel("Chọn bằng chứng",{exact:true}).setInputFiles({name:"original-evidence.png",mimeType:"image/png",buffer:originalImage});
- expect((await uploadResponse).status()).toBe(201);
+ const uploaded=await uploadResponse;expect(uploaded.status()).toBe(201);
+ const proof=await uploaded.json();
+ await page.getByRole("checkbox",{name:`${proof.evidence_id} · v1`,exact:true}).check();
  await expect(page.getByRole("link",{name:"Tải xuống",exact:true})).toBeVisible();
  await expect(page.getByRole("button",{name:"Xem nguồn bằng chứng",exact:true})).toHaveCount(0);
  await page.getByLabel("Tiến độ báo cáo (%)",{exact:true}).fill("99");
@@ -38,9 +40,17 @@ test("Employee confirms a manual report and corrects hours without changing Task
  await page.getByLabel("Giờ còn lại",{exact:true}).fill("1");
  await page.getByLabel("Công việc đã làm",{exact:true}).fill(`Manual report ${Date.now()}`);
  await page.getByLabel("Lý do sửa báo cáo",{exact:true}).fill("Cập nhật thực tế");
+ const draftResponse=page.waitForResponse(response=>response.request().method()==="POST"&&response.url().endsWith("/api/v1/daily-updates/drafts"));
  await page.getByRole("button",{name:"Xem lại báo cáo",exact:true}).click();
  await expect(page.getByText("Chưa thể đánh giá minh chứng. Báo cáo sẽ được lưu ở trạng thái chưa đánh giá.")).toBeVisible();
- await page.getByRole("button",{name:"Xác nhận báo cáo",exact:true}).click();
+ const reportDraft=await(await draftResponse).json();
+ execFileSync("uv",["run","--directory",backend,"python",resolve(process.cwd(),"e2e/fixtures/evidence-assessment-seed.py"),reportDraft.id],{env:{...process.env,PYTHONPATH:backend,APP_DATABASE_URL:"postgresql+psycopg://work_management:work_management@localhost:5432/work_management_e2e"}});
+ await page.getByRole("button",{name:"Tải lại đánh giá",exact:true}).click();
+ await expect(page.getByRole("button",{name:"Vẫn gửi dù có cảnh báo",exact:true})).toBeDisabled();
+ await expect(page.getByText("Mức độ hỗ trợ của bằng chứng dưới 70/100.")).toBeVisible();
+ await page.getByRole("checkbox",{name:"Tôi đã đọc các cảnh báo này và vẫn muốn gửi báo cáo.",exact:true}).check();
+ await page.getByRole("button",{name:"Vẫn gửi dù có cảnh báo",exact:true}).click();
+
  await expect(page.getByRole("status")).toHaveText("Đã xác nhận báo cáo");
  await page.getByRole("button",{name:"Sửa bản báo cáo",exact:true}).first().click();
  await page.getByLabel("Giờ đã làm",{exact:true}).fill("2");

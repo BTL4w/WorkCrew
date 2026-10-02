@@ -345,6 +345,33 @@
     "empty": "Chưa có tuần dự án."
   },
   "dailyUpdate": {
+    "assessment": {
+      "stale": "Đánh giá này đã hết hiệu lực. Hãy đánh giá bằng chứng lại.",
+      "refresh": "Tải lại đánh giá",
+      "title": "Mức độ hỗ trợ của bằng chứng",
+      "meaning": "Điểm thể hiện mức độ nội dung được bằng chứng hỗ trợ, không phải xác suất báo cáo là đúng.",
+      "claims": "Đã đánh giá {assessed} trên {total} nội dung có thể đối chiếu",
+      "sources": "Đã đọc {processed} trên {total} nguồn gốc",
+      "pending": "Đang đánh giá bằng chứng. Vui lòng chờ.",
+      "unknown": "Chưa xác định",
+      "noEvidence": "Chưa đánh giá: chưa chọn bằng chứng.",
+      "original": "Bằng chứng gốc",
+      "acknowledge": "Tôi đã đọc các cảnh báo này và vẫn muốn gửi báo cáo.",
+      "request": "Đánh giá bằng chứng",
+      "confirmDespiteWarning": "Vẫn gửi dù có cảnh báo",
+      "warning": {
+        "LOW_SUPPORT": "Mức độ hỗ trợ của bằng chứng dưới 70/100.",
+        "CONTRADICTION": "Bằng chứng mâu thuẫn với một phần báo cáo.",
+        "INSUFFICIENT_ASSESSMENT": "Một số nội dung hoặc nguồn chưa thể đánh giá."
+      },
+      "finding": {
+        "SUPPORTED": "Được hỗ trợ",
+        "PARTIAL": "Được hỗ trợ một phần",
+        "UNSUPPORTED": "Chưa được hỗ trợ",
+        "CONTRADICTED": "Mâu thuẫn",
+        "UNASSESSABLE": "Chưa thể đánh giá"
+      }
+    },
     "title": "Báo cáo hằng ngày",
     "independent": "Tiến độ báo cáo độc lập với trạng thái task và giờ dự kiến.",
     "noWeek": "Chưa có tuần dự án: báo cáo chỉ tính ở cấp task.",
@@ -375,6 +402,10 @@
     "correcting": "Đang sửa báo cáo ngày {date}",
     "retry": "Chưa rõ kết quả. Xác nhận lại để gửi lại cùng yêu cầu.",
     "error": {
+      "ASSESSMENT_REQUIRED": "Hãy đánh giá bằng chứng đã chọn trước khi gửi.",
+      "STALE_ASSESSMENT": "Đánh giá đã thay đổi. Hãy xem kết quả hiện tại.",
+      "WARNING_ACKNOWLEDGMENT_REQUIRED": "Hãy đọc và xác nhận tất cả cảnh báo hiện tại trước khi gửi.",
+      "ASSESSMENT_PENDING": "Bằng chứng vẫn đang được đánh giá.",
       "UNKNOWN": "Không lưu được báo cáo. Vui lòng thử lại.",
       "FORBIDDEN": "Không thể báo cáo task này. Tải lại để kiểm tra quyền.",
       "RESOURCE_NOT_FOUND": "Người phụ trách hoặc quyền truy cập đã thay đổi. Tải lại task.",

@@ -57,3 +57,28 @@ it("retries an uncertain confirmation with the same draft and idempotency key",a
  expect(submissions).toHaveLength(2);
  expect(submissions[0]).toEqual(submissions[1]);
 });
+
+it("blocks warning submission until acknowledgment and sends exact assessment and warning ids",async()=>{
+ const warningId="22222222-2222-4222-8222-222222222222";
+ const requests:Array<Record<string,unknown>>=[];
+ const assessed={id:warningId,draft_id:taskId,draft_version:1,state:"READY",result:{score:"0",warning_codes:["LOW_SUPPORT"],assessed_count:1,total_count:1,rule_version:"evidence-support.v1"},claims:[],findings:[],coverage:{processed_count:1,total_count:1},warnings:[{id:warningId,code:"LOW_SUPPORT"}],limitation:""};
+ vi.stubGlobal("fetch",vi.fn().mockImplementation(async(path:string,options?:RequestInit)=>{
+  let payload:unknown=context;let status=200;
+  if(path.includes("task_id="))payload=[];
+  if(path.endsWith("drafts")&&options?.method==="POST"){payload={id:taskId,version:1,content_hash:"a".repeat(64),items:JSON.parse(String(options.body)).items,assessment_state:"UNAVAILABLE",reporting_timezone:"UTC",confirmed_update_id:null};status=201;}
+  if(path.endsWith("/assess")){payload={id:warningId,draft_id:taskId,state:"PENDING"};status=202;}
+  if(path.endsWith("/evidence-assessments"))payload=assessed;
+  if(path.endsWith("/daily-updates")&&options?.method==="POST"){requests.push(JSON.parse(String(options.body)));payload={id:taskId,draft_id:taskId,assessment_state:"READY",observations:[]};status=201;}
+  return new Response(JSON.stringify(payload),{status,headers:{"Content-Type":"application/json"}});
+ }));
+ render(<QueryClientProvider client={new QueryClient({defaultOptions:{queries:{retry:false}}})}><AppLocaleProvider initialLocale="en"><DailyUpdateForm taskId={taskId} taskVersion={1} organizationId="org" actorMembershipId="member"/></AppLocaleProvider></QueryClientProvider>);
+ fireEvent.change(await screen.findByLabelText("Reported progress (%)"),{target:{value:"99"}});
+ fireEvent.change(screen.getByLabelText("Work completed"),{target:{value:"Prepared"}});
+ fireEvent.click(screen.getByRole("button",{name:"Review report"}));
+ fireEvent.click(await screen.findByRole("button",{name:"Assess evidence"}));
+ const submit=await screen.findByRole("button",{name:"Submit despite warnings"});
+ expect(submit).toBeDisabled();expect(requests).toHaveLength(0);
+ fireEvent.click(screen.getByRole("checkbox"));expect(submit).toBeEnabled();fireEvent.click(submit);
+ await waitFor(()=>expect(screen.getByRole("status")).toHaveTextContent("Report confirmed"));
+ expect(requests[0]).toMatchObject({assessment_id:warningId,warning_acknowledgments:[warningId]});
+});
