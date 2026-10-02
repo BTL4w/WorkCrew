@@ -1,3 +1,4 @@
+import { DailyUpdateBlock } from "./blocks/daily-update-block";
 import { useTranslations } from "next-intl";
 
 import type { ProposalContent } from "@/features/ai-proposals/contracts";
@@ -187,6 +188,7 @@ function BlockView({ block, canManage, onEdit, onRevise, onApprove, onReject, on
       onOpenTeam={onContinueManually ? () => onContinueManually() : undefined}
     />;
     case "team_decision_result": return <TeamDecisionBlock block={block} />;
+    case "daily_update": return <DailyUpdateBlock block={block} />;
     case "assignment_result": return <AssignmentResultBlock block={block} />;
     case "safe_error": return <SafeErrorBlock block={block} onContinueManually={onContinueManually} />;
   }

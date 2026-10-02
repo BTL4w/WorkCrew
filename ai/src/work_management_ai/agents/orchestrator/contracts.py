@@ -6,6 +6,7 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from work_management_ai.agents.daily_update.contracts import DailyUpdateHandoff
 from work_management_ai.runtime.contracts import (
     ActorReference,
     AgentHandoff,
@@ -197,6 +198,8 @@ class PendingFollowup(_StrictFrozenModel):
 
 
 class ActiveConversationContext(_StrictFrozenModel):
+    daily_update: DailyUpdateHandoff | None = None
+    daily_update_resolution_issue: bool = False
     recent_messages: tuple[ConversationExcerpt, ...] = Field(max_length=12)
     active_planning: ActivePlanningContext | None = None
     active_team: ActiveTeamContext | None = None

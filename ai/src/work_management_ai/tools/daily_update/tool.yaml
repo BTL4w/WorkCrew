@@ -1,0 +1,17 @@
+schema_version: "1.0"
+name: daily_update.prepare
+version: "1.0.0"
+owner: progress-agent
+tenant_scope: actor_membership
+roles: [ADMIN, MANAGER, EMPLOYEE]
+risk_level: PROPOSAL_ONLY
+input_contract: work_management_ai.tools.daily_update.contracts.DailyUpdateToolInput
+output_contract: work_management_ai.tools.daily_update.contracts.DailyUpdateToolOutput
+timeout_seconds: 120
+max_attempts: 1
+retry_policy: NONE
+idempotency: REQUIRED
+audit: REQUIRED
+evidence_output: true
+freshness_output: true
+trace_metadata: [tool_id, duration_ms, result_status, evidence_count]

@@ -2,6 +2,7 @@
 
 import asyncio
 import hashlib
+from collections.abc import Callable
 from contextlib import AbstractAsyncContextManager
 from typing import Protocol
 from uuid import UUID, uuid4
@@ -17,6 +18,7 @@ from app.modules.progress.domain.daily_updates import (
 )
 from app.modules.progress.domain.evidence_support import (
     AssessmentJobRef,
+    AssessmentProvenance,
     AssessmentWarning,
     Claim,
     ClaimFinding,
@@ -26,7 +28,22 @@ from app.modules.progress.domain.evidence_support import (
 )
 
 
+class CriterionContext(ReportingContract):
+    id: UUID
+    version: int
+    text: str
+
+
+class TaskAssessmentContext(ReportingContract):
+    task_id: UUID
+    task_version: int
+    title: str
+    description: str
+    criteria: tuple[CriterionContext, ...] = ()
+
+
 class OriginalSource(ReportingContract):
+    task_contexts: tuple[TaskAssessmentContext, ...] = ()
     evidence_id: UUID
     version: int
     sha256: str
@@ -34,6 +51,8 @@ class OriginalSource(ReportingContract):
 
 
 class EvidenceComparisonResult(ReportingContract):
+    provenance: AssessmentProvenance | None = None
+    claims: tuple[Claim, ...] | None = None
     findings: tuple[ClaimFinding, ...]
     # Trusted adapter receipts for wholly processed originals, never model-owned counters.
     processed_sources: tuple[SelectedEvidence, ...]
@@ -100,7 +119,10 @@ class AssessmentService:
         transactions: AssessmentTransactions,
         comparison: EvidenceComparisonPort | None = None,
         budget: ComparisonBudget | None = None,
+        comparison_factory: Callable[[AuthenticatedActor, UUID], EvidenceComparisonPort]
+        | None = None,
     ):
+        self.comparison_factory = comparison_factory
         self.transactions = transactions
         self.comparison = comparison or UnavailableComparison()
         self.budget = budget or ComparisonBudget()
@@ -157,8 +179,13 @@ class AssessmentService:
                         or len(sources) > self.budget.max_sources
                     ):
                         raise DailyUpdateError("ASSESSMENT_BUDGET", 422)
+                    comparator = (
+                        self.comparison_factory(actor, pending.id)
+                        if self.comparison_factory
+                        else self.comparison
+                    )
                     comparison = await asyncio.wait_for(
-                        self.comparison.compare(claims, sources, self.budget),
+                        comparator.compare(claims, sources, self.budget),
                         timeout=self.budget.timeout_seconds,
                     )
                     # Revalidate even in-process adapters; untyped objects grant nothing.
@@ -172,6 +199,8 @@ class AssessmentService:
                         comparison.processed_sources
                     ) or not processed.issubset(expected_sources):
                         raise DailyUpdateError("INVALID_ASSESSMENT", 422)
+                    if comparison.claims is not None:
+                        claims = comparison.claims
                     findings = comparison.findings
                     coverage = SourceCoverage(
                         processed_count=len(processed), total_count=len(sources)
@@ -190,13 +219,23 @@ class AssessmentService:
                         findings=findings,
                         coverage=coverage,
                         warnings=warnings,
+                        provenance=comparison.provenance,
                     )
-                except Exception:
+                except Exception as error:
+                    safe_limitations = {
+                        "ORIGINAL_FORMAT_UNSUPPORTED",
+                        "MEDIA_TOKEN_BOUND_UNAVAILABLE",
+                        "DAILY_UPDATE_MODEL_BUDGET_EXHAUSTED",
+                        "ORIGINAL_CONTEXT_LIMIT",
+                    }
+                    limitation = (
+                        str(error) if str(error) in safe_limitations else "COMPARISON_UNAVAILABLE"
+                    )
                     terminal = pending.model_copy(
                         update={
                             "state": "UNAVAILABLE",
                             "claims": claims,
-                            "limitation": "COMPARISON_UNAVAILABLE",
+                            "limitation": limitation,
                         }
                     )
             async with self.transactions(actor) as repo:

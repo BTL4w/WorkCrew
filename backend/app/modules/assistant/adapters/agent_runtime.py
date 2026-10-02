@@ -11,6 +11,7 @@ from uuid import NAMESPACE_URL, UUID, uuid5
 
 from pydantic import BaseModel
 
+from app.modules.assistant.adapters.daily_update_tools import DailyUpdateContextResolver
 from app.modules.assistant.application.ports import AssistantTransactionFactory
 from app.modules.assistant.domain.models import (
     AgentCheckpoint,
@@ -27,6 +28,7 @@ from app.modules.assistant.domain.models import (
 )
 from app.modules.identity.domain.auth import AuthenticatedActor
 from work_management_ai.agents.assignment.harness import AssignmentAgentHarness
+from work_management_ai.agents.daily_update.harness import DailyUpdateHarness
 from work_management_ai.agents.orchestrator.contracts import (
     ActiveConversationContext,
     ActivePlanningContext,
@@ -53,6 +55,7 @@ from work_management_ai.model_gateway.errors import (
     ModelUnavailableError,
 )
 from work_management_ai.runtime.agent_registry import AgentRegistry
+from work_management_ai.runtime.budgeted_gateway import BudgetedDailyGateway
 from work_management_ai.runtime.contracts import (
     ActivityResponseBlock,
     ActorReference,
@@ -67,6 +70,12 @@ from work_management_ai.runtime.contracts import (
     ToolExecutionResult,
     ToolExecutorPort,
 )
+from work_management_ai.runtime.daily_update_budget import (
+    MODEL_ATTEMPT_SCOPE,
+    BudgetScope,
+    UsageStore,
+    daily_model_scope,
+)
 from work_management_ai.runtime.execution_engine import (
     AgentExecutionEngine,
     DurableSpecialistRunner,
@@ -80,6 +89,8 @@ from work_management_ai.runtime.skill_registry import SkillRegistry
 from work_management_ai.runtime.tool_registry import ToolRegistry
 
 _SKILL_RESOURCES = (
+    ("work_management_ai.skills.extract_daily_update", "skill.yaml"),
+    ("work_management_ai.skills.compare_daily_update_evidence", "skill.yaml"),
     ("work_management_ai.skills.answer_work_question", "skill.yaml"),
     ("work_management_ai.skills.create_project_plan", "skill.yaml"),
     ("work_management_ai.skills.revise_project_plan", "skill.yaml"),
@@ -87,6 +98,7 @@ _SKILL_RESOURCES = (
     ("work_management_ai.skills.analyze_workload", "skill.yaml"),
 )
 _TOOL_RESOURCES = (
+    ("work_management_ai.tools.daily_update", "tool.yaml"),
     ("work_management_ai.tools.work.read_my_tasks", "tool.yaml"),
     ("work_management_ai.tools.work.read_resource", "tool.yaml"),
     ("work_management_ai.tools.planning.manage_run", "tool.yaml"),
@@ -95,6 +107,7 @@ _TOOL_RESOURCES = (
     ("work_management_ai.tools.assignment.assign_task", "tool.yaml"),
 )
 _AGENT_RESOURCES = (
+    ("work_management_ai.agents.daily_update", "agent.yaml"),
     ("work_management_ai.agents.orchestrator", "agent.yaml"),
     ("work_management_ai.agents.work_intelligence", "agent.yaml"),
     ("work_management_ai.agents.planning", "agent.yaml"),
@@ -103,6 +116,7 @@ _AGENT_RESOURCES = (
 _EVALUATORS = frozenset(
     {
         "orchestrator_plan@1",
+        "daily_update_grounding@1",
         "work_grounding@1",
         "planning_schema@1",
         "planning_invariants@1",
@@ -259,7 +273,11 @@ class AgentRecordingModelGateway:
             invocation = AgentModelInvocation(
                 id=uuid5(
                     NAMESPACE_URL,
-                    f"agent-model:{agent_run_id}:{request.invocation_key}",
+                    (
+                        f"agent-model:{agent_run_id}:{request.invocation_key}:{MODEL_ATTEMPT_SCOPE.get()}"
+                        if MODEL_ATTEMPT_SCOPE.get() is not None
+                        else f"agent-model:{agent_run_id}:{request.invocation_key}"
+                    ),
                 ),
                 organization_id=organization_id,
                 agent_run_id=agent_run_id,
@@ -267,7 +285,11 @@ class AgentRecordingModelGateway:
                 model=model if separator else "unavailable",
                 prompt_version=request.invocation_key[:64],
                 schema_version="1.0",
-                invocation_key=request.invocation_key,
+                invocation_key=(
+                    f"{request.invocation_key}:attempt:{MODEL_ATTEMPT_SCOPE.get()}"
+                    if MODEL_ATTEMPT_SCOPE.get() is not None
+                    else request.invocation_key
+                ),
                 status=status,
                 duration_ms=max(0, int((monotonic() - started) * 1000)),
                 safe_error_code=safe_error_code,
@@ -291,12 +313,26 @@ def _safe_model_error_code(error: Exception) -> str:
 
 
 class _ScopedAgentHarness:
-    def __init__(self, harness: AgentHarness) -> None:
+    def __init__(self, harness: AgentHarness, usage_store: UsageStore | None = None) -> None:
         self._harness = harness
+        self._usage_store = usage_store
 
     async def run(self, handoff: AgentHandoff) -> AgentResult:
         run_id = uuid5(NAMESPACE_URL, f"agent-run:{handoff.idempotency_key}")
         with agent_model_scope(handoff.actor.organization_id, run_id):
+            if handoff.target_agent_id is AgentId.DAILY_UPDATE:
+                scope = BudgetScope(
+                    organization_id=handoff.actor.organization_id,
+                    membership_id=handoff.actor.membership_id,
+                    run_id=run_id,
+                )
+                with daily_model_scope(scope):
+                    result = await self._harness.run(handoff)
+                if self._usage_store is not None:
+                    result = result.model_copy(
+                        update={"model_attempts_used": await self._usage_store.run_attempts(scope)}
+                    )
+                return result
             return await self._harness.run(handoff)
 
 
@@ -388,6 +424,9 @@ def build_execution_engine_factory(
     transaction_factory: AssistantTransactionFactory,
     planning_tool_executor: ToolExecutorPort | None = None,
     assignment_tool_executor: ToolExecutorPort | None = None,
+    daily_update_tool_executor: ToolExecutorPort | None = None,
+    daily_usage_store: UsageStore | None = None,
+    daily_image_token_bound: int | None = None,
 ) -> Callable[[ExecutionRecorderPort], AgentExecutionEngine]:
     """Compose hub-and-spoke Harnesses without opening a database transaction."""
     agent_actor_resolver = CurrentAgentActorResolver(actor_resolver)
@@ -417,6 +456,23 @@ def build_execution_engine_factory(
             )
         ),
     }
+
+    if daily_update_tool_executor is not None and daily_usage_store is not None:
+        harnesses = {
+            **harnesses,
+            AgentId.DAILY_UPDATE: _ScopedAgentHarness(
+                DailyUpdateHarness(
+                    model_gateway=BudgetedDailyGateway(
+                        recording_gateway,
+                        daily_usage_store,
+                        image_token_bound=daily_image_token_bound,
+                    ),
+                    tool_executor=daily_update_tool_executor,
+                    actor_resolver=agent_actor_resolver,
+                ),
+                usage_store=daily_usage_store,
+            ),
+        }
 
     def factory(recorder: ExecutionRecorderPort) -> AgentExecutionEngine:
         specialists = DurableSpecialistRunner(recorder=recorder, harnesses=harnesses)
@@ -469,7 +525,7 @@ class PostgreSQLExecutionRecorder(ExecutionRecorderPort):
                 organization_id=self._job.organization_id, run_id=run_id
             )
             if existing is None:
-                registered = self._registry.resolve(AgentId.ORCHESTRATOR, "1.0.0", 3)
+                registered = self._registry.resolve(AgentId.ORCHESTRATOR, "1.0.0", 4)
                 run = AgentRun.create(
                     id=run_id,
                     organization_id=self._job.organization_id,
@@ -538,6 +594,18 @@ class PostgreSQLExecutionRecorder(ExecutionRecorderPort):
                 organization_id=self._job.organization_id, run_id=run_id
             )
             if existing is not None:
+                if (
+                    existing.agent_id == "daily_update"
+                    and existing.status is DomainAgentRunStatus.AWAITING_HUMAN
+                ):
+                    if existing.typed_output is None:
+                        raise RuntimeError("DAILY_UPDATE_REPLAY_RESULT_MISSING")
+                    await transaction.commit()
+                    return RecordedAgentRun(
+                        id=existing.id,
+                        status=AgentRunStatus.AWAITING_HUMAN,
+                        replayed_result=AgentResult.model_validate(existing.typed_output),
+                    )
                 if existing.status in {
                     DomainAgentRunStatus.AWAITING_INPUT,
                     DomainAgentRunStatus.AWAITING_HUMAN,
@@ -557,7 +625,7 @@ class PostgreSQLExecutionRecorder(ExecutionRecorderPort):
                     replayed_result=replayed,
                 )
             registered = self._registry.resolve(
-                handoff.target_agent_id, handoff.target_agent_version, 3
+                handoff.target_agent_id, handoff.target_agent_version, 4
             )
             await transaction.repository.append_handoff(
                 handoff=AgentHandoffRecord(
@@ -611,6 +679,7 @@ class PostgreSQLExecutionRecorder(ExecutionRecorderPort):
                     usage={
                         "iterations": result.iterations_used,
                         "tool_calls": result.tool_calls_used,
+                        "model_attempts": result.model_attempts_used,
                     },
                 )
             elif result.status in {
@@ -624,6 +693,7 @@ class PostgreSQLExecutionRecorder(ExecutionRecorderPort):
                     usage={
                         "iterations": result.iterations_used,
                         "tool_calls": result.tool_calls_used,
+                        "model_attempts": result.model_attempts_used,
                     },
                 )
             else:
@@ -684,11 +754,13 @@ class AssistantTurnExecutor:
         registry: AgentRegistry,
         engine_factory: Callable[[ExecutionRecorderPort], AgentExecutionEngine],
         assignment_context_resolver: AssignmentContextResolverPort | None = None,
+        daily_update_context_resolver: DailyUpdateContextResolver | None = None,
     ) -> None:
         self._transactions = transaction_factory
         self._registry = registry
         self._engine_factory = engine_factory
         self._assignment_context_resolver = assignment_context_resolver
+        self._daily_update_context_resolver = daily_update_context_resolver
 
     async def execute_job(self, *, job: AssistantJob, actor: AuthenticatedActor) -> None:
         async with self._transactions(actor) as transaction:
@@ -806,6 +878,12 @@ class AssistantTurnExecutor:
             assignment_resolution_issue = assignment_resolution.issue
             if assignment_resolution.team_context is not None:
                 active_team = assignment_resolution.team_context
+        daily_update = None
+        daily_issue = False
+        if self._daily_update_context_resolver is not None:
+            daily_update, daily_issue = await self._daily_update_context_resolver.resolve(
+                actor=actor, message=turn.objective, locale=turn.locale
+            )
         recorder = PostgreSQLExecutionRecorder(
             transaction_factory=self._transactions,
             registry=self._registry,
@@ -838,6 +916,8 @@ class AssistantTurnExecutor:
                 ),
                 active_context=ActiveConversationContext(
                     recent_messages=tuple(excerpts),
+                    daily_update=daily_update,
+                    daily_update_resolution_issue=daily_issue,
                     active_planning=active_planning,
                     active_team=active_team,
                     exact_assignment=exact_assignment,

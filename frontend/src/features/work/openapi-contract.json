@@ -97,6 +97,7 @@
       "team_recommendation": "#/components/schemas/TeamRecommendationBlock",
       "team_decision_result": "#/components/schemas/TeamDecisionResultBlock",
       "assignment_result": "#/components/schemas/AssignmentResultBlock",
+      "daily_update": "#/components/schemas/DailyUpdateBlock",
       "work_evidence": "#/components/schemas/WorkEvidenceBlock"
     },
     "schemas": {
@@ -506,6 +507,7 @@
           "state"
         ],
         "properties": {
+          "provenance": "null|ref:AssessmentProvenance",
           "id": "null|string:uuid",
           "draft_id": "string:uuid",
           "draft_version": "integer",

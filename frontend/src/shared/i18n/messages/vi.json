@@ -345,7 +345,19 @@
     "empty": "Chưa có tuần dự án."
   },
   "dailyUpdate": {
+    "chat": {
+      "review": "Kiểm tra bản nháp do AI đề xuất trước khi xác nhận.",
+      "discard": "Bỏ bản nháp này",
+      "stale": "Bản nháp đã thay đổi. Hãy mở lại bản mới nhất.",
+      "clarify": "Hãy cung cấp công việc, tiến độ và việc đã làm."
+    },
     "assessment": {
+      "limitation": {
+        "ORIGINAL_FORMAT_UNSUPPORTED": "PDF/DOCX chưa được hỗ trợ để model đọc trực tiếp. Bạn có thể kiểm tra bản gốc và xác nhận thủ công.",
+        "MEDIA_TOKEN_BOUND_UNAVAILABLE": "Model hiện tại chưa có giới hạn đầu vào ảnh đã xác minh. Đánh giá không khả dụng.",
+        "DAILY_UPDATE_MODEL_BUDGET_EXHAUSTED": "Đã đạt giới hạn sử dụng model cho báo cáo hoặc phiên bản bằng chứng này.",
+        "ORIGINAL_CONTEXT_LIMIT": "Bằng chứng đã chọn vượt giới hạn đọc. Không có bằng chứng nào bị âm thầm bỏ qua."
+      },
       "stale": "Đánh giá này đã hết hiệu lực. Hãy đánh giá bằng chứng lại.",
       "refresh": "Tải lại đánh giá",
       "title": "Mức độ hỗ trợ của bằng chứng",

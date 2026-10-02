@@ -12,6 +12,7 @@ from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 from app.core.config import get_settings
 from app.modules.assistant.adapters.agent_runtime import (
+    AgentRecordingModelGateway,
     AssistantAgentRuntime,
     AssistantTurnExecutor,
     build_agent_registry,
@@ -21,6 +22,10 @@ from app.modules.assistant.adapters.assignment_tools import (
     AssignmentApplicationService,
     AssistantAssignmentContextResolver,
     AssistantAssignmentToolAdapter,
+)
+from app.modules.assistant.adapters.daily_update_tools import (
+    DailyUpdateContextResolver,
+    DailyUpdateToolAdapter,
 )
 from app.modules.assistant.adapters.planning_tools import AssistantPlanningToolAdapter
 from app.modules.assistant.adapters.title_gateway import build_title_gateway
@@ -52,6 +57,13 @@ from app.modules.planning_runs.application.outbox_service import (
 )
 from app.modules.planning_runs.application.proposal_service import ProposalService
 from app.modules.planning_runs.application.run_service import PlanningRunService
+from app.modules.progress.adapters.daily_update_runtime import (
+    build_daily_services,
+    image_token_bound,
+)
+from app.modules.progress.adapters.evidence_repository import SqlAlchemyEvidenceTransactionFactory
+from app.modules.progress.adapters.filesystem_storage import FilesystemEvidenceStorage
+from app.modules.progress.application.evidence_service import EvidenceService
 from app.modules.work.adapters.project_repository import SqlAlchemyProjectTransactionFactory
 from app.modules.work.adapters.task_repository import SqlAlchemyTaskTransactionFactory
 from app.modules.work.application.project_service import ProjectService
@@ -267,17 +279,42 @@ async def _run_worker() -> None:
         tool_registry=tool_registry,
         backend=AssistantAssignmentToolAdapter(application=assignment_application),
     )
+    model_gateway = build_model_gateway(settings)
+    daily_updates, daily_assessments, daily_usage = build_daily_services(
+        sessions=session_factory,
+        settings=settings,
+        gateway=AgentRecordingModelGateway(
+            gateway=model_gateway, transaction_factory=assistant_transaction_factory
+        ),
+        evidence=EvidenceService(
+            SqlAlchemyEvidenceTransactionFactory(session_factory),
+            FilesystemEvidenceStorage(settings.evidence_storage_root),
+        ),
+    )
+    daily_tools = RecordingToolExecutor(
+        transaction_factory=assistant_transaction_factory,
+        tool_registry=tool_registry,
+        backend=DailyUpdateToolAdapter(
+            actors=actor_resolver, updates=daily_updates, assessments=daily_assessments
+        ),
+    )
     turn_executor = AssistantTurnExecutor(
         transaction_factory=assistant_transaction_factory,
         registry=registry,
         engine_factory=build_execution_engine_factory(
-            model_gateway=build_model_gateway(settings),
+            model_gateway=model_gateway,
             registry=registry,
             actor_resolver=actor_resolver,
             work_tool_executor=work_tool_executor,
             transaction_factory=assistant_transaction_factory,
             planning_tool_executor=planning_tool_executor,
             assignment_tool_executor=assignment_tool_executor,
+            daily_update_tool_executor=daily_tools,
+            daily_usage_store=daily_usage,
+            daily_image_token_bound=image_token_bound(settings),
+        ),
+        daily_update_context_resolver=DailyUpdateContextResolver(
+            tasks=task_service, updates=daily_updates
         ),
         assignment_context_resolver=AssistantAssignmentContextResolver(
             tasks=task_service,

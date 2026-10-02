@@ -42,7 +42,7 @@ def validate_execution_plan(
             registered = registry.resolve(
                 step.target_agent_id,
                 step.target_agent_version,
-                active_phase=3,
+                active_phase=4,
             )
         except AgentRegistryError as exc:
             raise ExecutionPlanError("UNKNOWN_OR_INACTIVE_AGENT") from exc

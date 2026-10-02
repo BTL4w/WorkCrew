@@ -51,7 +51,18 @@ class AssessmentWarning(ReportingContract):
     code: WarningCode
 
 
+class AssessmentProvenance(ReportingContract):
+    agent_version: Literal["1.0.0"] = "1.0.0"
+    workflow_version: Literal["daily-update.v1"] = "daily-update.v1"
+    skill_version: Literal["1.0.0"] = "1.0.0"
+    tool_version: Literal["1.0.0"] = "1.0.0"
+    prompt_versions: tuple[str, ...]
+    model_refs: tuple[str, ...]
+    verifier_version: Literal["daily-update-grounding.v1"] = "daily-update-grounding.v1"
+
+
 class DraftAssessment(ReportingContract):
+    provenance: AssessmentProvenance | None = None
     id: UUID | None = None
     draft_id: UUID
     draft_version: int

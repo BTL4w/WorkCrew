@@ -8,3 +8,6 @@ export function submitDailyDraft(draft:DailyDraft,key:string,assessment?:DraftAs
 
 export function getDailyAssessment(draftId:string){return requestJson(`/api/v1/daily-updates/${draftId}/evidence-assessments`,{schema:draftAssessmentSchema});}
 export function assessDailyDraft(draft:DailyDraft,key:string){return requestJson(`/api/v1/daily-updates/${draft.id}/assess`,{schema:z.object({id:z.string().uuid(),draft_id:z.string().uuid(),state:z.string()}),expectedStatus:202,init:{method:"POST",headers:{"Content-Type":"application/json","Idempotency-Key":key},body:JSON.stringify({expected_version:draft.version})}});}
+
+export function getDailyDraft(id:string){return requestJson(`/api/v1/daily-updates/drafts/${id}`,{schema:dailyDraftSchema});}
+export function reviseDailyDraft(draft:DailyDraft,items:ReportingItem[],key:string){return requestJson(`/api/v1/daily-updates/${draft.id}/draft`,{schema:dailyDraftSchema,init:{method:"PATCH",headers:{"Content-Type":"application/json","Idempotency-Key":key},body:JSON.stringify({expected_version:draft.version,items})}});}

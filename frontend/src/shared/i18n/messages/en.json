@@ -345,7 +345,19 @@
     "empty": "No project weeks yet."
   },
   "dailyUpdate": {
+    "chat": {
+      "review": "Review the AI draft before confirming.",
+      "discard": "Dismiss this draft",
+      "stale": "This draft has changed. Open the latest version.",
+      "clarify": "Provide the task, progress and work done."
+    },
     "assessment": {
+      "limitation": {
+        "ORIGINAL_FORMAT_UNSUPPORTED": "PDF/DOCX direct model reading is unavailable. Review the originals and confirm manually.",
+        "MEDIA_TOKEN_BOUND_UNAVAILABLE": "The current model has no verified image token bound. Assessment is unavailable.",
+        "DAILY_UPDATE_MODEL_BUDGET_EXHAUSTED": "The model usage limit for this report or evidence version was reached.",
+        "ORIGINAL_CONTEXT_LIMIT": "The selected evidence exceeds reading limits. No evidence was silently omitted."
+      },
       "stale": "This assessment is outdated. Assess the evidence again.",
       "refresh": "Refresh assessment",
       "title": "Evidence support",

@@ -16,7 +16,12 @@ from app.modules.progress.adapters.assessment_models import (
 )
 from app.modules.progress.adapters.daily_update_repository import SqlAlchemyDailyUpdateRepository
 from app.modules.progress.adapters.evidence_models import EvidenceOriginalModel
-from app.modules.progress.application.assessment_service import AssessmentRepository, OriginalSource
+from app.modules.progress.application.assessment_service import (
+    AssessmentRepository,
+    CriterionContext,
+    OriginalSource,
+    TaskAssessmentContext,
+)
 from app.modules.progress.domain.daily_updates import (
     ConfirmDailyUpdateCommand,
     DailyUpdateDraft,
@@ -80,11 +85,25 @@ class SqlAlchemyAssessmentRepository(SqlAlchemyDailyUpdateRepository):
                     )
                 )
                 assert original is not None
+                previous = originals.get((ref.evidence_id, ref.version))
                 originals[(ref.evidence_id, ref.version)] = OriginalSource(
                     evidence_id=ref.evidence_id,
                     version=ref.version,
                     sha256=original.sha256 or "",
                     mime_type=original.mime_type or "",
+                    task_contexts=(previous.task_contexts if previous else ())
+                    + (
+                        TaskAssessmentContext(
+                            task_id=task.id,
+                            task_version=task.version,
+                            title=task.title,
+                            description=task.description or "",
+                            criteria=tuple(
+                                CriterionContext(id=row.id, version=row.version, text=row.text)
+                                for row in rows
+                            ),
+                        ),
+                    ),
                 )
         sources = tuple(originals[key] for key in sorted(originals))
         return {

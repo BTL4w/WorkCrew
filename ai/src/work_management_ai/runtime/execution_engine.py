@@ -75,6 +75,8 @@ class DurableSpecialistRunner:
 
     async def run_specialist(self, handoff: AgentHandoff) -> AgentResult:
         recorded = await self._recorder.start_agent_run(handoff)
+        if recorded.replayed_result is not None:
+            return recorded.replayed_result
         if recorded.status is AgentRunStatus.COMPLETED:
             if recorded.replayed_result is None:
                 raise RuntimeError("AGENT_REPLAY_RESULT_MISSING")

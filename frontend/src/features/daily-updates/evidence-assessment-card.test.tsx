@@ -23,3 +23,9 @@ it("discloses unavailable assessment without presenting a score",()=>{
  expect(screen.queryByText("65/100")).not.toBeInTheDocument();
  expect(screen.queryByRole("checkbox")).not.toBeInTheDocument();
 });
+
+it("explains unsupported original formats without presenting a score",()=>{
+ const unavailable={...assessment,state:"UNAVAILABLE" as const,result:null,limitation:"ORIGINAL_FORMAT_UNSUPPORTED"};
+ render(<AppLocaleProvider initialLocale="en"><EvidenceAssessmentCard assessment={unavailable} acknowledged={false} onAcknowledge={()=>{}}/></AppLocaleProvider>);
+ expect(screen.getByText(/PDF.*DOCX/)).toBeVisible();
+});

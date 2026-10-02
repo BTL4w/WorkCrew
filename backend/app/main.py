@@ -31,7 +31,7 @@ from app.modules.people_capacity.adapters.repository import (
 )
 from app.modules.people_capacity.api.routes import router as people_capacity_router
 from app.modules.people_capacity.application.service import PeopleCapacityService
-from app.modules.planning_runs.adapters.ai_runtime import PlanningAIRuntime
+from app.modules.planning_runs.adapters.ai_runtime import PlanningAIRuntime, build_model_gateway
 from app.modules.planning_runs.adapters.transaction import (
     PostgreSQLPlanningRunTransactionFactory,
 )
@@ -40,16 +40,13 @@ from app.modules.planning_runs.application.approval_service import ApprovalServi
 from app.modules.planning_runs.application.event_service import WorkflowEventService
 from app.modules.planning_runs.application.proposal_service import ProposalService
 from app.modules.planning_runs.application.run_service import PlanningRunService
-from app.modules.progress.adapters.assessment_repository import SqlAlchemyAssessmentTransactions
-from app.modules.progress.adapters.daily_update_repository import SqlAlchemyDailyUpdateTransactions
+from app.modules.progress.adapters.daily_update_runtime import build_daily_services
 from app.modules.progress.adapters.evidence_repository import SqlAlchemyEvidenceTransactionFactory
 from app.modules.progress.adapters.filesystem_storage import FilesystemEvidenceStorage
 from app.modules.progress.adapters.progress_repository import SqlAlchemyProgressTransactionFactory
 from app.modules.progress.api.daily_update_routes import router as daily_update_router
 from app.modules.progress.api.evidence_routes import router as evidence_router
 from app.modules.progress.api.progress_routes import router as progress_router
-from app.modules.progress.application.assessment_service import AssessmentService
-from app.modules.progress.application.daily_update_service import DailyUpdateService
 from app.modules.progress.application.evidence_service import EvidenceService
 from app.modules.progress.application.weekly_progress_service import WeeklyProgressService
 from app.modules.work.adapters.project_repository import SqlAlchemyProjectTransactionFactory
@@ -272,12 +269,11 @@ def create_app(
     app.state.weekly_progress_service = WeeklyProgressService(
         SqlAlchemyProgressTransactionFactory(create_session_factory(database_engine))
     )
-    app.state.daily_update_service = DailyUpdateService(
-        SqlAlchemyDailyUpdateTransactions(create_session_factory(database_engine)),
-        resolved_settings.reporting_timezone,
-    )
-    app.state.assessment_service = AssessmentService(
-        SqlAlchemyAssessmentTransactions(create_session_factory(database_engine))
+    app.state.daily_update_service, app.state.assessment_service, _ = build_daily_services(
+        sessions=create_session_factory(database_engine),
+        settings=resolved_settings,
+        evidence=evidence_service,
+        gateway=build_model_gateway(resolved_settings),
     )
     app.state.settings = resolved_settings
     app.state.auth_service = resolved_auth_service

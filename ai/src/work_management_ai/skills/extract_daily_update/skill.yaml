@@ -1,0 +1,16 @@
+schema_version: "1.0"
+name: extract_daily_update
+version: "1.0.0"
+owner: progress-agent
+description: Prepare an owner-reviewed daily report and compare claims with authorized originals.
+runnable_by_agents: [daily_update]
+allowed_tools: [daily_update.prepare@1]
+risk_level: PROPOSAL_ONLY
+input_contract: work_management_ai.skills.extract_daily_update.contracts.SkillInput
+output_contract: work_management_ai.skills.extract_daily_update.contracts.SkillOutput
+evaluators: [daily_update_grounding@1]
+evaluation_cases: [daily_update_vi@1, daily_update_en@1, daily_update_fallback@1]
+triggers: [daily_report]
+required_context: [authenticated_actor, exact_task_version, original_evidence_versions]
+approval: ALWAYS
+stop_conditions: [invalid_contract, budget_exhausted, needs_input, await_owner]

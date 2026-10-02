@@ -43,6 +43,7 @@ from work_management_ai.runtime.contracts import (
     AgentRunStatus,
     AssignmentResultResponseBlock,
     CapabilityUnavailableResponseBlock,
+    DailyUpdateResponseBlock,
     JsonValue,
     PlanningRunResponseBlock,
     QuestionResponseBlock,
@@ -57,7 +58,7 @@ from work_management_ai.runtime.policy_guard import AgentPolicyError, PolicyGuar
 _MAX_PLAN_REPAIRS = 1
 _MAX_REPLANS = 2
 _MAX_HANDOFFS = 6
-_ACTIVE_PHASE = 3
+_ACTIVE_PHASE = 4
 _REVISION_SIGNALS = (
     "add",
     "change",
@@ -142,6 +143,8 @@ class OrchestratorHarness:
         }
 
     async def build_context(self, state: OrchestratorState) -> dict[str, object]:
+        if state["value"].active_context.daily_update_resolution_issue:
+            return {"route": "ask_user", "stop_reason": "DAILY_UPDATE_CLARIFICATION_REQUIRED"}
         if state["value"].active_context.assignment_resolution_issue is not None:
             return {"route": "ask_user", "stop_reason": "ASSIGNMENT_CLARIFICATION_REQUIRED"}
         return {"route": "execute"}
@@ -192,6 +195,23 @@ class OrchestratorHarness:
         return updates
 
     def _trusted_action_plan(self, state: OrchestratorState) -> ExecutionPlan | None:
+        daily = state["value"].active_context.daily_update
+        if daily is not None:
+            return ExecutionPlan(
+                objectives=("Prepare owner daily update",),
+                response_language=daily.locale,
+                steps=(
+                    ExecutionStep(
+                        step_id="daily-update",
+                        target_agent_id=AgentId.DAILY_UPDATE,
+                        target_agent_version="1.0.0",
+                        capability="daily_update.prepare",
+                        objective="Prepare an owner-reviewed draft; do not confirm",
+                        typed_input={},
+                        mode=StepMode.PROPOSAL,
+                    ),
+                ),
+            )
         assignment = self._trusted_assignment_action_plan(state)
         if assignment is not None:
             return assignment
@@ -319,6 +339,12 @@ class OrchestratorHarness:
             validate_execution_plan(plan, self._registry, actor)
             if plan.response_language != state["value"].locale:
                 raise ExecutionPlanError("RESPONSE_LANGUAGE_MISMATCH")
+            for step in plan.steps:
+                if step.target_agent_id is AgentId.DAILY_UPDATE and (
+                    state["value"].active_context.daily_update is None
+                    or step.mode is not StepMode.PROPOSAL
+                ):
+                    raise ExecutionPlanError("DAILY_UPDATE_TRUSTED_CONTEXT_REQUIRED")
             self._validate_planning_context(plan, state["value"])
             self._validate_assignment_context(plan, state["value"])
             requested = state["pending_requested_handoff"]
@@ -433,6 +459,9 @@ class OrchestratorHarness:
                 context_references=(),
                 actor=state["value"].actor,
                 budget=AgentBudget(
+                    max_model_attempts=runtime.max_model_attempts,
+                    max_input_tokens=runtime.max_input_tokens,
+                    max_output_tokens=runtime.max_output_tokens,
                     max_iterations=runtime.max_iterations,
                     max_tool_calls=runtime.max_tool_calls,
                     max_handoffs=runtime.max_handoffs,
@@ -476,6 +505,11 @@ class OrchestratorHarness:
         step: ExecutionStep, value: OrchestratorInput
     ) -> dict[str, JsonValue]:
         """Reconstruct mutation contracts from trusted turn/card context."""
+        if step.target_agent_id is AgentId.DAILY_UPDATE:
+            daily = value.active_context.daily_update
+            if daily is None:
+                raise ValueError("DAILY_UPDATE_TRUSTED_CONTEXT_REQUIRED")
+            return cast(dict[str, JsonValue], daily.model_dump(mode="json"))
         if step.target_agent_id is AgentId.ASSIGNMENT:
             active_team = value.active_context.active_team
             exact = value.active_context.exact_assignment
@@ -602,6 +636,9 @@ class OrchestratorHarness:
         plan = state["plan"]
         if plan is None:
             return self._failure("EXECUTION_PLAN_MISSING")
+        daily_blocks = self._daily_update_blocks(state["results"])
+        if daily_blocks:
+            return {"blocks": daily_blocks, "route": "execute"}
         assignment_blocks = self._assignment_blocks(state["results"])
         if assignment_blocks:
             return {"blocks": assignment_blocks, "route": "execute"}
@@ -647,6 +684,23 @@ class OrchestratorHarness:
         return {"status": OrchestratorStatus.COMPLETED, "stop_reason": "COMPLETED"}
 
     async def ask_user(self, state: OrchestratorState) -> dict[str, object]:
+        if state["stop_reason"] == "DAILY_UPDATE_CLARIFICATION_REQUIRED" or any(
+            r.agent_id is AgentId.DAILY_UPDATE for r in state["last_batch_results"]
+        ):
+            question = (
+                "Vui lòng chỉ rõ một công việc được giao, tiến độ % và việc đã làm."
+                if state["value"].locale == "vi"
+                else "Please specify one assigned task, progress percent and work done."
+            )
+            return {
+                "blocks": (
+                    QuestionResponseBlock(
+                        question=question, response_context={"daily_update": True}
+                    ),
+                ),
+                "status": OrchestratorStatus.AWAITING_INPUT,
+                "stop_reason": "DAILY_UPDATE_NEEDS_INPUT",
+            }
         issue = state["value"].active_context.assignment_resolution_issue
         if issue is not None:
             locale = state["value"].locale
@@ -703,6 +757,13 @@ class OrchestratorHarness:
         }
 
     async def human_gate(self, state: OrchestratorState) -> dict[str, object]:
+        daily_blocks = self._daily_update_blocks(state["last_batch_results"])
+        if daily_blocks:
+            return {
+                "blocks": daily_blocks,
+                "status": OrchestratorStatus.AWAITING_HUMAN,
+                "stop_reason": "DAILY_UPDATE_AWAIT_OWNER",
+            }
         pending = self._pending_followup(state)
         if pending is not None and pending.state == "WAITING_PROJECT_PROPOSAL":
             result = state["last_batch_results"][0]
@@ -733,6 +794,14 @@ class OrchestratorHarness:
             "status": OrchestratorStatus.AWAITING_HUMAN,
             "stop_reason": "AWAITING_HUMAN",
         }
+
+    @staticmethod
+    def _daily_update_blocks(results: tuple[AgentResult, ...]) -> tuple[ResponseBlock, ...]:
+        return tuple(
+            DailyUpdateResponseBlock.model_validate({"kind": "daily_update", **r.typed_output})
+            for r in results
+            if r.agent_id is AgentId.DAILY_UPDATE and r.status is AgentRunStatus.AWAITING_HUMAN
+        )
 
     @staticmethod
     def _assignment_blocks(results: tuple[AgentResult, ...]) -> tuple[ResponseBlock, ...]:

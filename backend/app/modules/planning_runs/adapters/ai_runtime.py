@@ -241,6 +241,49 @@ class _Phase2MockModelGateway:
         key = request.invocation_key
         payload = self._payload(request)
         locale = "vi" if ".vi." in key else "en"
+        if key.startswith("daily_update.") and key.endswith(".extract"):
+            # Local fixture only; hosted interpretation always goes through the gateway.
+            import re
+
+            text = str(payload.get("report", ""))
+            percentages = re.findall(r"(?<![\d.])(\d{1,3}(?:\.\d+)?)\s*%", text)
+            return {
+                "reported_percent": percentages[0] if len(percentages) == 1 else None,
+                "remaining_hours": None,
+                "spent_hours": None,
+                "done_text": text,
+                "next_steps": "",
+                "needs_clarification": len(percentages) != 1,
+            }
+        if key == "daily_update.claims":
+            raw = payload.get("report_lines") or json.loads(request.messages[-1].content)
+            if not isinstance(raw, list):
+                raise ModelInvalidOutputError("mock claim inventory input invalid")
+            lines = cast(list[dict[str, object]], raw)
+            return {
+                "claims": [
+                    {
+                        "source_claim_id": line["id"],
+                        "text": line["text"],
+                        "category": "WORK",
+                        "checkability": True,
+                    }
+                    for line in lines
+                ]
+            }
+        if key == "daily_update.compare":
+            claims = cast(list[dict[str, object]], payload.get("claims", []))
+            return {
+                "findings": [
+                    {
+                        "claim_id": claim["id"],
+                        "finding": "UNASSESSABLE",
+                        "source_refs": [],
+                        "limitation": "Mock provider cannot verify original images.",
+                    }
+                    for claim in claims
+                ]
+            }
         if key.startswith("orchestrator.") and key.endswith(".synthesize"):
             return {
                 "blocks": [

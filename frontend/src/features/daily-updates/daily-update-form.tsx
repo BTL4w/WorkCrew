@@ -3,31 +3,33 @@ import { useQuery,useQueryClient } from "@tanstack/react-query";
 import { useTranslations } from "next-intl";
 import { useRef,useState } from "react";
 import { ApiError,isDefinitiveMutationRejection } from "@/shared/api/client";
-import { assessDailyDraft,getDailyAssessment,createDailyDraft,getReportingContext,getUpdateHistory,submitDailyDraft } from "./reporting-api";
+import { assessDailyDraft,getDailyAssessment,createDailyDraft,reviseDailyDraft,getReportingContext,getUpdateHistory,submitDailyDraft } from "./reporting-api";
 import { EvidenceAssessmentCard } from "./evidence-assessment-card";
 import { EvidencePicker } from "./evidence-picker";
 import { DailyUpdateHistory } from "./daily-update-history";
 import type { DailyDraft,Observation,ReportingItem,SelectedEvidence } from "./reporting-contracts";
 
-export function DailyUpdateForm({taskId,taskVersion,organizationId,actorMembershipId}:{taskId:string;taskVersion:number;organizationId:string;actorMembershipId:string}){
+export function DailyUpdateForm({taskId,taskVersion,organizationId,actorMembershipId,initialDraft}:{taskId:string;taskVersion:number;organizationId:string;actorMembershipId:string;initialDraft?:DailyDraft}){
  const t=useTranslations("dailyUpdate");
  const queryClient=useQueryClient();
  const scope=["work",organizationId,actorMembershipId,"daily-update",taskId];
  const context=useQuery({queryKey:[...scope,"context",taskVersion],queryFn:()=>getReportingContext(taskId)});
  const history=useQuery({queryKey:[...scope,"history"],queryFn:()=>getUpdateHistory(taskId)});
- const [percent,setPercent]=useState("");const [remaining,setRemaining]=useState("");const [spent,setSpent]=useState("");
- const [date,setDate]=useState("");const [done,setDone]=useState("");const [next,setNext]=useState("");const [reason,setReason]=useState("");
+ const initial=initialDraft?.items[0];
+ const [percent,setPercent]=useState(initial?.reported_percent??"");const [remaining,setRemaining]=useState(initial?.remaining_hours??"");const [spent,setSpent]=useState(initial?.spent_hours??"");
+ const [date,setDate]=useState(initial?.reporting_date??"");const [done,setDone]=useState(initial?.done_text??"");const [next,setNext]=useState(initial?.next_steps??"");const [reason,setReason]=useState("");
  const [correction,setCorrection]=useState<Observation|null>(null);
- const [uploaded,setUploaded]=useState<SelectedEvidence[]>([]);const [selected,setSelected]=useState<string[]>([]);
- const [draft,setDraft]=useState<DailyDraft|null>(null);const [busy,setBusy]=useState(false);const [error,setError]=useState<string|null>(null);const [saved,setSaved]=useState(false);const [uncertain,setUncertain]=useState(false);
+ const [uploaded,setUploaded]=useState<SelectedEvidence[]>(initial?.evidence_refs??[]);const [selected,setSelected]=useState<string[]>(initial?.evidence_refs?.map(r=>r.evidence_id)??[]);
+ const [draft,setDraft]=useState<DailyDraft|null>(initialDraft??null);const [busy,setBusy]=useState(false);const [error,setError]=useState<string|null>(null);const [saved,setSaved]=useState(false);const [uncertain,setUncertain]=useState(false);
  const [assessing,setAssessing]=useState(false);
- const [assessmentRequested,setAssessmentRequested]=useState(false);const [acknowledgedId,setAcknowledgedId]=useState<string|null>(null);
+ const revision=useRef<DailyDraft|null>(initialDraft??null);
+ const [assessmentRequested,setAssessmentRequested]=useState(Boolean(initialDraft));const [acknowledgedId,setAcknowledgedId]=useState<string|null>(null);
  const assessmentKey=useRef<string|null>(null);
  const assessment=useQuery({queryKey:[...scope,"assessment",draft?.id,draft?.version],queryFn:()=>getDailyAssessment(draft!.id),enabled:Boolean(draft)&&assessmentRequested&&!uncertain,refetchInterval:query=>query.state.data?.state==="PENDING"?1000:false});
  const warnings=assessment.data?.warnings??[];
  const acknowledged=Boolean(assessment.data?.id)&&acknowledgedId===assessment.data?.id;
  function setAcknowledged(value:boolean){setAcknowledgedId(value?assessment.data?.id??null:null);}
- const attempt=useRef<{body:string;key:string}|null>(null);const confirmKey=useRef<string|null>(null);
+ const attempt=useRef<{body:string;key:string}|null>(null);const confirmKey=useRef<string|null>(initialDraft?crypto.randomUUID():null);
  function showError(failure:unknown){const code=failure instanceof ApiError?failure.code:"UNKNOWN";setError(t.has(`error.${code}`)?t(`error.${code}`):t("error.UNKNOWN"));}
  if(context.isPending)return <p>{t("loading")}</p>;
  if(!context.data)return <p role="alert">{t("error.FORBIDDEN")} <button type="button" onClick={()=>void context.refetch()}>{t("reload")}</button></p>;
@@ -38,14 +40,14 @@ export function DailyUpdateForm({taskId,taskVersion,organizationId,actorMembersh
   const item:ReportingItem={task_id:taskId,expected_task_version:ctx.task_version,expected_progress_version:ctx.progress_version,reported_percent:percent,remaining_hours:remaining||null,spent_hours:spent||null,reporting_date:date||ctx.reporting_date,done_text:done,next_steps:next,evidence_refs:options.filter(ref=>selected.includes(ref.evidence_id)),corrects_observation_id:correction?.id??null,correction_reason:reason};
   const body=JSON.stringify(item);
   if(!attempt.current||attempt.current.body!==body)attempt.current={body,key:crypto.randomUUID()};
-  try{setAssessmentRequested(false);setAcknowledged(false);assessmentKey.current=null;setDraft(await createDailyDraft([item],attempt.current.key));attempt.current=null;confirmKey.current=crypto.randomUUID();}
+  try{setAssessmentRequested(false);setAcknowledged(false);assessmentKey.current=null;const prepared=revision.current?await reviseDailyDraft(revision.current,[item],attempt.current.key):await createDailyDraft([item],attempt.current.key);setDraft(prepared);revision.current=prepared;attempt.current=null;confirmKey.current=crypto.randomUUID();}
   catch(failure){showError(failure);if(isDefinitiveMutationRejection(failure))attempt.current=null;}
   finally{setBusy(false);}
  }
  async function confirm(){
   if(!draft||!confirmKey.current)return;
   setError(null);setBusy(true);
-  try{await submitDailyDraft(draft,confirmKey.current,assessment.data,acknowledged);setSaved(true);setUncertain(false);setDraft(null);setCorrection(null);setReason("");setSelected([]);setUploaded([]);confirmKey.current=null;
+  try{await submitDailyDraft(draft,confirmKey.current,assessment.data,acknowledged);setSaved(true);revision.current=null;setUncertain(false);setDraft(null);setCorrection(null);setReason("");setSelected([]);setUploaded([]);confirmKey.current=null;
    await queryClient.invalidateQueries({queryKey:scope});await queryClient.invalidateQueries({queryKey:["completion",organizationId,actorMembershipId,taskId]});await queryClient.invalidateQueries({queryKey:["work",organizationId,actorMembershipId,"weekly-progress"]});
   }catch(failure){showError(failure);const rejected=isDefinitiveMutationRejection(failure);setUncertain(!rejected);if(rejected){confirmKey.current=crypto.randomUUID();setAcknowledged(false);setAssessmentRequested(true);void assessment.refetch();}}
   finally{setBusy(false);}

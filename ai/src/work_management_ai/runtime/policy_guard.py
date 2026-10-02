@@ -93,7 +93,10 @@ class PolicyGuard:
     def _validate_budget(budget: AgentBudget, manifest: AgentManifest) -> None:
         maximum = manifest.runtime
         if (
-            budget.max_iterations > maximum.max_iterations
+            budget.max_model_attempts > maximum.max_model_attempts
+            or budget.max_input_tokens > maximum.max_input_tokens
+            or budget.max_output_tokens > maximum.max_output_tokens
+            or budget.max_iterations > maximum.max_iterations
             or budget.max_tool_calls > maximum.max_tool_calls
             or budget.max_handoffs > maximum.max_handoffs
             or budget.max_replans > maximum.max_replans

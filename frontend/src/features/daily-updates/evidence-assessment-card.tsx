@@ -6,7 +6,7 @@ export function EvidenceAssessmentCard({assessment,acknowledged,onAcknowledge,di
  const t=useTranslations("dailyUpdate.assessment");
  const common=useTranslations("dailyUpdate");
  if(assessment.state==="STALE")return <p role="alert">{t("stale")}</p>;
- if(assessment.state==="UNAVAILABLE")return <p>{common("assessmentUnavailable")}</p>;
+ if(assessment.state==="UNAVAILABLE")return <div><p>{common("assessmentUnavailable")}</p>{t.has(`limitation.${assessment.limitation}`)&&<p>{t(`limitation.${assessment.limitation}`)}</p>}</div>;
  if(assessment.state==="NOT_ASSESSED_NO_EVIDENCE")return <p>{t("noEvidence")}</p>;
  if(assessment.state==="PENDING")return <p role="status">{t("pending")}</p>;
  const result=assessment.result;

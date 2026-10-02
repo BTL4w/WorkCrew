@@ -20,6 +20,7 @@ class AgentId(StrEnum):
     WORK_INTELLIGENCE = "work_intelligence"
     PLANNING = "planning"
     ASSIGNMENT = "assignment"
+    DAILY_UPDATE = "daily_update"
 
 
 class AgentRunStatus(StrEnum):
@@ -39,6 +40,9 @@ class RiskLevel(StrEnum):
 
 
 class AgentBudget(_StrictFrozenModel):
+    max_model_attempts: int = Field(default=3, ge=0, le=3)
+    max_input_tokens: int = Field(default=24000, ge=0, le=24000)
+    max_output_tokens: int = Field(default=4000, ge=0, le=4000)
     max_iterations: int = Field(ge=1, le=16)
     max_tool_calls: int = Field(ge=0, le=32)
     max_handoffs: int = Field(default=0, ge=0, le=16)
@@ -115,6 +119,7 @@ class AgentResult(_StrictFrozenModel):
     proposed_actions: tuple[ProposedAction, ...] = ()
     verifier_results: tuple[VerifierResult, ...] = ()
     requested_handoff: RequestedHandoff | None = None
+    model_attempts_used: int = Field(default=0, ge=0, le=3)
     iterations_used: int = Field(default=0, ge=0, le=16)
     tool_calls_used: int = Field(default=0, ge=0, le=32)
     stop_reason: str = Field(min_length=1, max_length=100)
@@ -221,6 +226,16 @@ class AssignmentResultResponseBlock(_StrictFrozenModel):
     warning_codes: tuple[str, ...] = ()
 
 
+class DailyUpdateResponseBlock(_StrictFrozenModel):
+    kind: Literal["daily_update"] = "daily_update"
+    draft_id: UUID
+    draft_version: int = Field(ge=1)
+    task_id: UUID
+    task_version: int = Field(ge=1)
+    assessment_id: UUID | None = None
+    needs_owner_confirmation: Literal[True] = True
+
+
 class SafeErrorResponseBlock(_StrictFrozenModel):
     kind: Literal["safe_error"] = "safe_error"
     code: str = Field(min_length=1, max_length=100)
@@ -244,6 +259,7 @@ type ResponseBlock = Annotated[
     | TeamRecommendationResponseBlock
     | TeamDecisionResultResponseBlock
     | AssignmentResultResponseBlock
+    | DailyUpdateResponseBlock
     | SafeErrorResponseBlock,
     Field(discriminator="kind"),
 ]

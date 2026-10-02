@@ -149,6 +149,17 @@ class AssignmentResultBlock(BaseModel):
     warning_codes: list[str] = Field(default_factory=list)
 
 
+class DailyUpdateBlock(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    kind: Literal["daily_update"] = "daily_update"
+    draft_id: UUID
+    draft_version: int = Field(ge=1)
+    task_id: UUID
+    task_version: int = Field(ge=1)
+    assessment_id: UUID | None = None
+    needs_owner_confirmation: Literal[True] = True
+
+
 class SafeErrorBlock(BaseModel):
     model_config = ConfigDict(extra="forbid")
     kind: Literal["safe_error"] = "safe_error"
@@ -169,6 +180,7 @@ ContentBlock = Annotated[
     | TeamRecommendationBlock
     | TeamDecisionResultBlock
     | AssignmentResultBlock
+    | DailyUpdateBlock
     | SafeErrorBlock,
     Field(discriminator="kind"),
 ]

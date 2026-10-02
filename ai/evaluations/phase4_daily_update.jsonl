@@ -1,0 +1,14 @@
+{"case_id": "daily-update-vi-draft", "locale": "vi", "scenario": "draft", "provenance": "synthetic:phase4-task8:v1", "redacted": true}
+{"case_id": "daily-update-vi-needs-input", "locale": "vi", "scenario": "needs_input", "provenance": "synthetic:phase4-task8:v1", "redacted": true}
+{"case_id": "daily-update-vi-provider-timeout", "locale": "vi", "scenario": "provider_timeout", "provenance": "synthetic:phase4-task8:v1", "redacted": true}
+{"case_id": "daily-update-vi-invalid-output", "locale": "vi", "scenario": "invalid_output", "provenance": "synthetic:phase4-task8:v1", "redacted": true}
+{"case_id": "daily-update-vi-authority-injection", "locale": "vi", "scenario": "authority_injection", "provenance": "synthetic:phase4-task8:v1", "redacted": true}
+{"case_id": "daily-update-vi-peer-delegation", "locale": "vi", "scenario": "peer_delegation", "provenance": "synthetic:phase4-task8:v1", "redacted": true}
+{"case_id": "daily-update-vi-cross-tenant", "locale": "vi", "scenario": "cross_tenant", "provenance": "synthetic:phase4-task8:v1", "redacted": true}
+{"case_id": "daily-update-en-draft", "locale": "en", "scenario": "draft", "provenance": "synthetic:phase4-task8:v1", "redacted": true}
+{"case_id": "daily-update-en-needs-input", "locale": "en", "scenario": "needs_input", "provenance": "synthetic:phase4-task8:v1", "redacted": true}
+{"case_id": "daily-update-en-provider-timeout", "locale": "en", "scenario": "provider_timeout", "provenance": "synthetic:phase4-task8:v1", "redacted": true}
+{"case_id": "daily-update-en-invalid-output", "locale": "en", "scenario": "invalid_output", "provenance": "synthetic:phase4-task8:v1", "redacted": true}
+{"case_id": "daily-update-en-authority-injection", "locale": "en", "scenario": "authority_injection", "provenance": "synthetic:phase4-task8:v1", "redacted": true}
+{"case_id": "daily-update-en-peer-delegation", "locale": "en", "scenario": "peer_delegation", "provenance": "synthetic:phase4-task8:v1", "redacted": true}
+{"case_id": "daily-update-en-cross-tenant", "locale": "en", "scenario": "cross_tenant", "provenance": "synthetic:phase4-task8:v1", "redacted": true}
