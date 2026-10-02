@@ -121,10 +121,11 @@ class SqlAlchemyEvidenceRepository:
             model.byte_length = blob.byte_length
             model.mime_type = blob.detected_mime
             model.state = "READY"
+            event_id = uuid4()
             self.session.add(
                 OutboxEventModel(
-                    id=uuid4(),
-                    event_id=uuid4(),
+                    id=event_id,
+                    event_id=event_id,
                     organization_id=self.actor.organization_id,
                     event_type="evidence.uploaded",
                     aggregate_type="evidence",

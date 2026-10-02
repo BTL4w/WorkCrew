@@ -24,6 +24,7 @@ it("uploads a selected original and provides an authenticated download action", 
   expect(screen.getByRole("link", { name: /Download/ })).toHaveAttribute(
     "href", `/api/v1/evidence/${evidence.evidence_id}/versions/1/content`,
   );
+  expect(screen.queryByRole("button", { name: "Preview evidence" })).not.toBeInTheDocument();
   expect(fetchMock.mock.calls[0][1].credentials).toBe("include");
   expect(fetchMock.mock.calls[0][1].headers["Idempotency-Key"]).toBeTruthy();
 });

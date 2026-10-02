@@ -54,5 +54,5 @@ def test_alembic_environment_has_one_weekly_baselines_head() -> None:
     config = Config(backend_root / "alembic.ini")
     scripts = ScriptDirectory.from_config(config)
 
-    assert scripts.get_heads() == ["0021"]
+    assert scripts.get_heads() == ["0023"]
     assert scripts.get_bases() == ["0001"]

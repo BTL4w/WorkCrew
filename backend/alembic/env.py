@@ -21,6 +21,7 @@ from app.modules.progress.adapters import (
     completion_models,
     daily_update_models,
     evidence_models,
+    extraction_models,
     progress_models,
 )
 from app.modules.work.adapters import database_models as work_models
@@ -32,6 +33,7 @@ _MODEL_MODULES = (
     completion_models,
     daily_update_models,
     evidence_models,
+    extraction_models,
     progress_models,
     audit_models,
     assistant_models,

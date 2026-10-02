@@ -27,6 +27,12 @@ test("Employee confirms a manual report and corrects hours without changing Task
  }
  await page.getByRole("button",{name:task.title,exact:false}).click();
  await expect(page.getByRole("heading",{name:"Báo cáo hằng ngày"})).toBeVisible();
+ const originalImage=execFileSync("uv",["run","--directory",backend,"python","-c","from PIL import Image; import sys; Image.new('RGB',(2,2),'white').save(sys.stdout.buffer,format='PNG')"]);
+ const uploadResponse=page.waitForResponse(response=>response.request().method()==="POST" && response.url().endsWith("/api/v1/evidence"));
+ await page.getByLabel("Chọn bằng chứng",{exact:true}).setInputFiles({name:"original-evidence.png",mimeType:"image/png",buffer:originalImage});
+ expect((await uploadResponse).status()).toBe(201);
+ await expect(page.getByRole("link",{name:"Tải xuống",exact:true})).toBeVisible();
+ await expect(page.getByRole("button",{name:"Xem nguồn bằng chứng",exact:true})).toHaveCount(0);
  await page.getByLabel("Tiến độ báo cáo (%)",{exact:true}).fill("99");
  await page.getByLabel("Giờ đã làm",{exact:true}).fill("3");
  await page.getByLabel("Giờ còn lại",{exact:true}).fill("1");
