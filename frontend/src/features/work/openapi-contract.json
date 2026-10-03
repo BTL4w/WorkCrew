@@ -534,7 +534,10 @@
           "warning_codes": "array:literal:LOW_SUPPORT|CONTRADICTION|INSUFFICIENT_ASSESSMENT",
           "assessed_count": "integer",
           "total_count": "integer",
-          "rule_version": "literal:evidence-support.v1"
+          "rule_version": "literal:evidence-support.v1|evidence-support.ai.v2",
+          "scoring_method": "literal:RULE_BASED|AI",
+          "rationale": "string",
+          "recommendations": "array:string"
         }
       },
       "Claim": {

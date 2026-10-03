@@ -2,6 +2,7 @@
 import asyncio
 import sys
 from uuid import UUID, uuid4
+from decimal import Decimal
 from sqlalchemy import text
 from app.core.config import Settings
 from app.core.database import create_database_engine, create_session_factory
@@ -10,12 +11,12 @@ from app.modules.organization.domain.roles import MembershipRole
 from app.modules.progress.adapters.assessment_repository import SqlAlchemyAssessmentTransactions
 from app.modules.progress.application.assessment_service import AssessmentService, EvidenceComparisonResult
 from app.modules.progress.domain.daily_updates import SelectedEvidence
-from app.modules.progress.domain.evidence_support import ClaimFinding
+from app.modules.progress.domain.evidence_support import ClaimFinding, EvidenceJudgment
 
 
 class UnsupportedFixture:
     async def compare(self, claims, original_sources, budget):
-        return EvidenceComparisonResult(findings=tuple(ClaimFinding(claim_id=c.id,finding="UNSUPPORTED",source_refs=c.evidence_refs) for c in claims),processed_sources=tuple(SelectedEvidence(evidence_id=s.evidence_id,version=s.version) for s in original_sources))
+        return EvidenceComparisonResult(judgment=EvidenceJudgment(score=Decimal("65"),rationale="Bằng chứng chưa hỗ trợ đầy đủ nội dung báo cáo.",recommendations=("Bổ sung bằng chứng cho nội dung đã báo cáo.",)),findings=tuple(ClaimFinding(claim_id=c.id,finding="UNSUPPORTED",source_refs=c.evidence_refs) for c in claims),processed_sources=tuple(SelectedEvidence(evidence_id=s.evidence_id,version=s.version) for s in original_sources))
 
 
 async def main():

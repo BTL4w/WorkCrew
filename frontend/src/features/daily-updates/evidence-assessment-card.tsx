@@ -12,10 +12,12 @@ export function EvidenceAssessmentCard({assessment,acknowledged,onAcknowledge,di
  const result=assessment.result;
  return <section className="rounded-xl border p-4 space-y-3" aria-label={t("title")}>
  <h4>{t("title")}</h4><p>{t("meaning")}</p>
- <p>{result?.score===null?t("unknown"):`${Number(result?.score).toLocaleString(undefined,{maximumFractionDigits:2})}/100`}</p>
+ <p>{t(result?.scoring_method==="AI"?"aiOrigin":"legacyOrigin")}</p>
+ <p>{result?.score==null?t("unknown"):`${Number(result?.score).toLocaleString(undefined,{maximumFractionDigits:2})}/100`}</p>
  <p>{t("claims",{assessed:result?.assessed_count??0,total:result?.total_count??0})}</p>
  <p>{t("sources",{processed:assessment.coverage.processed_count,total:assessment.coverage.total_count})}</p>
- <p>{result?.rule_version}</p>
+ {result?.rationale&&<div><h5>{t("rationale")}</h5><p>{result.rationale}</p></div>}
+ {Boolean(result?.recommendations?.length)&&<div><h5>{t("recommendations")}</h5><p>{t("advisory")}</p><ul>{result?.recommendations?.map((advice,index)=><li key={index}>{advice}</li>)}</ul></div>}
  {assessment.findings.map(finding=><div key={finding.claim_id}>
  <p>{assessment.claims.find(claim=>claim.id===finding.claim_id)?.text}</p><p>{t(`finding.${finding.finding}`)}</p>
  {finding.limitation&&<p>{finding.limitation}</p>}

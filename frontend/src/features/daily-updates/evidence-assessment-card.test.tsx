@@ -29,3 +29,14 @@ it("explains unsupported original formats without presenting a score",()=>{
  render(<AppLocaleProvider initialLocale="en"><EvidenceAssessmentCard assessment={unavailable} acknowledged={false} onAcknowledge={()=>{}}/></AppLocaleProvider>);
  expect(screen.getByText(/PDF.*DOCX/)).toBeVisible();
 });
+
+it.each(["en", "vi"] as const)("shows AI origin, rationale and advisory recommendations in %s", locale => {
+ const reason=locale==="vi"?"Ảnh hỗ trợ khảo sát nhưng thiếu ngày thực hiện.":"The image supports the survey but lacks its date.";
+ const recommendation=locale==="vi"?"Bổ sung ngày khảo sát.":"Add the survey date.";
+ const next={...assessment,result:{...assessment.result!,score:"83",scoring_method:"AI" as const,rule_version:"evidence-support.ai.v2" as const,rationale:reason,recommendations:[recommendation]}};
+ render(<AppLocaleProvider initialLocale={locale}><EvidenceAssessmentCard assessment={next} acknowledged={false} onAcknowledge={()=>{}}/></AppLocaleProvider>);
+ expect(screen.getByText("83/100")).toBeVisible();
+ expect(screen.getByText(locale==="vi"?"Điểm đánh giá của AI":"AI assessment score")).toBeVisible();
+ expect(screen.getByText(reason)).toBeVisible();
+ expect(screen.getByText(recommendation)).toBeVisible();
+});

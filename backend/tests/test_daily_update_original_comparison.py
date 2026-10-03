@@ -52,14 +52,26 @@ class Originals:
 
 
 @pytest.mark.asyncio
-async def test_original_bytes_are_passed_directly_and_receipts_are_server_owned():
+@pytest.mark.parametrize("locale", ["en", "vi"])
+async def test_original_bytes_are_passed_directly_and_receipts_are_server_owned(locale: str):
+    text = "Completed survey" if locale == "en" else "Đã hoàn thành khảo sát"
+    reason = (
+        "The image supports the survey, with some context unavailable."
+        if locale == "en"
+        else "Ảnh hỗ trợ khảo sát nhưng chưa đủ bối cảnh."
+    )
+    advice = (
+        "Provide the dated survey summary."
+        if locale == "en"
+        else "Bổ sung bản khảo sát có ngày thực hiện."
+    )
     org, member, evidence = uuid4(), uuid4(), uuid4()
     data = b"\x89PNG\r\n\x1a\noriginal"
     ref = SelectedEvidence(evidence_id=evidence, version=1)
     claim = Claim(
         id="0:0",
         source_span="items[0].done_text:line:0",
-        text="Completed survey",
+        text=text,
         task_id=uuid4(),
         evidence_refs=(ref,),
     )
@@ -68,13 +80,16 @@ async def test_original_bytes_are_passed_directly_and_receipts_are_server_owned(
             "claims": [
                 {
                     "source_claim_id": "0:0",
-                    "text": "Completed survey",
+                    "text": text,
                     "category": "WORK",
                     "checkability": True,
                 }
             ]
         },
         "daily_update.compare": {
+            "score": "83",
+            "rationale": reason,
+            "recommendations": [advice],
             "findings": [
                 {
                     "claim_id": "c0",
@@ -82,7 +97,7 @@ async def test_original_bytes_are_passed_directly_and_receipts_are_server_owned(
                     "source_refs": [ref.model_dump(mode="json")],
                     "limitation": "",
                 }
-            ]
+            ],
         },
     }
     original = Originals(data)
@@ -115,6 +130,11 @@ async def test_original_bytes_are_passed_directly_and_receipts_are_server_owned(
             ),
             ComparisonBudget(),
         )
+    assert result.judgment.score == 83
+    assert result.judgment.recommendations == (advice,)
+    assert result.judgment.rationale == reason
+    assert result.provenance is not None
+    assert "daily-update.compare.v2" in result.provenance.prompt_versions
     assert result.processed_sources == (ref,)
     assert result.claims is not None and result.claims[0].text == claim.text
     assert original.opened == 2

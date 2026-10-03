@@ -42,7 +42,7 @@ Core MVP order is fixed:
 1. Manual Project/Task Core.
 2. AI Planning Proposal plus goal, milestone, dependency and acceptance criteria.
 3. Skills, capacity, deterministic assignee ranking and AI explanation.
-4. Manual and AI daily update, blocker and deterministic risk.
+4. Manual and AI daily update, blocker and AI-assessed risk.
 5. Management report, feedback and evaluation loop.
 
 Google Calendar and Qdrant are Post-MVP Optional Integrations. Kubernetes/kind, Jenkins and GKE are Post-MVP deployment work. They must not leak into Core MVP implementation.
@@ -164,8 +164,9 @@ intent
 - Use an OpenAI hosted API for MVP production-quality calls and a deterministic mock provider for local and automated tests.
 - Do not scatter provider SDK calls through domain modules or workflow nodes; route them through the gateway.
 - Use typed structured output for every model call that affects product behavior.
-- Use deterministic code for authorization, business invariants, arithmetic, dates, workload, ranking, risk scores, constraints and post-condition verification.
-- LLMs may understand requests, extract structured drafts and explain verified results. They may not override deterministic decisions.
+- Use deterministic code for authorization, business invariants, arithmetic, dates, workload, Phase 3 ranking, constraints and post-condition verification.
+- The user-approved Phase 4 AI-first exception lets LLMs author evidence-support and contextual risk scores, rationale and advisory recommendations. Code validates typed output, source/tenant/version provenance and score range, applies thresholds and preserves human gates; it must not replace those model scores with fixed factor arithmetic.
+- LLMs may understand requests, prepare drafts and explain results. They may not override deterministic authorization, business invariants, Phase 3 ranking or approval decisions.
 - Use one Orchestrator Agent as the only component allowed to create a typed
   handoff to a Specialist Agent. Every specialist result returns to the
   Orchestrator; no direct specialist-to-specialist delegation is allowed.

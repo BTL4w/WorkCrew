@@ -150,6 +150,9 @@ async def test_text_and_original_prepare_draft_zero_facts_then_owner_confirms_on
                 ]
             },
             "daily_update.compare": {
+                "score": "83",
+                "rationale": "The survey is supported by the selected image.",
+                "recommendations": [],
                 "findings": [
                     {
                         "claim_id": "c0",
@@ -157,7 +160,7 @@ async def test_text_and_original_prepare_draft_zero_facts_then_owner_confirms_on
                         "source_refs": refs,
                         "limitation": "",
                     }
-                ]
+                ],
             },
         }
     )

@@ -111,7 +111,7 @@ class SqlAlchemyAssessmentRepository(SqlAlchemyDailyUpdateRepository):
             "tasks": {str(i.task_id): i.expected_task_version for i in draft.items},
             "criteria": criteria,
             "sources": [s.model_dump(mode="json") for s in sources],
-            "rule_version": "evidence-support.v1",
+            "rule_version": "evidence-support.ai.v2",
         }, sources
 
     async def latest_row(self, draft: DailyUpdateDraft) -> EvidenceAssessmentModel | None:

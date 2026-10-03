@@ -23,8 +23,9 @@ from app.modules.progress.domain.evidence_support import (
     Claim,
     ClaimFinding,
     DraftAssessment,
+    EvidenceJudgment,
     SourceCoverage,
-    score_support,
+    evaluate_support,
 )
 
 
@@ -51,6 +52,7 @@ class OriginalSource(ReportingContract):
 
 
 class EvidenceComparisonResult(ReportingContract):
+    judgment: EvidenceJudgment
     provenance: AssessmentProvenance | None = None
     claims: tuple[Claim, ...] | None = None
     findings: tuple[ClaimFinding, ...]
@@ -205,7 +207,7 @@ class AssessmentService:
                     coverage = SourceCoverage(
                         processed_count=len(processed), total_count=len(sources)
                     )
-                    result = score_support(claims, findings, coverage)
+                    result = evaluate_support(claims, findings, coverage, comparison.judgment)
                     warnings = tuple(
                         AssessmentWarning(id=uuid4(), code=code) for code in result.warning_codes
                     )

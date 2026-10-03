@@ -274,6 +274,9 @@ class _Phase2MockModelGateway:
         if key == "daily_update.compare":
             claims = cast(list[dict[str, object]], payload.get("claims", []))
             return {
+                "score": None,
+                "rationale": "Mock provider cannot assess original images.",
+                "recommendations": [],
                 "findings": [
                     {
                         "claim_id": claim["id"],
@@ -282,7 +285,7 @@ class _Phase2MockModelGateway:
                         "limitation": "Mock provider cannot verify original images.",
                     }
                     for claim in claims
-                ]
+                ],
             }
         if key.startswith("orchestrator.") and key.endswith(".synthesize"):
             return {

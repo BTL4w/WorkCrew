@@ -1,6 +1,7 @@
 """Real database contracts: warnings cannot be bypassed through either submit route."""
 
 import os
+from decimal import Decimal
 from typing import Any
 from uuid import UUID, uuid4
 
@@ -16,7 +17,12 @@ from app.modules.progress.application.assessment_service import (
     OriginalSource,
 )
 from app.modules.progress.domain.daily_updates import SelectedEvidence
-from app.modules.progress.domain.evidence_support import Claim, ClaimFinding, FindingKind
+from app.modules.progress.domain.evidence_support import (
+    Claim,
+    ClaimFinding,
+    EvidenceJudgment,
+    FindingKind,
+)
 from tests.test_daily_update_api_integration import body, daily_app, draft, seed_task
 from tests.test_evidence_api_integration import Harness, harness, upload
 
@@ -31,6 +37,7 @@ class Comparison:
     def __init__(self, kind: FindingKind = "UNSUPPORTED", failure: Exception | None = None):
         self.kind: FindingKind = kind
         self.failure = failure
+        self.score = Decimal("100") if kind == "SUPPORTED" else Decimal("0")
 
     async def compare(
         self,
@@ -42,6 +49,7 @@ class Comparison:
         if self.failure:
             raise self.failure
         return EvidenceComparisonResult(
+            judgment=EvidenceJudgment(score=self.score, rationale="Mock assessment for this test."),
             findings=tuple(
                 ClaimFinding(claim_id=c.id, finding=self.kind, source_refs=c.evidence_refs)
                 for c in claims
@@ -453,6 +461,7 @@ async def test_partial_source_receipts_produce_insufficient_assessment(
             if tamper == "duplicate":
                 receipts = (receipt, receipt)
             return EvidenceComparisonResult(
+                judgment=findings.judgment,
                 findings=findings.findings,
                 processed_sources=receipts,
             )
@@ -548,3 +557,55 @@ async def test_abandoned_attempt_times_out_before_reassessment(
             {"org": harness.actor.organization_id},
         )
     ).scalar_one() == 1
+
+
+@pytest.mark.asyncio
+async def test_ai_score_rationale_and_recommendations_are_persisted(harness: Harness):
+    task = await seed_task(harness)
+    comparison = Comparison("SUPPORTED")
+    comparison.score = Decimal("83")
+    app = assessed_app(harness, comparison)
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
+        proof = (await upload(c)).json()
+        d = await draft(
+            c, [body(task, evidence_refs=[{"evidence_id": proof["evidence_id"], "version": 1}])]
+        )
+        a = await assess(c, d)
+        assert a["result"]["score"] == "83"
+        assert a["result"]["scoring_method"] == "AI"
+        assert a["result"]["rationale"] == "Mock assessment for this test."
+        assert a["result"]["rule_version"] == "evidence-support.ai.v2"
+        assert a["warnings"] == []
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("value", ["101", "NaN", "-1"])
+async def test_invalid_ai_score_falls_back_without_fabricated_score(harness: Harness, value: str):
+    task = await seed_task(harness)
+
+    class Invalid(Comparison):
+        async def compare(
+            self,
+            claims: tuple[Claim, ...],
+            original_sources: tuple[OriginalSource, ...],
+            budget: ComparisonBudget,
+        ) -> EvidenceComparisonResult:
+            result = await super().compare(claims, original_sources, budget)
+            return result.model_copy(
+                update={"judgment": result.judgment.model_copy(update={"score": Decimal(value)})}
+            )
+
+    app = assessed_app(harness, Invalid())
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
+        proof = (await upload(c)).json()
+        d = await draft(
+            c, [body(task, evidence_refs=[{"evidence_id": proof["evidence_id"], "version": 1}])]
+        )
+        a = await assess(c, d)
+        assert a["state"] == "UNAVAILABLE" and a["result"] is None
+        response = await c.post(
+            f"/api/v1/daily-updates/{d['id']}/confirm",
+            json={"draft_id": d["id"], "expected_draft_version": 1, "assessment_id": a["id"]},
+            headers={"Idempotency-Key": str(uuid4())},
+        )
+        assert response.status_code == 201, response.text

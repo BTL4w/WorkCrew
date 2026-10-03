@@ -48,6 +48,10 @@ test("Employee confirms a manual report and corrects hours without changing Task
  await page.getByRole("button",{name:"Tải lại đánh giá",exact:true}).click();
  await expect(page.getByRole("button",{name:"Vẫn gửi dù có cảnh báo",exact:true})).toBeDisabled();
  await expect(page.getByText("Mức độ hỗ trợ của bằng chứng dưới 70/100.")).toBeVisible();
+ await expect(page.getByText("Điểm đánh giá của AI",{exact:true})).toBeVisible();
+ await expect(page.getByText("65/100",{exact:true})).toBeVisible();
+ await expect(page.getByText("Bằng chứng chưa hỗ trợ đầy đủ nội dung báo cáo.",{exact:true})).toBeVisible();
+ await expect(page.getByText("Bổ sung bằng chứng cho nội dung đã báo cáo.",{exact:true})).toBeVisible();
  await page.getByRole("checkbox",{name:"Tôi đã đọc các cảnh báo này và vẫn muốn gửi báo cáo.",exact:true}).check();
  await page.getByRole("button",{name:"Vẫn gửi dù có cảnh báo",exact:true}).click();
 

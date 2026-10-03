@@ -1,6 +1,6 @@
 schema_version: "1.0"
 name: compare_daily_update_evidence
-version: "1.0.0"
+version: "1.1.0"
 owner: progress-agent
 description: Prepare an owner-reviewed daily report and compare claims with authorized originals.
 runnable_by_agents: [daily_update]

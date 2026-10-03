@@ -1,10 +1,10 @@
-"""Versioned deterministic support scoring; semantic findings are assessments."""
+"""AI-authored support judgments with deterministic validation and warnings."""
 
 from decimal import Decimal
-from typing import Literal
+from typing import Annotated, Literal
 from uuid import UUID
 
-from pydantic import Field
+from pydantic import Field, field_validator
 
 from app.modules.progress.domain.daily_updates import (
     DailyUpdateError,
@@ -38,12 +38,31 @@ class SourceCoverage(ReportingContract):
     total_count: int = Field(ge=0)
 
 
+class EvidenceJudgment(ReportingContract):
+    score: Decimal | None = Field(ge=0, le=100, allow_inf_nan=False)
+    rationale: str = Field(min_length=1, max_length=4000)
+    recommendations: tuple[Annotated[str, Field(min_length=1, max_length=1000)], ...] = Field(
+        default=(), max_length=5
+    )
+
+    @field_validator("rationale")
+    @classmethod
+    def nonblank_rationale(cls, value: str) -> str:
+        if not value.strip():
+            raise ValueError("Assessment rationale is required")
+        return value.strip()
+
+
 class EvidenceSupportResult(ReportingContract):
     score: Decimal | None
     warning_codes: tuple[WarningCode, ...]
     assessed_count: int
     total_count: int
-    rule_version: Literal["evidence-support.v1"] = "evidence-support.v1"
+    # Legacy defaults preserve the meaning of immutable v1 JSON snapshots.
+    rule_version: Literal["evidence-support.v1", "evidence-support.ai.v2"] = "evidence-support.v1"
+    scoring_method: Literal["RULE_BASED", "AI"] = "RULE_BASED"
+    rationale: str = ""
+    recommendations: tuple[str, ...] = ()
 
 
 class AssessmentWarning(ReportingContract):
@@ -54,11 +73,13 @@ class AssessmentWarning(ReportingContract):
 class AssessmentProvenance(ReportingContract):
     agent_version: Literal["1.0.0"] = "1.0.0"
     workflow_version: Literal["daily-update.v1"] = "daily-update.v1"
-    skill_version: Literal["1.0.0"] = "1.0.0"
+    skill_version: Literal["1.0.0", "1.1.0"] = "1.1.0"
     tool_version: Literal["1.0.0"] = "1.0.0"
     prompt_versions: tuple[str, ...]
     model_refs: tuple[str, ...]
-    verifier_version: Literal["daily-update-grounding.v1"] = "daily-update-grounding.v1"
+    verifier_version: Literal["daily-update-grounding.v1", "daily-update-grounding.v2"] = (
+        "daily-update-grounding.v2"
+    )
 
 
 class DraftAssessment(ReportingContract):
@@ -81,9 +102,13 @@ class AssessmentJobRef(ReportingContract):
     state: str
 
 
-def score_support(
-    claims: tuple[Claim, ...], findings: tuple[ClaimFinding, ...], coverage: SourceCoverage
+def evaluate_support(
+    claims: tuple[Claim, ...],
+    findings: tuple[ClaimFinding, ...],
+    coverage: SourceCoverage,
+    judgment: EvidenceJudgment,
 ) -> EvidenceSupportResult:
+    judgment = EvidenceJudgment.model_validate(judgment.model_dump())
     if coverage.processed_count > coverage.total_count or len({c.id for c in claims}) != len(
         claims
     ):
@@ -109,20 +134,13 @@ def score_support(
             groups.setdefault((claim.task_id, " ".join(claim.text.casefold().split())), []).append(
                 finding
             )
-    points = {
-        "SUPPORTED": Decimal(1),
-        "PARTIAL": Decimal("0.5"),
-        "UNSUPPORTED": Decimal(0),
-        "CONTRADICTED": Decimal(0),
-    }
-    # Contradictions survive duplicate consolidation; otherwise use weakest assessable finding.
-    scored = [
-        min(points[f.finding] for f in group if f.finding in points)
-        for group in groups.values()
-        if any(f.finding in points for f in group)
-    ]
+    assessed_count = sum(
+        any(f.finding != "UNASSESSABLE" for f in group) for group in groups.values()
+    )
+    if judgment.score is not None and (not assessed_count or not coverage.processed_count):
+        raise DailyUpdateError("INVALID_ASSESSMENT", 422)
     warnings: list[WarningCode] = []
-    score = 100 * sum(scored, Decimal(0)) / len(scored) if scored else None
+    score = judgment.score
     if score is not None and score < 70:
         warnings.append("LOW_SUPPORT")
     if any(f.finding == "CONTRADICTED" for f in findings):
@@ -132,12 +150,16 @@ def score_support(
         or any(
             f.finding == "UNASSESSABLE" and c.checkability for c in claims for f in (by_id[c.id],)
         )
-        or (groups and not scored)
+        or score is None
     ):
         warnings.append("INSUFFICIENT_ASSESSMENT")
     return EvidenceSupportResult(
         score=score,
         warning_codes=tuple(warnings),
-        assessed_count=len(scored),
+        assessed_count=assessed_count,
         total_count=len(groups),
+        rule_version="evidence-support.ai.v2",
+        scoring_method="AI",
+        rationale=judgment.rationale,
+        recommendations=judgment.recommendations,
     )

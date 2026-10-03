@@ -26,12 +26,13 @@ from app.modules.progress.domain.evidence_support import (
     AssessmentProvenance,
     Claim,
     ClaimFinding,
+    EvidenceJudgment,
     SourceCoverage,
-    score_support,
+    evaluate_support,
 )
 from work_management_ai.agents.daily_update.prompts.system_v1 import (
     CLAIM_INVENTORY_V1,
-    COMPARE_ORIGINALS_V1,
+    COMPARE_ORIGINALS_V2,
 )
 from work_management_ai.model_gateway.contracts import (
     ModelGateway,
@@ -57,7 +58,7 @@ class ClaimInventory(ReportingContract):
     claims: tuple[ClaimAtom, ...] = Field(min_length=1, max_length=100)
 
 
-class ComparisonOutput(ReportingContract):
+class ComparisonOutput(EvidenceJudgment):
     findings: tuple[ClaimFinding, ...] = Field(max_length=100)
 
 
@@ -221,7 +222,7 @@ class OriginalEvidenceComparison:
                     messages=(
                         ModelMessage(
                             role="system",
-                            content=COMPARE_ORIGINALS_V1,
+                            content=COMPARE_ORIGINALS_V2,
                         ),
                         ModelMessage(
                             role="user",
@@ -242,14 +243,17 @@ class OriginalEvidenceComparison:
                 )
             )
         findings = response.parsed.findings
-        score_support(
+        judgment = EvidenceJudgment.model_validate(response.parsed.model_dump(exclude={"findings"}))
+        evaluate_support(
             tuple(resolved),
             findings,
             SourceCoverage(processed_count=len(images), total_count=len(original_sources)),
+            judgment,
         )
         return EvidenceComparisonResult(
+            judgment=judgment,
             provenance=AssessmentProvenance(
-                prompt_versions=("daily-update.claims.v1", "daily-update.compare.v1"),
+                prompt_versions=("daily-update.claims.v1", "daily-update.compare.v2"),
                 model_refs=(inventory.model_ref, response.model_ref),
             ),
             claims=tuple(resolved),

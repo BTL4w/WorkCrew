@@ -15,9 +15,16 @@ export type ReportingItem=z.infer<typeof reportingItemSchema>;
 export type DailyDraft=z.infer<typeof dailyDraftSchema>;
 export type Observation=z.infer<typeof observationSchema>;
 export type SelectedEvidence=z.infer<typeof selectedEvidenceSchema>;
+const supportResultSchema=z.object({
+ score:decimal.nullable().refine(value=>value===null||(Number(value)>=0&&Number(value)<=100)),
+ warning_codes:z.array(z.string()),assessed_count:z.number().int().nonnegative(),total_count:z.number().int().nonnegative(),
+ rule_version:z.enum(["evidence-support.v1","evidence-support.ai.v2"]),
+ scoring_method:z.enum(["RULE_BASED","AI"]).optional(),rationale:z.string().max(4000).optional(),
+ recommendations:z.array(z.string().min(1).max(1000)).max(5).optional(),
+}).refine(value=>value.rule_version!=="evidence-support.ai.v2"||(value.scoring_method==="AI"&&Boolean(value.rationale?.trim())),{message:"AI score requires origin and rationale"});
 export const draftAssessmentSchema=z.object({
  id:z.string().uuid().nullable(),draft_id:z.string().uuid(),draft_version:z.number().int(),state:z.enum(["PENDING","READY","UNAVAILABLE","NOT_ASSESSED_NO_EVIDENCE","STALE"]),
- result:z.object({score:decimal.nullable(),warning_codes:z.array(z.string()),assessed_count:z.number().int(),total_count:z.number().int(),rule_version:z.literal("evidence-support.v1")}).nullable(),
+ result:supportResultSchema.nullable(),
  claims:z.array(z.object({id:z.string(),source_span:z.string(),category:z.enum(["WORK","OUTPUT","ACCEPTANCE_CRITERION"]),checkability:z.boolean(),text:z.string(),task_id:z.string().uuid().nullable(),evidence_refs:z.array(selectedEvidenceSchema)})),
  findings:z.array(z.object({claim_id:z.string(),finding:z.enum(["SUPPORTED","PARTIAL","UNSUPPORTED","CONTRADICTED","UNASSESSABLE"]),source_refs:z.array(selectedEvidenceSchema),limitation:z.string()})),
  coverage:z.object({processed_count:z.number().int(),total_count:z.number().int()}),warnings:z.array(z.object({id:z.string().uuid(),code:z.enum(["LOW_SUPPORT","CONTRADICTION","INSUFFICIENT_ASSESSMENT"])})),limitation:z.string(),
