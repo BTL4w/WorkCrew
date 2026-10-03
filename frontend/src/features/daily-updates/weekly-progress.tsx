@@ -1,4 +1,5 @@
 "use client";
+import { weeklyRiskSchema } from "@/features/risk/contracts";
 
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
@@ -51,12 +52,16 @@ export function WeeklyProgressView({ data }: { data: WeeklyProgressData }) {
 
 export function WeeklyProgressPanel({ organizationId, actorMembershipId, projectId }: { organizationId: string; actorMembershipId: string; projectId: string }) {
   const t = useTranslations("weeklyProgress");
+  const riskText = useTranslations("risk");
   const [selected, setSelected] = useState("");
   const scope = ["work", organizationId, actorMembershipId, "weekly-progress", projectId];
   const weeks = useQuery({ queryKey: [...scope, "weeks"], queryFn: () => listProjectWeeks(projectId) });
   const weekId = weeks.data?.some(week => week.id === selected) ? selected : weeks.data?.[0]?.id;
   const progress = useQuery({ queryKey: [...scope, weekId], enabled: Boolean(weekId), queryFn: () => requestJson(`/api/v1/projects/${projectId}/weeks/${weekId}/progress`, { schema: weeklyProgressSchema }) });
+  const risk = useQuery({ queryKey: [...scope, "risk", weekId], enabled: Boolean(weekId), queryFn: () => requestJson(`/api/v1/risks/weeks/${weekId}`, { schema: weeklyRiskSchema }), refetchInterval: 30000 });
   return <div className="mt-8">
+    {risk.data && <p>{riskText("weeklyTitle")}: {risk.data.score == null ? riskText("state.UNAVAILABLE") : `${risk.data.score} / 100 · ${riskText(`band.${risk.data.band}`)}`} · {riskText("weeklyCoverage", { known: risk.data.assessed_count, total: risk.data.task_count })}</p>}
+    {risk.isError && <p role="alert">{riskText("error")}</p>}
     <label className="text-sm font-medium">{t("week")}<select className="form-input mt-2" value={weekId ?? ""} onChange={event => setSelected(event.target.value)}>{weeks.data?.map(week => <option key={week.id} value={week.id}>{t("weekNumber", {number: week.week_number})}</option>)}</select></label>
     {weeks.error || progress.error ? <div role="alert" className="error-message mt-3"><p>{t("unavailable")}</p><button type="button" className="text-button" onClick={() => { void weeks.refetch(); void progress.refetch(); }}>{t("retry")}</button></div> : weeks.isPending || (weekId && progress.isPending) ? <p role="status">{t("loading")}</p> : !weekId ? <p>{t("empty")}</p> : progress.data ? <WeeklyProgressView data={progress.data} /> : null}
   </div>;

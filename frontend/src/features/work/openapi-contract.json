@@ -691,5 +691,178 @@
       }
     }
   }
+},
+  "risk": {
+  "paths": {
+    "/api/v1/risks/refresh": [
+      "post"
+    ],
+    "/api/v1/risks": [
+      "get"
+    ],
+    "/api/v1/risks/weeks/{week_id}": [
+      "get"
+    ],
+    "/api/v1/risks/{risk_id}": [
+      "get"
+    ],
+    "/api/v1/risks/{risk_id}/reviews": [
+      "post",
+      "get"
+    ],
+    "/api/v1/notifications": [
+      "get"
+    ],
+    "/api/v1/notifications/{notification_id}/read": [
+      "post"
+    ]
+  },
+  "schemas": {
+    "RiskAssessment": {
+      "required": [
+        "id",
+        "task_id",
+        "task_version",
+        "state",
+        "evaluated_at"
+      ],
+      "properties": {
+        "id": "string:uuid",
+        "task_id": "string:uuid",
+        "task_version": "integer",
+        "state": "literal:PENDING|READY|UNAVAILABLE|STALE",
+        "evaluated_at": "string:date-time",
+        "input_snapshot": "null|ref:RiskInputs",
+        "judgment": "null|ref:RiskJudgment",
+        "band": "literal:LOW|MEDIUM|HIGH|null",
+        "limitation": "string",
+        "policy_version": "literal:risk.ai.v1",
+        "model_ref": "null|string",
+        "prompt_version": "literal:risk-assessment.v1",
+        "schema_version": "literal:risk-judgment.v1"
+      }
+    },
+    "RiskInputs": {
+      "required": [
+        "task_id",
+        "task_version",
+        "facts"
+      ],
+      "properties": {
+        "task_id": "string:uuid",
+        "task_version": "integer",
+        "facts": "array:ref:RiskFact",
+        "missing": "array:string"
+      }
+    },
+    "RiskFact": {
+      "required": [
+        "id",
+        "kind",
+        "values"
+      ],
+      "properties": {
+        "id": "string",
+        "kind": "literal:TASK|PROGRESS|BLOCKER|DEPENDENCY|CAPACITY|WARNING|BASELINE",
+        "values": "object"
+      }
+    },
+    "RiskJudgment": {
+      "required": [
+        "score",
+        "rationale"
+      ],
+      "properties": {
+        "score": "null|string",
+        "rationale": "string[1,2000]",
+        "observations": "array:ref:RiskObservation",
+        "limitations": "array:string[1,2000]",
+        "recommendations": "array:string[1,2000]"
+      }
+    },
+    "RiskObservation": {
+      "required": [
+        "text",
+        "source_ids"
+      ],
+      "properties": {
+        "text": "string[1,2000]",
+        "source_ids": "array:string"
+      }
+    },
+    "RiskReviewCommand": {
+      "required": [
+        "disposition",
+        "reason"
+      ],
+      "properties": {
+        "disposition": "literal:NEEDS_FOLLOWUP|ACCEPTED_EXPLANATION|RESOLVED",
+        "reason": "string[1,2000]"
+      }
+    },
+    "RiskReviewEvent": {
+      "required": [
+        "disposition",
+        "reason",
+        "id",
+        "risk_id",
+        "actor_membership_id",
+        "at"
+      ],
+      "properties": {
+        "disposition": "literal:NEEDS_FOLLOWUP|ACCEPTED_EXPLANATION|RESOLVED",
+        "reason": "string[1,2000]",
+        "id": "string:uuid",
+        "risk_id": "string:uuid",
+        "actor_membership_id": "string:uuid",
+        "at": "string:date-time"
+      }
+    },
+    "RiskNotification": {
+      "required": [
+        "id",
+        "task_id",
+        "risk_id",
+        "kind",
+        "created_at"
+      ],
+      "properties": {
+        "id": "string:uuid",
+        "task_id": "string:uuid",
+        "risk_id": "string:uuid",
+        "kind": "literal:HIGH_RISK|SEVERE_BLOCKER|EVIDENCE_REVIEW",
+        "created_at": "string:date-time",
+        "read": "boolean"
+      }
+    },
+    "RiskRefreshRequest": {
+      "required": [
+        "task_id"
+      ],
+      "properties": {
+        "task_id": "string:uuid"
+      }
+    },
+    "WeeklyRisk": {
+      "required": [
+        "project_week_id",
+        "state",
+        "score",
+        "band",
+        "task_count",
+        "assessed_count",
+        "unavailable_task_ids"
+      ],
+      "properties": {
+        "project_week_id": "string:uuid",
+        "state": "literal:READY|PARTIAL|UNAVAILABLE",
+        "score": "null|string",
+        "band": "literal:LOW|MEDIUM|HIGH|null",
+        "task_count": "integer",
+        "assessed_count": "integer",
+        "unavailable_task_ids": "array:string:uuid"
+      }
+    }
+  }
 }
 }

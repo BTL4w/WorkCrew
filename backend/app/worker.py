@@ -53,7 +53,6 @@ from app.modules.planning_runs.adapters.transaction import PostgreSQLPlanningRun
 from app.modules.planning_runs.application.job_service import JobService
 from app.modules.planning_runs.application.outbox_service import (
     OutboxService,
-    UnsupportedOutboxPublisher,
 )
 from app.modules.planning_runs.application.proposal_service import ProposalService
 from app.modules.planning_runs.application.run_service import PlanningRunService
@@ -64,6 +63,10 @@ from app.modules.progress.adapters.daily_update_runtime import (
 from app.modules.progress.adapters.evidence_repository import SqlAlchemyEvidenceTransactionFactory
 from app.modules.progress.adapters.filesystem_storage import FilesystemEvidenceStorage
 from app.modules.progress.application.evidence_service import EvidenceService
+from app.modules.risk.adapters.model_assessment import GatewayRiskAssessment
+from app.modules.risk.adapters.outbox_consumer import RiskOutboxPublisher, RiskWorker
+from app.modules.risk.adapters.repository import RiskTransactions
+from app.modules.risk.application.risk_service import RiskService
 from app.modules.work.adapters.project_repository import SqlAlchemyProjectTransactionFactory
 from app.modules.work.adapters.task_repository import SqlAlchemyTaskTransactionFactory
 from app.modules.work.application.project_service import ProjectService
@@ -117,6 +120,7 @@ async def process_tenant_once(
     planning_job_service: _PlanningRunner,
     projection_service: _ProjectionRunner | None = None,
     title_job_service: _AssistantRunner | None = None,
+    risk_job_service: _AssistantRunner | None = None,
 ) -> bool:
     """Process bounded Task-8 work in fair fixed order."""
     # Separate job filter and task: naming cannot hold up the current answer.
@@ -164,6 +168,16 @@ async def process_tenant_once(
                 "Error projecting linked Planning workflows for organization %s",
                 organization_id,
             )
+    if risk_job_service is not None:
+        try:
+            processed = (
+                await risk_job_service.run_once(
+                    worker_id=worker_id, organization_id=organization_id
+                )
+                or processed
+            )
+        except Exception:
+            logger.exception("Error processing risk jobs for organization %s", organization_id)
     if title_task is not None:
         try:
             processed = await title_task or processed
@@ -209,9 +223,17 @@ async def _run_worker() -> None:
         organization_scopes=scopes,
         lease_seconds=settings.worker_lease_seconds,
     )
+    risk_job_service = RiskWorker(
+        session_factory,
+        RiskService(
+            RiskTransactions(session_factory, settings.reporting_timezone),
+            GatewayRiskAssessment(build_model_gateway(settings)),
+        ),
+        actor_resolver,
+    )
     outbox_service = OutboxService(
         transaction_factory=planning_transaction_factory,
-        publisher=UnsupportedOutboxPublisher(),
+        publisher=RiskOutboxPublisher(risk_job_service),
         organization_scopes=scopes,
         lease_seconds=settings.worker_lease_seconds,
     )
@@ -385,6 +407,7 @@ async def _run_worker() -> None:
                     planning_job_service=planning_job_service,
                     projection_service=projection_service,
                     title_job_service=title_job_service,
+                    risk_job_service=risk_job_service,
                 )
                 or processed_any
             )

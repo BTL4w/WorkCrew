@@ -379,7 +379,7 @@ async def test_criteria_versions_and_acknowledgment_history_are_immutable(harnes
     for table in ("evidence_assessments", "warning_acknowledgments"):
         for actor, count in (
             (harness.actor, 1 if table == "warning_acknowledgments" else 2),
-            (harness.peer, 0),
+            (harness.peer, 1 if table == "warning_acknowledgments" else 0),
             (harness.foreign, 0),
         ):
             await harness.sql("SET LOCAL ROLE app_runtime")

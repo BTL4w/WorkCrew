@@ -27,12 +27,14 @@ from app.modules.progress.adapters import (
     extraction_models,
     progress_models,
 )
+from app.modules.risk.adapters import database_models as risk_models
 from app.modules.work.adapters import database_models as work_models
 from app.modules.work.planning.adapters import database_models as planning_models
 from app.modules.work.planning.assignment.adapters import database_models as team_requirement_models
 from app.modules.work.planning.assignment.adapters import recommendation_models
 
 _MODEL_MODULES = (
+    risk_models,
     daily_update_usage_models,
     assessment_models,
     completion_models,

@@ -271,6 +271,14 @@ class _Phase2MockModelGateway:
                     for line in lines
                 ]
             }
+        if key == "risk.assess":
+            return {
+                "score": None,
+                "rationale": "Mock provider does not assess real delivery risk.",
+                "observations": [],
+                "limitations": ["Use a hosted provider for contextual assessment."],
+                "recommendations": [],
+            }
         if key == "daily_update.compare":
             claims = cast(list[dict[str, object]], payload.get("claims", []))
             return {

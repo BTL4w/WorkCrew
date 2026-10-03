@@ -1,6 +1,8 @@
 "use client";
 
 import { EvidencePicker } from "@/features/daily-updates/evidence-picker";
+import { RiskPanel } from "@/features/risk/risk-panel";
+import { NotificationList } from "@/features/risk/notification-list";
 import { BlockerPanel } from "@/features/blockers/blocker-panel";
 import { DailyUpdateForm } from "@/features/daily-updates/daily-update-form";
 import { CompletionChecklist } from "@/features/daily-updates/completion-checklist";
@@ -27,6 +29,8 @@ import { TeamPanel } from "@/features/project-team/team-panel";
 import { TaskAssignmentControl } from "@/features/project-team/task-assignment-control";
 
 import {
+  getTask,
+  getProject,
   createProject,
   createTask,
   listMyTasks,
@@ -284,7 +288,11 @@ export function WorkWorkspace({
         initialConversationId={initialConversationId}
         activeSection={assignmentMode ? "assignTask" : view === "aiAssistant" ? "assistant" : view}
         workspaceTitle={pageTitle}
-        workspaceContent={workspaceContent}
+        workspaceContent={workspaceContent && <>{canManage && <NotificationList organizationId={actor.membership.organization_id} actorMembershipId={actor.membership.id} onOpenTask={async id => {
+          const task = await getTask(id);
+          const project = await getProject(task.project_id);
+          setSelectedProject(project.data); setSelectedTask(task); setView("projects");
+        }} />}{workspaceContent}</>}
         onOpenAssistant={openAiAssistant}
         onContinueManually={openProjects}
         onOpenProjects={openProjects}
@@ -490,7 +498,7 @@ function TaskDetail({ task, canEdit, onEdit, onUpdated, onBack, onOpenTeam, onRe
       if (isDefinitiveMutationRejection(caught)) attempt.reset();
     } finally { setSubmitting(false); }
   }
-  return <section className="work-view work-detail"><button className="text-button" type="button" onClick={onBack}>← {t("action.back")}</button><div className="work-view-heading mt-6 flex flex-wrap items-start justify-between gap-4"><div><span className={`status-pill status-${task.status.toLowerCase()}`}>{t(`status.${task.status}`)}</span><h2 className="page-title mt-4">{task.title}</h2></div>{canEdit ? <button className="secondary-button" type="button" onClick={onEdit}>{t("task.edit")}</button> : null}</div><dl className="work-detail-grid mt-8 grid gap-5 sm:grid-cols-2"><Detail label={t("task.assignee")} value={task.assignee?.display_name ?? t("task.unassigned")} /><Detail label={t("task.dueDate")} value={task.due_date ? formatCalendarDate(task.due_date, locale) : t("task.noDueDate")} /><Detail label={t("task.description")} value={task.description || t("common.noDescription")} /></dl>{canEdit ? <TaskAssignmentControl task={task} onAssigned={onUpdated} onOpenTeam={onOpenTeam ?? onBack} onReloadTask={onReloadTask ?? onBack} /> : null}<div className="mt-8"><h3 className="font-semibold">{t("task.availableActions")}</h3><div className="mt-3 flex flex-wrap gap-3">{transitions[task.status].filter(item => item.target !== "DONE").map((item) => <button key={item.target} className="primary-button" disabled={submitting} type="button" onClick={() => transition(item.target)}>{item.label}</button>)}{task.status === "IN_PROGRESS" && <CompletionChecklist taskId={task.id} version={task.version} isEmployee={!canEdit} organizationId={planningContext.organizationId} actorMembershipId={planningContext.actorMembershipId} onCompleted={onUpdated} />}</div>{error ? <p className="error-message" role="alert">{error}</p> : null}</div><button className="secondary-button mt-8" type="button" aria-expanded={showCriteria} onClick={() => setShowCriteria((value) => !value)}>{t("task.acceptanceCriteria")}</button>{showCriteria ? <ProjectPlanPanel organizationId={planningContext.organizationId} actorMembershipId={planningContext.actorMembershipId} canManage={planningContext.canManage} projectId={task.project_id} taskId={task.id} tasks={tasks.length ? tasks : [task]} /> : null}{(canEdit || task.assignee?.membership_id === planningContext.actorMembershipId) && <BlockerPanel taskId={task.id} taskVersion={task.version} organizationId={planningContext.organizationId} actorMembershipId={planningContext.actorMembershipId}/>}{task.assignee?.membership_id === planningContext.actorMembershipId ? <div id="daily-update-form"><DailyUpdateForm key={task.id} taskId={task.id} taskVersion={task.version} organizationId={planningContext.organizationId} actorMembershipId={planningContext.actorMembershipId} /></div> : null}</section>;
+  return <section className="work-view work-detail"><button className="text-button" type="button" onClick={onBack}>← {t("action.back")}</button><div className="work-view-heading mt-6 flex flex-wrap items-start justify-between gap-4"><div><span className={`status-pill status-${task.status.toLowerCase()}`}>{t(`status.${task.status}`)}</span><h2 className="page-title mt-4">{task.title}</h2></div>{canEdit ? <button className="secondary-button" type="button" onClick={onEdit}>{t("task.edit")}</button> : null}</div><dl className="work-detail-grid mt-8 grid gap-5 sm:grid-cols-2"><Detail label={t("task.assignee")} value={task.assignee?.display_name ?? t("task.unassigned")} /><Detail label={t("task.dueDate")} value={task.due_date ? formatCalendarDate(task.due_date, locale) : t("task.noDueDate")} /><Detail label={t("task.description")} value={task.description || t("common.noDescription")} /></dl>{canEdit ? <TaskAssignmentControl task={task} onAssigned={onUpdated} onOpenTeam={onOpenTeam ?? onBack} onReloadTask={onReloadTask ?? onBack} /> : null}<div className="mt-8"><h3 className="font-semibold">{t("task.availableActions")}</h3><div className="mt-3 flex flex-wrap gap-3">{transitions[task.status].filter(item => item.target !== "DONE").map((item) => <button key={item.target} className="primary-button" disabled={submitting} type="button" onClick={() => transition(item.target)}>{item.label}</button>)}{task.status === "IN_PROGRESS" && <CompletionChecklist taskId={task.id} version={task.version} isEmployee={!canEdit} organizationId={planningContext.organizationId} actorMembershipId={planningContext.actorMembershipId} onCompleted={onUpdated} />}</div>{error ? <p className="error-message" role="alert">{error}</p> : null}</div><button className="secondary-button mt-8" type="button" aria-expanded={showCriteria} onClick={() => setShowCriteria((value) => !value)}>{t("task.acceptanceCriteria")}</button>{showCriteria ? <ProjectPlanPanel organizationId={planningContext.organizationId} actorMembershipId={planningContext.actorMembershipId} canManage={planningContext.canManage} projectId={task.project_id} taskId={task.id} tasks={tasks.length ? tasks : [task]} /> : null}{canEdit && <RiskPanel key={task.id} taskId={task.id} organizationId={planningContext.organizationId} actorMembershipId={planningContext.actorMembershipId}/>}{(canEdit || task.assignee?.membership_id === planningContext.actorMembershipId) && <BlockerPanel taskId={task.id} taskVersion={task.version} organizationId={planningContext.organizationId} actorMembershipId={planningContext.actorMembershipId}/>}{task.assignee?.membership_id === planningContext.actorMembershipId ? <div id="daily-update-form"><DailyUpdateForm key={task.id} taskId={task.id} taskVersion={task.version} organizationId={planningContext.organizationId} actorMembershipId={planningContext.actorMembershipId} /></div> : null}</section>;
 }
 
 function Dialog({ title, children, onClose }: { title: string; children: ReactNode; onClose: () => void }) {

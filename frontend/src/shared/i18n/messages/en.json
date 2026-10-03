@@ -501,5 +501,113 @@
     "INVALID_EVIDENCE": "Evidence is unavailable.",
     "BLOCKER_ARCHIVED": "Archived blockers cannot be changed."
   }
+},
+  "risk": {
+  "confirmedWarnings": "Confirmed report warnings",
+  "reportWarningScope": "These warnings apply to the confirmed report, which may cover several tasks.",
+  "acknowledgedAt": "Acknowledged at",
+  "reportReference": "Confirmed report reference",
+  "warningCode": {
+    "LOW_SUPPORT": "Evidence support below 70/100",
+    "CONTRADICTION": "Evidence contains a contradiction",
+    "INSUFFICIENT_ASSESSMENT": "Evidence assessment coverage is incomplete"
+  },
+  "weeklyTitle": "Weekly risk (highest task score)",
+  "weeklyCoverage": "{known}/{total} tasks have current assessments",
+  "title": "AI risk assessment",
+  "origin": "AI evaluates delivery risk on a 0–100 scale from the recorded context. Low: below 30; moderate: 30–59; high: 60–100.",
+  "loading": "Loading assessment…",
+  "error": "Could not load or save. Retry or review the task manually.",
+  "reload": "Reload",
+  "retry": "Retry the same request",
+  "refresh": "Refresh assessment",
+  "recommendations": "Suggested next steps",
+  "advisory": "These suggestions require a Manager decision before any task changes.",
+  "missing": "Missing context",
+  "unknown": "Unknown",
+  "yes": "Yes",
+  "no": "No",
+  "fact": "Recorded fact",
+  "evaluatedAt": "Evaluated at",
+  "disposition": "Manager disposition",
+  "reason": "Review reason",
+  "recordReview": "Record review",
+  "notifications": "Risk notifications",
+  "noNotifications": "No risk notifications",
+  "openTask": "Open task",
+  "markRead": "Mark read",
+  "state": {
+    "NONE": "No assessment yet",
+    "PENDING": "Assessment queued",
+    "READY": "Assessment available",
+    "UNAVAILABLE": "Assessment unavailable",
+    "STALE": "Context changed; refresh the assessment"
+  },
+  "band": {
+    "LOW": "Low",
+    "MEDIUM": "Moderate",
+    "HIGH": "High"
+  },
+  "dispositionValue": {
+    "NEEDS_FOLLOWUP": "Needs follow-up",
+    "ACCEPTED_EXPLANATION": "Explanation accepted",
+    "RESOLVED": "Resolved"
+  },
+  "notificationKind": {
+    "HIGH_RISK": "High delivery risk",
+    "SEVERE_BLOCKER": "Severe blocker needs review",
+    "EVIDENCE_REVIEW": "Acknowledged evidence warnings need review"
+  },
+  "limitation": {
+    "RISK_CONTEXT_LIMIT": "Too much context for one bounded assessment. Review manually.",
+    "MODEL_UNAVAILABLE": "The model could not assess this context. Review manually.",
+    "INSUFFICIENT_CONTEXT": "The AI returned no score because context is insufficient.",
+    "CONTEXT_CHANGED": "Recorded facts changed since evaluation.",
+    "REFRESH_EXPIRED": "The queued assessment expired. Try refreshing."
+  },
+  "kind": {
+    "WARNING_HISTORY": "Complete warning history",
+    "CAPACITY": "Capacity",
+    "ASSIGNEE": "Assignee",
+    "PROGRESS": "Progress",
+    "BASELINE": "Plan baseline"
+  },
+  "field": {
+    "estimated_effort_hours": "Estimated effort (hours)",
+    "current_week_start": "Current week start",
+    "current_week_end": "Current week end",
+    "current_week_status": "Current week status",
+
+    "title": "Task",
+    "status": "Status",
+    "due_date": "Due date",
+    "overdue": "Overdue",
+    "evaluation_date": "Evaluation date",
+    "timezone": "Reporting timezone",
+    "assignee": "Assignee",
+    "reported_percent": "Reported progress (%)",
+    "remaining_hours": "Remaining effort (hours)",
+    "reported_at": "Reported at",
+    "working_days_since_report": "Working days without a report",
+    "text": "Blocker",
+    "severity": "Severity",
+    "working_days_open": "Working days open",
+    "predecessor_task_id": "Predecessor task",
+    "version": "Version",
+    "severe_blocker": "Severe blocker",
+    "available_hours": "Available hours",
+    "known_remaining_hours": "Known remaining work (hours)",
+    "unknown_tasks": "Tasks with unknown effort",
+    "overload": "Overloaded",
+    "remaining_working_days": "Remaining working days",
+    "approximation": "Capacity calculation assumption",
+    "scope": "Workload scope",
+    "planned_percent": "Planned progress (%)",
+    "deviation_pp": "Deviation (percentage points)",
+    "calendar": "Reporting calendar",
+    "assessment_id": "Evidence assessment",
+    "acknowledged_at": "Acknowledged at",
+    "warnings": "Acknowledged warnings"
+  }
 }
 }

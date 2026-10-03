@@ -270,6 +270,18 @@ def create_app(
         SqlAlchemyProgressTransactionFactory(create_session_factory(database_engine))
     )
     from app.modules.progress.adapters.blocker_repository import SqlAlchemyBlockerTransactions
+    from app.modules.risk.adapters.model_assessment import GatewayRiskAssessment
+    from app.modules.risk.adapters.repository import RiskTransactions
+    from app.modules.risk.api.routes import router as risk_router
+    from app.modules.risk.application.risk_service import RiskService
+
+    app.state.risk_service = RiskService(
+        RiskTransactions(
+            create_session_factory(database_engine), resolved_settings.reporting_timezone
+        ),
+        GatewayRiskAssessment(build_model_gateway(resolved_settings)),
+    )
+    app.include_router(risk_router, prefix="/api/v1")
     from app.modules.progress.api.blocker_routes import router as blocker_router
     from app.modules.progress.application.blocker_service import BlockerService
 

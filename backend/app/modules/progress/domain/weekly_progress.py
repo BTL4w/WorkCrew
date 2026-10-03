@@ -63,7 +63,7 @@ class WeekActuals:
     task_actuals: tuple[TaskActual, ...]
 
 
-def _planned(entry: PlanEntry, plan: PlanBaseline, at: datetime) -> Decimal | None:
+def planned_percent(entry: PlanEntry, plan: PlanBaseline, at: datetime) -> Decimal | None:
     end = min(plan.end_date, entry.due_date) if entry.due_date else plan.end_date
     days = (
         plan.start_date + timedelta(days=i) for i in range(max(0, (end - plan.start_date).days + 1))
@@ -114,7 +114,7 @@ def aggregate_week(
             if percent is not None:
                 known += effort
                 weighted += effort * percent
-            planned = _planned(entry, baseline, at)
+            planned = planned_percent(entry, baseline, at)
             if planned is not None:
                 planned_total += effort
                 planned_weight += effort * planned

@@ -501,5 +501,113 @@
     "INVALID_EVIDENCE": "Bằng chứng không khả dụng.",
     "BLOCKER_ARCHIVED": "Không thể sửa vướng mắc đã lưu trữ."
   }
+},
+  "risk": {
+  "confirmedWarnings": "Cảnh báo của báo cáo đã xác nhận",
+  "reportWarningScope": "Cảnh báo thuộc báo cáo đã xác nhận, có thể gồm nhiều công việc.",
+  "acknowledgedAt": "Người gửi đã xác nhận lúc",
+  "reportReference": "Tham chiếu báo cáo đã xác nhận",
+  "warningCode": {
+    "LOW_SUPPORT": "Mức hỗ trợ của bằng chứng dưới 70/100",
+    "CONTRADICTION": "Bằng chứng có nội dung mâu thuẫn",
+    "INSUFFICIENT_ASSESSMENT": "Đánh giá bằng chứng chưa đầy đủ"
+  },
+  "weeklyTitle": "Rủi ro tuần (điểm Task cao nhất)",
+  "weeklyCoverage": "{known}/{total} công việc có đánh giá hiện hành",
+  "title": "Đánh giá rủi ro bằng AI",
+  "origin": "AI đánh giá rủi ro hoàn thành trên thang 0–100 từ dữ liệu đã ghi nhận. Thấp: dưới 30; vừa: 30–59; cao: 60–100.",
+  "loading": "Đang tải đánh giá…",
+  "error": "Không thể tải hoặc lưu. Thử lại hoặc kiểm tra công việc thủ công.",
+  "reload": "Tải lại",
+  "retry": "Thử lại cùng yêu cầu",
+  "refresh": "Cập nhật đánh giá",
+  "recommendations": "Đề xuất bước tiếp theo",
+  "advisory": "Đề xuất cần Manager quyết định trước khi thay đổi công việc.",
+  "missing": "Dữ liệu còn thiếu",
+  "unknown": "Chưa rõ",
+  "yes": "Có",
+  "no": "Không",
+  "fact": "Dữ liệu đã ghi nhận",
+  "evaluatedAt": "Thời điểm đánh giá",
+  "disposition": "Nhận định của Manager",
+  "reason": "Lý do nhận định",
+  "recordReview": "Ghi nhận phản hồi",
+  "notifications": "Thông báo rủi ro",
+  "noNotifications": "Chưa có thông báo rủi ro",
+  "openTask": "Mở công việc",
+  "markRead": "Đánh dấu đã đọc",
+  "state": {
+    "NONE": "Chưa có đánh giá",
+    "PENDING": "Đang chờ đánh giá",
+    "READY": "Đã có đánh giá",
+    "UNAVAILABLE": "Chưa thể đánh giá",
+    "STALE": "Dữ liệu đã thay đổi; cần cập nhật đánh giá"
+  },
+  "band": {
+    "LOW": "Thấp",
+    "MEDIUM": "Vừa",
+    "HIGH": "Cao"
+  },
+  "dispositionValue": {
+    "NEEDS_FOLLOWUP": "Cần theo dõi",
+    "ACCEPTED_EXPLANATION": "Chấp nhận giải thích",
+    "RESOLVED": "Đã xử lý"
+  },
+  "notificationKind": {
+    "HIGH_RISK": "Rủi ro hoàn thành cao",
+    "SEVERE_BLOCKER": "Blocker nghiêm trọng cần xem xét",
+    "EVIDENCE_REVIEW": "Cần xem lại cảnh báo bằng chứng đã xác nhận"
+  },
+  "limitation": {
+    "RISK_CONTEXT_LIMIT": "Dữ liệu vượt giới hạn một lần đánh giá. Hãy kiểm tra thủ công.",
+    "MODEL_UNAVAILABLE": "Model chưa thể đánh giá. Hãy kiểm tra thủ công.",
+    "INSUFFICIENT_CONTEXT": "AI không đưa ra điểm vì dữ liệu chưa đủ.",
+    "CONTEXT_CHANGED": "Dữ liệu đã thay đổi từ lần đánh giá.",
+    "REFRESH_EXPIRED": "Yêu cầu đánh giá đã hết hạn. Hãy thử cập nhật lại."
+  },
+  "kind": {
+    "WARNING_HISTORY": "Lịch sử cảnh báo đầy đủ",
+    "CAPACITY": "Năng lực còn lại",
+    "ASSIGNEE": "Người phụ trách",
+    "PROGRESS": "Tiến độ",
+    "BASELINE": "Kế hoạch gốc"
+  },
+  "field": {
+    "estimated_effort_hours": "Công sức dự kiến (giờ)",
+    "current_week_start": "Bắt đầu tuần hiện tại",
+    "current_week_end": "Kết thúc tuần hiện tại",
+    "current_week_status": "Trạng thái tuần hiện tại",
+
+    "title": "Công việc",
+    "status": "Trạng thái",
+    "due_date": "Hạn hoàn thành",
+    "overdue": "Quá hạn",
+    "evaluation_date": "Ngày đánh giá",
+    "timezone": "Múi giờ báo cáo",
+    "assignee": "Người phụ trách",
+    "reported_percent": "Tiến độ báo cáo (%)",
+    "remaining_hours": "Công sức còn lại (giờ)",
+    "reported_at": "Thời điểm báo cáo",
+    "working_days_since_report": "Ngày làm việc chưa báo cáo",
+    "text": "Blocker",
+    "severity": "Mức nghiêm trọng",
+    "working_days_open": "Ngày làm việc còn blocker",
+    "predecessor_task_id": "Công việc tiền nhiệm",
+    "version": "Phiên bản",
+    "severe_blocker": "Blocker nghiêm trọng",
+    "available_hours": "Giờ khả dụng",
+    "known_remaining_hours": "Công sức đã biết (giờ)",
+    "unknown_tasks": "Công việc chưa rõ công sức",
+    "overload": "Quá tải",
+    "remaining_working_days": "Ngày làm việc còn lại",
+    "approximation": "Giả định tính năng lực",
+    "scope": "Phạm vi khối lượng",
+    "planned_percent": "Tiến độ kế hoạch (%)",
+    "deviation_pp": "Độ lệch (điểm phần trăm)",
+    "calendar": "Lịch báo cáo",
+    "assessment_id": "Đánh giá bằng chứng",
+    "acknowledged_at": "Thời điểm xác nhận",
+    "warnings": "Cảnh báo đã xác nhận"
+  }
 }
 }

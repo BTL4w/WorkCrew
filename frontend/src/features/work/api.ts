@@ -154,3 +154,7 @@ export function assignTask(
     },
   });
 }
+
+export function getTask(taskId: string) {
+  return requestJson(`/api/v1/tasks/${taskId}`, { schema: taskSchema });
+}
