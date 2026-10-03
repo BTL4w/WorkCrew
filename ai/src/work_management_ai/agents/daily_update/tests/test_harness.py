@@ -207,3 +207,36 @@ async def test_provider_failure_keeps_manual_report_path():
     assert result.status is AgentRunStatus.FAILED
     assert result.typed_output["fallback"] == "manual_daily_update"
     assert [r.typed_input["action"] for r in tools.calls] == ["CONTEXT"]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("locale", ["vi", "en"])
+async def test_ai_blocker_stays_in_owner_review_draft(locale: str):
+    tools = Tools()
+    blocker_text = "Thiếu vật liệu" if locale == "vi" else "Awaiting materials"
+    gateway = MockModelGateway(
+        fixtures={
+            f"daily_update.{locale}.extract": {
+                "reported_percent": "50",
+                "remaining_hours": None,
+                "spent_hours": None,
+                "done_text": "Completed survey",
+                "next_steps": "",
+                "needs_clarification": False,
+                "blockers": [{"text": blocker_text, "severity": "HIGH"}],
+            }
+        }
+    )
+    result = await DailyUpdateHarness(
+        model_gateway=gateway, tool_executor=tools, actor_resolver=Actors()
+    ).run(handoff(tools, locale))
+    assert result.status is AgentRunStatus.AWAITING_HUMAN
+    assert result.typed_output["needs_owner_confirmation"] is True
+    prepared = next(c for c in tools.calls if c.typed_input["action"] == "DRAFT")
+    from work_management_ai.agents.daily_update.contracts import ExtractedReport
+
+    assert (
+        ExtractedReport.model_validate(prepared.typed_input["report"]).blockers[0].text
+        == blocker_text
+    )
+    assert tools.confirmed_observation_count == 0

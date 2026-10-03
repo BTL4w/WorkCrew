@@ -20,6 +20,7 @@ from app.modules.people_capacity.adapters import database_models as people_capac
 from app.modules.planning_runs.adapters import database_models as planning_runs_models
 from app.modules.progress.adapters import (
     assessment_models,
+    blocker_models,  # noqa: F401
     completion_models,
     daily_update_models,
     evidence_models,

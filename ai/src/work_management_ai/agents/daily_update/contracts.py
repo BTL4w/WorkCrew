@@ -27,7 +27,13 @@ class DailyUpdateHandoff(DailyContract):
     draft_version: int | None = Field(default=None, ge=1)
 
 
+class BlockerDraft(DailyContract):
+    text: str = Field(min_length=1, max_length=4000)
+    severity: Literal["LOW", "MEDIUM", "HIGH", "CRITICAL"]
+
+
 class ExtractedReport(DailyContract):
+    blockers: tuple[BlockerDraft, ...] = Field(default=(), max_length=20)
     reported_percent: Decimal | None = Field(ge=0, le=100, decimal_places=4)
     remaining_hours: Decimal | None = Field(ge=0, le=10000, decimal_places=4)
     spent_hours: Decimal | None = Field(ge=0, le=24, decimal_places=4)

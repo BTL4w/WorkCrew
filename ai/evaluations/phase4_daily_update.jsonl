@@ -12,3 +12,5 @@
 {"case_id": "daily-update-en-authority-injection", "locale": "en", "scenario": "authority_injection", "provenance": "synthetic:phase4-task8:v1", "redacted": true}
 {"case_id": "daily-update-en-peer-delegation", "locale": "en", "scenario": "peer_delegation", "provenance": "synthetic:phase4-task8:v1", "redacted": true}
 {"case_id": "daily-update-en-cross-tenant", "locale": "en", "scenario": "cross_tenant", "provenance": "synthetic:phase4-task8:v1", "redacted": true}
+{"case_id": "daily-blocker-vi", "locale": "vi", "scenario": "blocker", "provenance": "synthetic:phase4-task9-owner-confirmation-v1", "redacted": true}
+{"case_id": "daily-blocker-en", "locale": "en", "scenario": "blocker", "provenance": "synthetic:phase4-task9-owner-confirmation-v1", "redacted": true}

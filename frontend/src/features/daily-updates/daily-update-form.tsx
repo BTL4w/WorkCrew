@@ -1,4 +1,6 @@
 "use client";
+import { BlockerPanel } from "@/features/blockers/blocker-panel";
+import type { BlockerCommand } from "@/features/blockers/contracts";
 import { useQuery,useQueryClient } from "@tanstack/react-query";
 import { useTranslations } from "next-intl";
 import { useRef,useState } from "react";
@@ -10,12 +12,13 @@ import { DailyUpdateHistory } from "./daily-update-history";
 import type { DailyDraft,Observation,ReportingItem,SelectedEvidence } from "./reporting-contracts";
 
 export function DailyUpdateForm({taskId,taskVersion,organizationId,actorMembershipId,initialDraft}:{taskId:string;taskVersion:number;organizationId:string;actorMembershipId:string;initialDraft?:DailyDraft}){
- const t=useTranslations("dailyUpdate");
+ const t=useTranslations("dailyUpdate");const b=useTranslations("blocker");
  const queryClient=useQueryClient();
  const scope=["work",organizationId,actorMembershipId,"daily-update",taskId];
  const context=useQuery({queryKey:[...scope,"context",taskVersion],queryFn:()=>getReportingContext(taskId)});
  const history=useQuery({queryKey:[...scope,"history"],queryFn:()=>getUpdateHistory(taskId)});
  const initial=initialDraft?.items[0];
+ const [blockerCommands,setBlockerCommands]=useState<BlockerCommand[]>(initial?.blocker_commands??[]);
  const [percent,setPercent]=useState(initial?.reported_percent??"");const [remaining,setRemaining]=useState(initial?.remaining_hours??"");const [spent,setSpent]=useState(initial?.spent_hours??"");
  const [date,setDate]=useState(initial?.reporting_date??"");const [done,setDone]=useState(initial?.done_text??"");const [next,setNext]=useState(initial?.next_steps??"");const [reason,setReason]=useState("");
  const [correction,setCorrection]=useState<Observation|null>(null);
@@ -37,7 +40,7 @@ export function DailyUpdateForm({taskId,taskVersion,organizationId,actorMembersh
  const options=Array.from(new Map([...ctx.evidence_refs,...uploaded].map(ref=>[ref.evidence_id,ref])).values());
  async function prepare(event:React.FormEvent){
   event.preventDefault();setError(null);setSaved(false);setBusy(true);
-  const item:ReportingItem={task_id:taskId,expected_task_version:ctx.task_version,expected_progress_version:ctx.progress_version,reported_percent:percent,remaining_hours:remaining||null,spent_hours:spent||null,reporting_date:date||ctx.reporting_date,done_text:done,next_steps:next,evidence_refs:options.filter(ref=>selected.includes(ref.evidence_id)),corrects_observation_id:correction?.id??null,correction_reason:reason};
+  const item:ReportingItem={task_id:taskId,expected_task_version:ctx.task_version,expected_progress_version:ctx.progress_version,reported_percent:percent,remaining_hours:remaining||null,spent_hours:spent||null,reporting_date:date||ctx.reporting_date,done_text:done,next_steps:next,blocker_commands:blockerCommands,evidence_refs:options.filter(ref=>selected.includes(ref.evidence_id)),corrects_observation_id:correction?.id??null,correction_reason:reason};
   const body=JSON.stringify(item);
   if(!attempt.current||attempt.current.body!==body)attempt.current={body,key:crypto.randomUUID()};
   try{setAssessmentRequested(false);setAcknowledged(false);assessmentKey.current=null;const prepared=revision.current?await reviseDailyDraft(revision.current,[item],attempt.current.key):await createDailyDraft([item],attempt.current.key);setDraft(prepared);revision.current=prepared;attempt.current=null;confirmKey.current=crypto.randomUUID();}
@@ -47,8 +50,8 @@ export function DailyUpdateForm({taskId,taskVersion,organizationId,actorMembersh
  async function confirm(){
   if(!draft||!confirmKey.current)return;
   setError(null);setBusy(true);
-  try{await submitDailyDraft(draft,confirmKey.current,assessment.data,acknowledged);setSaved(true);revision.current=null;setUncertain(false);setDraft(null);setCorrection(null);setReason("");setSelected([]);setUploaded([]);confirmKey.current=null;
-   await queryClient.invalidateQueries({queryKey:scope});await queryClient.invalidateQueries({queryKey:["completion",organizationId,actorMembershipId,taskId]});await queryClient.invalidateQueries({queryKey:["work",organizationId,actorMembershipId,"weekly-progress"]});
+  try{await submitDailyDraft(draft,confirmKey.current,assessment.data,acknowledged);setSaved(true);setBlockerCommands([]);revision.current=null;setUncertain(false);setDraft(null);setCorrection(null);setReason("");setSelected([]);setUploaded([]);confirmKey.current=null;
+   await queryClient.invalidateQueries({queryKey:scope});await queryClient.invalidateQueries({queryKey:["work",organizationId,actorMembershipId,"blockers",taskId]});await queryClient.invalidateQueries({queryKey:["completion",organizationId,actorMembershipId,taskId]});await queryClient.invalidateQueries({queryKey:["work",organizationId,actorMembershipId,"weekly-progress"]});
   }catch(failure){showError(failure);const rejected=isDefinitiveMutationRejection(failure);setUncertain(!rejected);if(rejected){confirmKey.current=crypto.randomUUID();setAcknowledged(false);setAssessmentRequested(true);void assessment.refetch();}}
   finally{setBusy(false);}
  }
@@ -58,7 +61,7 @@ export function DailyUpdateForm({taskId,taskVersion,organizationId,actorMembersh
  <p>{t("independent")}</p>{ctx.project_week_state==="NO_PROJECT_WEEK"&&<p>{t("noWeek")}</p>}
  <p>{t("timezone",{timezone:ctx.reporting_timezone})}</p>
  {saved&&<p role="status">{t("saved")}</p>}{error&&<p role="alert">{error}</p>}
- {draft?<div className="mt-4 space-y-3">{assessing?<p role="status">{t("assessment.pending")}</p>:assessmentRequested?(assessment.data?<EvidenceAssessmentCard key={assessment.data.id??"unavailable"} assessment={assessment.data} acknowledged={acknowledged} onAcknowledge={setAcknowledged} disabled={busy||uncertain}/>:<p role="status">{assessment.isError?t("error.UNKNOWN"):t("loading")}</p>):<p>{t("assessmentUnavailable")}</p>}{!uncertain&&<button className="secondary-button" type="button" disabled={busy||assessment.data?.state==="PENDING"} onClick={()=>void requestAssessment()}>{t("assessment.request")}</button>}{!uncertain&&<button type="button" disabled={busy} onClick={()=>{setAssessmentRequested(true);setAcknowledged(false);confirmKey.current=crypto.randomUUID();void assessment.refetch();}}>{t("assessment.refresh")}</button>}<dl><dt>{t("percent")}</dt><dd>{draft.items[0].reported_percent}%</dd><dt>{t("remaining")}</dt><dd>{draft.items[0].remaining_hours??t("unknown")}</dd><dt>{t("spent")}</dt><dd>{draft.items[0].spent_hours??t("unknown")}</dd><dt>{t("date")}</dt><dd>{draft.items[0].reporting_date}</dd><dt>{t("done")}</dt><dd>{draft.items[0].done_text}</dd><dt>{t("next")}</dt><dd>{draft.items[0].next_steps}</dd><dt>{t("selectedEvidence")}</dt><dd>{draft.items[0].evidence_refs?.length??0}</dd></dl>
+ {draft?<div className="mt-4 space-y-3">{assessing?<p role="status">{t("assessment.pending")}</p>:assessmentRequested?(assessment.data?<EvidenceAssessmentCard key={assessment.data.id??"unavailable"} assessment={assessment.data} acknowledged={acknowledged} onAcknowledge={setAcknowledged} disabled={busy||uncertain}/>:<p role="status">{assessment.isError?t("error.UNKNOWN"):t("loading")}</p>):<p>{t("assessmentUnavailable")}</p>}{!uncertain&&<button className="secondary-button" type="button" disabled={busy||assessment.data?.state==="PENDING"} onClick={()=>void requestAssessment()}>{t("assessment.request")}</button>}{!uncertain&&<button type="button" disabled={busy} onClick={()=>{setAssessmentRequested(true);setAcknowledged(false);confirmKey.current=crypto.randomUUID();void assessment.refetch();}}>{t("assessment.refresh")}</button>}<dl><dt>{t("percent")}</dt><dd>{draft.items[0].reported_percent}%</dd><dt>{t("remaining")}</dt><dd>{draft.items[0].remaining_hours??t("unknown")}</dd><dt>{t("spent")}</dt><dd>{draft.items[0].spent_hours??t("unknown")}</dd><dt>{t("date")}</dt><dd>{draft.items[0].reporting_date}</dd><dt>{t("done")}</dt><dd>{draft.items[0].done_text}</dd><dt>{t("next")}</dt><dd>{draft.items[0].next_steps}</dd><dt>{t("blockers")}</dt><dd>{draft.items[0].blocker_commands?.map((c,i)=><p key={i}>{b(`action.${c.action}`)} · {c.severity?b(`severityValue.${c.severity}`):""} · {c.text}</p>)}</dd><dt>{t("selectedEvidence")}</dt><dd>{draft.items[0].evidence_refs?.length??0}</dd></dl>
  <button className="primary-button" disabled={busy||(assessmentRequested&&!assessment.data)||(assessment.data?.state==="PENDING"||assessment.data?.state==="STALE")||(warnings.length>0&&!acknowledged)} type="button" onClick={()=>void confirm()}>{warnings.length>0?t("assessment.confirmDespiteWarning"):t("confirm")}</button>{!uncertain&&<button className="secondary-button" disabled={busy} type="button" onClick={()=>{setDraft(null);void context.refetch();}}>{t("edit")}</button>}
  {uncertain&&<p>{t("retry")}</p>}</div>:<form className="mt-4 grid gap-4" onSubmit={prepare}>
  <label>{t("percent")}<input type="number" required min="0" max="100" step="0.0001" value={percent} onChange={e=>setPercent(e.target.value)}/></label>
@@ -70,6 +73,7 @@ export function DailyUpdateForm({taskId,taskVersion,organizationId,actorMembersh
  <label>{t("reason")}<input required={Boolean(correction)} maxLength={1000} value={reason} onChange={e=>setReason(e.target.value)}/></label>
  {correction&&<p>{t("correcting",{date:correction.item.reporting_date})}</p>}
  <fieldset><legend>{t("selectedEvidence")}</legend>{options.map(ref=><label className="block" key={ref.evidence_id}><input type="checkbox" checked={selected.includes(ref.evidence_id)} onChange={e=>setSelected(values=>e.target.checked?[...values,ref.evidence_id]:values.filter(id=>id!==ref.evidence_id))}/>{ref.evidence_id} · v{ref.version}</label>)}</fieldset>
+ <BlockerPanel taskId={taskId} taskVersion={ctx.task_version} organizationId={organizationId} actorMembershipId={actorMembershipId} commands={blockerCommands} onCommands={setBlockerCommands} availableEvidence={options} disabled={busy}/>
  <button className="primary-button" disabled={busy} type="submit">{t("review")}</button></form>}
  {!draft&&<EvidencePicker onUploaded={proof=>{setUploaded(values=>[...values,{evidence_id:proof.evidence_id,version:proof.version}]);}}/>}
  {history.error?<p role="alert">{t("historyUnavailable")} <button type="button" onClick={()=>void history.refetch()}>{t("reload")}</button></p>:<DailyUpdateHistory observations={history.data??[]} onCorrect={correct} disabled={busy||Boolean(draft)}/>}

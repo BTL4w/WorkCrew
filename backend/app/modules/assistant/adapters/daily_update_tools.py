@@ -8,6 +8,7 @@ from app.modules.assistant.adapters.assignment_tools import CurrentActorResolver
 from app.modules.identity.domain.auth import AuthenticatedActor
 from app.modules.progress.application.assessment_service import AssessmentService
 from app.modules.progress.application.daily_update_service import DailyUpdateService
+from app.modules.progress.domain.blockers import BlockerCommand
 from app.modules.progress.domain.daily_updates import (
     DailyUpdateError,
     DailyUpdateItemInput,
@@ -89,6 +90,20 @@ class DailyUpdateToolAdapter:
                     spent_hours=report.spent_hours,
                     done_text=report.done_text,
                     next_steps=report.next_steps,
+                    blocker_commands=tuple(
+                        BlockerCommand(
+                            task_id=value.task_id,
+                            expected_task_version=context.task_version,
+                            action="CREATE",
+                            text=blocker.text,
+                            severity=blocker.severity,
+                            evidence_refs=tuple(
+                                SelectedEvidence.model_validate(r.model_dump())
+                                for r in value.evidence_refs
+                            ),
+                        )
+                        for blocker in report.blockers
+                    ),
                     evidence_refs=tuple(
                         SelectedEvidence.model_validate(r.model_dump()) for r in value.evidence_refs
                     ),

@@ -269,6 +269,14 @@ def create_app(
     app.state.weekly_progress_service = WeeklyProgressService(
         SqlAlchemyProgressTransactionFactory(create_session_factory(database_engine))
     )
+    from app.modules.progress.adapters.blocker_repository import SqlAlchemyBlockerTransactions
+    from app.modules.progress.api.blocker_routes import router as blocker_router
+    from app.modules.progress.application.blocker_service import BlockerService
+
+    app.state.blocker_service = BlockerService(
+        SqlAlchemyBlockerTransactions(create_session_factory(database_engine))
+    )
+    app.include_router(blocker_router, prefix="/api/v1")
     app.state.daily_update_service, app.state.assessment_service, _ = build_daily_services(
         sessions=create_session_factory(database_engine),
         settings=resolved_settings,

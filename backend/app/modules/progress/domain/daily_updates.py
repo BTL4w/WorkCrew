@@ -7,7 +7,10 @@ from typing import Literal
 from uuid import UUID
 from zoneinfo import ZoneInfo
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import Field
+
+from app.modules.progress.domain.blockers import BlockerCommand
+from app.modules.progress.domain.reporting_contracts import ReportingContract, SelectedEvidence
 
 
 class DailyUpdateError(Exception):
@@ -15,18 +18,6 @@ class DailyUpdateError(Exception):
         super().__init__(code)
         self.code, self.status = code, status
         self.details = details or {}
-
-
-class ReportingContract(BaseModel):
-    model_config = ConfigDict(extra="forbid", frozen=True)
-
-
-class SelectedEvidence(ReportingContract):
-    evidence_id: UUID
-    version: int = Field(ge=1)
-
-    def __hash__(self) -> int:
-        return hash((self.evidence_id, self.version))
 
 
 class DailyUpdateItemInput(ReportingContract):
@@ -40,6 +31,7 @@ class DailyUpdateItemInput(ReportingContract):
     done_text: str = Field(min_length=1, max_length=4000)
     next_steps: str = Field(default="", max_length=4000)
     evidence_refs: tuple[SelectedEvidence, ...] = Field(default=(), max_length=20)
+    blocker_commands: tuple[BlockerCommand, ...] = Field(default=(), max_length=20)
     corrects_observation_id: UUID | None = None
     correction_reason: str = Field(default="", max_length=1000)
 
@@ -104,6 +96,11 @@ def validate_items(items: tuple[DailyUpdateItemInput, ...], at: datetime, timezo
         raise DailyUpdateError("DUPLICATE_TASK", 422)
     totals: defaultdict[date, Decimal] = defaultdict(lambda: Decimal(0))
     for item in items:
+        if any(
+            c.task_id != item.task_id or c.expected_task_version != item.expected_task_version
+            for c in item.blocker_commands
+        ):
+            raise DailyUpdateError("INVALID_BLOCKER_TASK", 422)
         if item.reporting_date > at.astimezone(ZoneInfo(timezone)).date():
             raise DailyUpdateError("FUTURE_REPORT", 422)
         if item.reported_percent == 100 and not item.evidence_refs:

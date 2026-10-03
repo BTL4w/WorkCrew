@@ -345,6 +345,7 @@
     "empty": "Chưa có tuần dự án."
   },
   "dailyUpdate": {
+    "blockers": "Thao tác vướng mắc",
     "chat": {
       "review": "Kiểm tra bản nháp do AI đề xuất trước khi xác nhận.",
       "discard": "Bỏ bản nháp này",
@@ -448,5 +449,52 @@
       "COMPLETION_EVIDENCE_INVALID": "Minh chứng không khả dụng hoặc không liên quan đến task.",
       "UNKNOWN": "Chưa lưu được trạng thái hoàn tất. Hãy thử lại hoặc tải lại task."
     }
+  },
+  "blocker": {
+  "evidenceChoice": "Bằng chứng vướng mắc {id} · v{version}",
+  "title": "Vướng mắc",
+  "reportTitle": "Vướng mắc trong báo cáo",
+  "text": "Mô tả vướng mắc",
+  "severity": "Mức độ",
+  "addToReport": "Thêm vào báo cáo",
+  "removeFromReport": "Bỏ khỏi báo cáo",
+  "create": "Tạo vướng mắc",
+  "save": "Lưu vướng mắc",
+  "saveEdit": "Sửa vướng mắc",
+  "attach": "Đính kèm bằng chứng vướng mắc",
+  "original": "Bằng chứng gốc",
+  "history": "Lịch sử vướng mắc",
+  "archived": "Đã lưu trữ",
+  "retry": "Thử lại thao tác",
+  "loading": "Đang tải vướng mắc…",
+  "unavailable": "Chưa tải được vướng mắc.",
+  "reload": "Tải lại vướng mắc",
+  "status": {
+    "OPEN": "Đang mở",
+    "ACKNOWLEDGED": "Đã ghi nhận",
+    "RESOLVED": "Đã giải quyết"
+  },
+  "severityValue": {
+    "LOW": "Thấp",
+    "MEDIUM": "Trung bình",
+    "HIGH": "Cao",
+    "CRITICAL": "Nghiêm trọng"
+  },
+  "action": {
+    "CREATE": "Tạo",
+    "EDIT": "Sửa",
+    "ACKNOWLEDGE": "Ghi nhận",
+    "RESOLVE": "Giải quyết",
+    "REOPEN": "Mở lại",
+    "ARCHIVE": "Lưu trữ"
+  },
+  "error": {
+    "UNKNOWN": "Không thể cập nhật vướng mắc.",
+    "STALE_TASK": "Công việc đã thay đổi. Hãy tải lại.",
+    "STALE_BLOCKER": "Vướng mắc đã thay đổi. Hãy tải lại.",
+    "RESOURCE_NOT_FOUND": "Không tìm thấy vướng mắc hoặc quyền đã thay đổi.",
+    "INVALID_EVIDENCE": "Bằng chứng không khả dụng.",
+    "BLOCKER_ARCHIVED": "Không thể sửa vướng mắc đã lưu trữ."
   }
+}
 }

@@ -135,6 +135,7 @@ async def test_text_and_original_prepare_draft_zero_facts_then_owner_confirms_on
                 "remaining_hours": None,
                 "spent_hours": None,
                 "done_text": "Completed survey",
+                "blockers": [{"text": "Awaiting materials", "severity": "HIGH"}],
                 "next_steps": "",
                 "needs_clarification": False,
             },
@@ -230,6 +231,12 @@ async def test_text_and_original_prepare_draft_zero_facts_then_owner_confirms_on
         )
     ).scalar_one()
     assert count == 0
+    assert (
+        await harness.sql(
+            "SELECT count(*) FROM blockers WHERE organization_id=:org",
+            {"org": scope.organization_id},
+        )
+    ).scalar_one() == 0
     row = (
         await harness.sql(
             "SELECT attempts,input_tokens,output_tokens FROM agent_usage_budgets "
@@ -252,6 +259,12 @@ async def test_text_and_original_prepare_draft_zero_facts_then_owner_confirms_on
     confirmed = await updates.confirm(harness.actor, command, key, "owner")
     replayed = await updates.confirm(harness.actor, command, key, "owner-retry")
     assert confirmed == replayed
+    assert (
+        await harness.sql(
+            "SELECT count(*) FROM blockers WHERE organization_id=:org",
+            {"org": scope.organization_id},
+        )
+    ).scalar_one() == 1
     assert len(confirmed.observations) == 1
     count = (
         await harness.sql(

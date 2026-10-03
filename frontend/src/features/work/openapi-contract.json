@@ -399,6 +399,7 @@
           "done_text"
         ],
         "properties": {
+          "blocker_commands": "array:ref:BlockerCommand",
           "task_id": "string:uuid",
           "expected_task_version": "integer",
           "expected_progress_version": "integer",
@@ -423,6 +424,7 @@
           "done_text"
         ],
         "properties": {
+          "blocker_commands": "array:ref:BlockerCommand",
           "task_id": "string:uuid",
           "expected_task_version": "integer",
           "expected_progress_version": "integer",
@@ -584,5 +586,107 @@
         }
       }
     }
+  },
+  "blockers": {
+  "paths": {
+    "/api/v1/blockers": [
+      "post",
+      "get"
+    ],
+    "/api/v1/blockers/{blocker_id}": [
+      "delete",
+      "patch",
+      "get"
+    ],
+    "/api/v1/blockers/{blocker_id}/history": [
+      "get"
+    ]
+  },
+  "schemas": {
+    "Blocker": {
+      "required": [
+        "id",
+        "task_id",
+        "created_by_membership_id",
+        "severity",
+        "text",
+        "status",
+        "version",
+        "created_at",
+        "updated_at"
+      ],
+      "properties": {
+        "id": "string:uuid",
+        "task_id": "string:uuid",
+        "created_by_membership_id": "string:uuid",
+        "severity": "literal:LOW|MEDIUM|HIGH|CRITICAL",
+        "text": "string",
+        "evidence_refs": "array:ref:SelectedEvidence",
+        "status": "literal:OPEN|ACKNOWLEDGED|RESOLVED",
+        "archived": "boolean",
+        "version": "integer",
+        "created_at": "string:date-time",
+        "updated_at": "string:date-time"
+      }
+    },
+    "BlockerCommand": {
+      "required": [
+        "task_id",
+        "expected_task_version",
+        "action"
+      ],
+      "properties": {
+        "task_id": "string:uuid",
+        "expected_task_version": "integer",
+        "severity": "literal:LOW|MEDIUM|HIGH|CRITICAL",
+        "text": "string[,4000]",
+        "evidence_refs": "array:ref:SelectedEvidence",
+        "expected_blocker_version": "integer|null",
+        "blocker_id": "null|string:uuid",
+        "action": "literal:CREATE|EDIT|ACKNOWLEDGE|RESOLVE|REOPEN|ARCHIVE"
+      }
+    },
+    "BlockerMutationRequest": {
+      "required": [
+        "task_id",
+        "expected_task_version",
+        "action"
+      ],
+      "properties": {
+        "task_id": "string:uuid",
+        "expected_task_version": "integer",
+        "severity": "literal:LOW|MEDIUM|HIGH|CRITICAL",
+        "text": "string[,4000]",
+        "evidence_refs": "array:ref:SelectedEvidence",
+        "expected_blocker_version": "integer|null",
+        "blocker_id": "null|string:uuid",
+        "action": "literal:CREATE|EDIT|ACKNOWLEDGE|RESOLVE|REOPEN|ARCHIVE"
+      }
+    },
+    "BlockerTransition": {
+      "required": [
+        "id",
+        "blocker_id",
+        "version",
+        "actor_membership_id",
+        "action",
+        "from_status",
+        "to_status",
+        "at",
+        "snapshot"
+      ],
+      "properties": {
+        "id": "string:uuid",
+        "blocker_id": "string:uuid",
+        "version": "integer",
+        "actor_membership_id": "string:uuid",
+        "action": "literal:CREATE|EDIT|ACKNOWLEDGE|RESOLVE|REOPEN|ARCHIVE",
+        "from_status": "literal:OPEN|ACKNOWLEDGED|RESOLVED|null",
+        "to_status": "literal:OPEN|ACKNOWLEDGED|RESOLVED",
+        "at": "string:date-time",
+        "snapshot": "ref:Blocker"
+      }
+    }
   }
+}
 }

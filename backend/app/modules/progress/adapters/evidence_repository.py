@@ -144,15 +144,12 @@ class SqlAlchemyEvidenceRepository:
     async def get(self, ref: EvidenceVersionRef) -> EvidenceOriginal:
         await self._active()
         model = await self.session.scalar(
-            select(EvidenceOriginalModel)
-            .where(
+            select(EvidenceOriginalModel).where(
                 EvidenceOriginalModel.organization_id == self.actor.organization_id,
                 EvidenceOriginalModel.id == ref.evidence_id,
                 EvidenceOriginalModel.version == ref.version,
-                EvidenceOriginalModel.uploader_membership_id == self.actor.membership_id,
                 EvidenceOriginalModel.state == "READY",
             )
-            .with_for_update(read=True)
         )
         if model is None or (model.confirmed_at is None and model.expires_at <= datetime.now(UTC)):
             raise EvidenceError("RESOURCE_NOT_FOUND", 404)

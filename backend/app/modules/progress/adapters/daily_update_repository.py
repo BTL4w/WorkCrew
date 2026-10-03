@@ -361,6 +361,13 @@ class SqlAlchemyDailyUpdateRepository:
         # Evidence locks are acquired globally in ID order to avoid multi-item deadlocks.
         for evidence_id in sorted(
             {ref.evidence_id for item in draft.items for ref in item.evidence_refs}
+            | {
+                ref.evidence_id
+                for item in draft.items
+                for command in item.blocker_commands
+                if command.action in {"CREATE", "EDIT"}
+                for ref in command.evidence_refs
+            }
         ):
             await self.lock(f"evidence:{evidence_id}")
         for item in sorted(
@@ -380,6 +387,27 @@ class SqlAlchemyDailyUpdateRepository:
             )
         )
         await self.session.flush()
+        from app.modules.progress.adapters.blocker_repository import SqlAlchemyBlockerRepository
+        from app.modules.progress.domain.blockers import BlockerError
+
+        blockers = SqlAlchemyBlockerRepository(self.session, self.actor)
+        try:
+            for item in draft.items:
+                for blocker_command in item.blocker_commands:
+                    if (
+                        blocker_command.task_id != item.task_id
+                        or blocker_command.expected_task_version != item.expected_task_version
+                    ):
+                        raise DailyUpdateError("INVALID_BLOCKER_TASK", 422)
+                    blocker = await blockers.apply(blocker_command, update_id=update_id)
+                    await blockers.audit(
+                        "blocker.report." + blocker_command.action.lower(),
+                        str(update_id),
+                        None,
+                        blocker.id,
+                    )
+        except BlockerError as exc:
+            raise DailyUpdateError(exc.code, exc.status) from exc
         results: list[ConfirmedObservation] = []
         for item in draft.items:
             task = by_id[item.task_id]

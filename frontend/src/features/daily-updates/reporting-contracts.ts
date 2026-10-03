@@ -1,10 +1,11 @@
 import { z } from "zod";
+import { blockerCommandSchema } from "@/features/blockers/contracts";
 const decimal=z.string().regex(/^-?\d+(\.\d+)?$/);
 export const selectedEvidenceSchema=z.object({evidence_id:z.string().uuid(),version:z.number().int().positive()});
 export const reportingItemSchema=z.object({
  task_id:z.string().uuid(),expected_task_version:z.number().int().positive(),expected_progress_version:z.number().int().nonnegative(),
  reported_percent:decimal,remaining_hours:decimal.nullable().optional(),spent_hours:decimal.nullable().optional(),reporting_date:z.string(),done_text:z.string(),next_steps:z.string().optional(),
- evidence_refs:z.array(selectedEvidenceSchema).optional(),corrects_observation_id:z.string().uuid().nullable().optional(),correction_reason:z.string().optional(),
+ blocker_commands:z.array(blockerCommandSchema).optional(),evidence_refs:z.array(selectedEvidenceSchema).optional(),corrects_observation_id:z.string().uuid().nullable().optional(),correction_reason:z.string().optional(),
 });
 export const reportingContextSchema=z.object({task_id:z.string().uuid(),task_version:z.number().int(),progress_version:z.number().int(),reported_percent:decimal.nullable(),remaining_hours:decimal.nullable(),reporting_timezone:z.string(),reporting_date:z.string(),project_week_state:z.enum(["LINKED","NO_PROJECT_WEEK"]),evidence_refs:z.array(selectedEvidenceSchema)});
 export const dailyDraftSchema=z.object({id:z.string().uuid(),version:z.number().int(),content_hash:z.string(),items:z.array(reportingItemSchema),assessment_state:z.enum(["UNAVAILABLE","PENDING","READY","NOT_ASSESSED_NO_EVIDENCE"]),reporting_timezone:z.string(),confirmed_update_id:z.string().uuid().nullable()});

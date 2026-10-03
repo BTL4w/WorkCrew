@@ -345,6 +345,7 @@
     "empty": "No project weeks yet."
   },
   "dailyUpdate": {
+    "blockers": "Blocker actions",
     "chat": {
       "review": "Review the AI draft before confirming.",
       "discard": "Dismiss this draft",
@@ -448,5 +449,52 @@
       "COMPLETION_EVIDENCE_INVALID": "Criterion evidence is unavailable or unrelated to this Task.",
       "UNKNOWN": "Completion could not be saved. Retry or reload the Task."
     }
+  },
+  "blocker": {
+  "evidenceChoice": "Blocker evidence {id} · v{version}",
+  "title": "Blockers",
+  "reportTitle": "Blockers in this report",
+  "text": "Blocker description",
+  "severity": "Severity",
+  "addToReport": "Add to report",
+  "removeFromReport": "Remove from report",
+  "create": "Create blocker",
+  "save": "Save blocker",
+  "saveEdit": "Edit blocker",
+  "attach": "Attach blocker evidence",
+  "original": "Original evidence",
+  "history": "Blocker history",
+  "archived": "Archived",
+  "retry": "Retry blocker action",
+  "loading": "Loading blockers…",
+  "unavailable": "Blockers are unavailable.",
+  "reload": "Reload blockers",
+  "status": {
+    "OPEN": "Open",
+    "ACKNOWLEDGED": "Acknowledged",
+    "RESOLVED": "Resolved"
+  },
+  "severityValue": {
+    "LOW": "Low",
+    "MEDIUM": "Medium",
+    "HIGH": "High",
+    "CRITICAL": "Critical"
+  },
+  "action": {
+    "CREATE": "Create",
+    "EDIT": "Edit",
+    "ACKNOWLEDGE": "Acknowledge",
+    "RESOLVE": "Resolve",
+    "REOPEN": "Reopen",
+    "ARCHIVE": "Archive"
+  },
+  "error": {
+    "UNKNOWN": "Could not update the blocker.",
+    "STALE_TASK": "Task changed. Reload before continuing.",
+    "STALE_BLOCKER": "Blocker changed. Reload before continuing.",
+    "RESOURCE_NOT_FOUND": "Blocker is unavailable or permission changed.",
+    "INVALID_EVIDENCE": "Evidence is unavailable.",
+    "BLOCKER_ARCHIVED": "Archived blockers cannot be changed."
   }
+}
 }

@@ -5,7 +5,7 @@ import asyncio
 import json
 from datetime import date
 from pathlib import Path
-from typing import Literal
+from typing import Literal, cast
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict
@@ -32,6 +32,7 @@ class Case(BaseModel):
     locale: Literal["vi", "en"]
     scenario: Literal[
         "draft",
+        "blocker",
         "needs_input",
         "provider_timeout",
         "invalid_output",
@@ -106,6 +107,14 @@ async def evaluate(case: Case) -> tuple[bool, int, int, int]:
     expected = AgentRunStatus.FAILED
     if case.scenario == "draft":
         expected = AgentRunStatus.AWAITING_HUMAN
+    elif case.scenario == "blocker":
+        expected = AgentRunStatus.AWAITING_HUMAN
+        cast(dict[str, object], fixture)["blockers"] = [
+            {
+                "text": "Thiếu vật liệu" if case.locale == "vi" else "Awaiting materials",
+                "severity": "HIGH",
+            }
+        ]
     elif case.scenario == "needs_input":
         expected = AgentRunStatus.AWAITING_INPUT
         fixture = {
@@ -158,6 +167,16 @@ async def evaluate(case: Case) -> tuple[bool, int, int, int]:
     correct = result.status is expected and result.model_attempts_used <= 3
     if expected is AgentRunStatus.AWAITING_HUMAN:
         correct = correct and result.typed_output.get("needs_owner_confirmation") is True
+    if case.scenario == "blocker":
+        from work_management_ai.agents.daily_update.contracts import ExtractedReport
+
+        drafts = [r for r in tools.calls if r.typed_input.get("action") == "DRAFT"]
+        correct = correct and len(drafts) == 1
+        if drafts:
+            report = ExtractedReport.model_validate(drafts[0].typed_input.get("report"))
+            correct = (
+                correct and len(report.blockers) == 1 and report.blockers[0].severity == "HIGH"
+            )
     return correct, bypass, peers, leaks
 
 
