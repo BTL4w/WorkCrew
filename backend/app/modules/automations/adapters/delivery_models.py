@@ -44,6 +44,7 @@ class SummaryTriggerModel(Base):
 class SummarySnapshotModel(Base):
     __tablename__ = "daily_summary_snapshots"
     __table_args__ = (
+        UniqueConstraint("organization_id", "project_id", "id"),
         UniqueConstraint("organization_id", "id"),
         UniqueConstraint("organization_id", "trigger_id"),
         ForeignKeyConstraint(

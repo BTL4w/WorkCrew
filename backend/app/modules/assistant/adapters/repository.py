@@ -109,11 +109,20 @@ def _turn(model: AssistantTurnModel) -> AssistantTurn:
     )
 
 
-def _run(model: OrchestrationRunModel) -> OrchestrationRun:
+def orchestration_domain(model: OrchestrationRunModel) -> OrchestrationRun:
     return OrchestrationRun(
         id=model.id,
         organization_id=model.organization_id,
         turn_id=model.turn_id,
+        trigger_kind=model.trigger_kind,
+        actor_membership_id=model.actor_membership_id,
+        project_id=model.project_id,
+        report_id=model.report_id,
+        base_version_id=model.base_version_id,
+        snapshot_id=model.snapshot_id,
+        snapshot_hash=model.snapshot_hash,
+        summary_id=model.summary_id,
+        request_key=model.request_key,
         orchestrator_version=model.orchestrator_version,
         orchestrator_fingerprint=model.orchestrator_fingerprint,
         execution_plan=model.execution_plan,
@@ -606,6 +615,7 @@ class PostgreSQLAssistantRepository:
             id=run.id,
             organization_id=run.organization_id,
             turn_id=run.turn_id,
+            actor_membership_id=turn.actor_membership_id,
             orchestrator_version=run.orchestrator_version,
             orchestrator_fingerprint=run.orchestrator_fingerprint,
             execution_plan=run.execution_plan,
@@ -748,7 +758,7 @@ class PostgreSQLAssistantRepository:
         return AssistantTurnMutationResult(
             message=_message(message_model),
             turn=_turn(turn_model),
-            run=_run(run_model),
+            run=orchestration_domain(run_model),
             job=_job(job_model),
             event=_event(event_model),
             replayed=replayed,
@@ -808,7 +818,7 @@ class PostgreSQLAssistantRepository:
             conversation=_conversation(conversation_model),
             messages=tuple(_message(model) for model in message_models),
             turns=turns,
-            orchestration_runs=tuple(_run(model) for model in run_models),
+            orchestration_runs=tuple(orchestration_domain(model) for model in run_models),
             events=tuple(_event(model) for model in event_models),
         )
 
@@ -932,7 +942,7 @@ class PostgreSQLAssistantRepository:
         )
         if model is None:
             raise AssistantDomainLookupError("ORCHESTRATION_RUN_NOT_FOUND")
-        current = _run(model)
+        current = orchestration_domain(model)
         if current.status is not OrchestrationRunStatus.QUEUED:
             return current
         run = current.mark_running()

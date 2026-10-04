@@ -137,7 +137,7 @@ async def test_waiting_assignment_agent_run_is_resumed_before_reexecution() -> N
     organization_id, orchestration_run_id, turn_id = uuid4(), uuid4(), uuid4()
     handoff = AgentHandoff(
         orchestration_run_id=orchestration_run_id,
-        parent_agent_run_id=uuid4(),
+        parent_agent_run_id=uuid5(NAMESPACE_URL, f"orchestrator:{turn_id}"),
         target_agent_id=AgentId.ASSIGNMENT,
         target_agent_version="1.0.0",
         capability="assignment.recommend_team",

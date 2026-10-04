@@ -20,11 +20,13 @@ from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy.sql import func
 
+import app.modules.automations.adapters.delivery_models as _summary_models
 import app.modules.organization.adapters.database_models as _organization_models
 import app.modules.planning_runs.adapters.database_models as _planning_models
+import app.modules.reporting.adapters.database_models as _reporting_models
 from app.core.database import Base
 
-_DEPENDENT_MODELS = (_organization_models, _planning_models)
+_DEPENDENT_MODELS = (_organization_models, _planning_models, _reporting_models, _summary_models)
 
 
 class AssistantConversationModel(Base):
@@ -129,6 +131,7 @@ class AssistantTurnModel(Base):
             ondelete="RESTRICT",
         ),
         UniqueConstraint("organization_id", "id"),
+        UniqueConstraint("organization_id", "id", "actor_membership_id"),
         UniqueConstraint("organization_id", "user_message_id"),
         CheckConstraint("locale IN ('vi', 'en')", name="locale"),
         CheckConstraint(
@@ -166,6 +169,68 @@ class OrchestrationRunModel(Base):
             ["assistant_turns.organization_id", "assistant_turns.id"],
             ondelete="CASCADE",
         ),
+        ForeignKeyConstraint(
+            ["organization_id", "actor_membership_id"],
+            ["memberships.organization_id", "memberships.id"],
+        ),
+        ForeignKeyConstraint(
+            ["organization_id", "turn_id", "actor_membership_id"],
+            [
+                "assistant_turns.organization_id",
+                "assistant_turns.id",
+                "assistant_turns.actor_membership_id",
+            ],
+        ),
+        ForeignKeyConstraint(
+            ["organization_id", "project_id", "report_id"],
+            ["reports.organization_id", "reports.project_id", "reports.id"],
+        ),
+        ForeignKeyConstraint(
+            ["organization_id", "report_id", "base_version_id", "snapshot_id"],
+            [
+                "report_versions.organization_id",
+                "report_versions.report_id",
+                "report_versions.id",
+                "report_versions.snapshot_id",
+            ],
+        ),
+        ForeignKeyConstraint(
+            ["organization_id", "report_id", "snapshot_id", "snapshot_hash"],
+            [
+                "report_metric_snapshots.organization_id",
+                "report_metric_snapshots.report_id",
+                "report_metric_snapshots.id",
+                "report_metric_snapshots.snapshot_hash",
+            ],
+        ),
+        ForeignKeyConstraint(
+            ["organization_id", "project_id", "summary_id"],
+            [
+                "daily_summary_snapshots.organization_id",
+                "daily_summary_snapshots.project_id",
+                "daily_summary_snapshots.id",
+            ],
+        ),
+        CheckConstraint(
+            "(trigger_kind='CHAT_TURN' AND turn_id IS NOT NULL AND project_id IS NULL "
+            "AND report_id IS NULL AND base_version_id IS NULL AND snapshot_id IS NULL "
+            "AND snapshot_hash IS NULL AND summary_id IS NULL AND request_key IS NULL) OR "
+            "(trigger_kind IN ('REPORT_REQUEST','SUMMARY_JOB') AND turn_id IS NULL "
+            "AND project_id IS NOT NULL AND report_id IS NOT NULL AND base_version_id IS NOT NULL "
+            "AND snapshot_id IS NOT NULL AND snapshot_hash IS NOT NULL "
+            "AND length(request_key) BETWEEN 16 AND 128 AND request_key IS NOT NULL "
+            "AND ((trigger_kind='REPORT_REQUEST' AND summary_id IS NULL) OR "
+            "(trigger_kind='SUMMARY_JOB' AND summary_id IS NOT NULL)))",
+            name="trigger_shape",
+        ),
+        Index(
+            "uq_orchestration_trigger_request",
+            "organization_id",
+            "actor_membership_id",
+            "request_key",
+            unique=True,
+            postgresql_where=text("trigger_kind<>'CHAT_TURN'"),
+        ),
         UniqueConstraint("organization_id", "id"),
         UniqueConstraint("organization_id", "turn_id"),
         CheckConstraint(
@@ -178,7 +243,16 @@ class OrchestrationRunModel(Base):
 
     id: Mapped[UUID] = mapped_column(primary_key=True)
     organization_id: Mapped[UUID]
-    turn_id: Mapped[UUID]
+    turn_id: Mapped[UUID | None]
+    trigger_kind: Mapped[str] = mapped_column(String(24), server_default="CHAT_TURN")
+    actor_membership_id: Mapped[UUID]
+    project_id: Mapped[UUID | None]
+    report_id: Mapped[UUID | None]
+    base_version_id: Mapped[UUID | None]
+    snapshot_id: Mapped[UUID | None]
+    snapshot_hash: Mapped[str | None] = mapped_column(String(64))
+    summary_id: Mapped[UUID | None]
+    request_key: Mapped[str | None] = mapped_column(String(128))
     orchestrator_version: Mapped[str] = mapped_column(String(64))
     orchestrator_fingerprint: Mapped[str] = mapped_column(String(128))
     execution_plan: Mapped[dict[str, Any]] = mapped_column(JSONB)

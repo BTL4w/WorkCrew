@@ -13,6 +13,7 @@ from work_management_ai.agents.orchestrator.contracts import (
     OrchestratorOutput,
     OrchestratorStatus,
     OrchestratorSynthesis,
+    OrchestratorTriggerInput,
     PendingFollowup,
     ScheduleIntent,
     SpecialistRunnerPort,
@@ -32,6 +33,7 @@ from work_management_ai.agents.orchestrator.prompts.schedule_v1 import build_sch
 from work_management_ai.agents.orchestrator.workflows.graph import (
     OrchestratorGraph,
     OrchestratorState,
+    OrchestratorTriggerGraph,
 )
 from work_management_ai.agents.risk.contracts import RiskCardContent, RiskReplanRequest
 from work_management_ai.model_gateway.contracts import (
@@ -112,6 +114,7 @@ class OrchestratorHarness:
         self._specialists = specialists
         self._automation_tools = automation_tools
         self._graph = OrchestratorGraph(self)
+        self._trigger_graph = OrchestratorTriggerGraph(self)
 
     async def run_turn(self, value: OrchestratorInput) -> OrchestratorOutput:
         return await self._graph.run(
@@ -1201,6 +1204,102 @@ class OrchestratorHarness:
             "status": OrchestratorStatus.FAILED,
             "stop_reason": code,
         }
+
+    async def run_trigger(self, value: OrchestratorTriggerInput) -> OrchestratorOutput:
+        return await self._trigger_graph.run(value)
+
+    async def dispatch_trigger(self, value: OrchestratorTriggerInput) -> OrchestratorOutput:
+        """Resolve a trusted non-chat intent through the same registry and delegation guard."""
+        plan = ExecutionPlan(
+            objectives=("Draft a management report from verified metrics",),
+            response_language=value.locale,
+            steps=(
+                ExecutionStep(
+                    step_id="reporting",
+                    target_agent_id=AgentId.REPORTING,
+                    target_agent_version="1.0.0",
+                    capability="reporting.draft",
+                    objective="Draft from the exact authorized metric snapshot",
+                    mode=StepMode.PROPOSAL,
+                    typed_input=value.trigger.model_dump(mode="json"),
+                ),
+            ),
+        )
+
+        def failed(code: str) -> OrchestratorOutput:
+            return OrchestratorOutput(
+                execution_plan=plan,
+                agent_results=(),
+                blocks=(SafeErrorResponseBlock(code=code, message_key="assistant.manualFallback"),),
+                completed_step_ids=(),
+                status=OrchestratorStatus.FAILED,
+                stop_reason=code,
+                replans_used=0,
+                model_refs=(),
+            )
+
+        try:
+            actor = await self._actor_resolver.resolve(value.actor)
+            if (
+                not actor.is_active
+                or actor.role not in {"MANAGER", "ADMIN"}
+                or actor.membership_id != value.actor.membership_id
+                or actor.organization_id != value.actor.organization_id
+            ):
+                return failed("REPORT_TRIGGER_FORBIDDEN")
+            registered = self._registry.resolve(AgentId.REPORTING, "1.0.0", 5)
+            maximum = registered.manifest.runtime
+            handoff = AgentHandoff(
+                orchestration_run_id=value.orchestration_run_id,
+                parent_agent_run_id=uuid5(
+                    NAMESPACE_URL, f"orchestrator:{value.orchestration_run_id}"
+                ),
+                target_agent_id=AgentId.REPORTING,
+                target_agent_version="1.0.0",
+                capability="reporting.draft",
+                objective=plan.steps[0].objective,
+                typed_input={**value.trigger.model_dump(mode="json"), "locale": value.locale},
+                context_references=(),
+                actor=value.actor,
+                budget=AgentBudget.model_validate(
+                    {key: getattr(maximum, key) for key in AgentBudget.model_fields}
+                ),
+                step_id="reporting",
+                idempotency_key=f"{value.orchestration_run_id}:reporting",
+            )
+            self._guard.authorize_handoff(
+                current_actor=actor,
+                parent_agent_id=AgentId.ORCHESTRATOR,
+                handoff=handoff,
+                manifest=registered.manifest,
+            )
+            result = await asyncio.wait_for(
+                self._specialists.run_specialist(handoff), timeout=maximum.timeout_seconds
+            )
+            if (
+                result.agent_id is not AgentId.REPORTING
+                or result.agent_version != "1.0.0"
+                or result.requested_handoff is not None
+                or any(
+                    reference.organization_id != actor.organization_id
+                    for reference in result.evidence
+                )
+            ):
+                return failed("REPORT_SPECIALIST_RESULT_REJECTED")
+            if result.status not in {AgentRunStatus.COMPLETED, AgentRunStatus.AWAITING_HUMAN}:
+                return failed(result.safe_error_code or "REPORT_SPECIALIST_FAILED")
+        except Exception:
+            return failed("REPORT_TRIGGER_UNAVAILABLE")
+        return OrchestratorOutput(
+            execution_plan=plan,
+            agent_results=(result,),
+            blocks=(),
+            completed_step_ids=("reporting",),
+            status=OrchestratorStatus.AWAITING_HUMAN,
+            stop_reason="REPORT_DRAFT_RETURNED",
+            replans_used=0,
+            model_refs=(),
+        )
 
 
 def _has_revision_signal(message: str) -> bool:

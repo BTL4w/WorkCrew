@@ -16,6 +16,7 @@ from work_management_ai.runtime.contracts import (
     ResolvedActorContext,
     ResponseBlock,
 )
+from work_management_ai.runtime.triggers import NonChatTrigger
 
 
 class _StrictFrozenModel(BaseModel):
@@ -268,3 +269,10 @@ class ActorContextResolverPort(Protocol):
 
 class SpecialistRunnerPort(Protocol):
     async def run_specialist(self, handoff: AgentHandoff) -> AgentResult: ...
+
+
+class OrchestratorTriggerInput(_StrictFrozenModel):
+    orchestration_run_id: UUID
+    actor: ActorReference
+    locale: Literal["vi", "en"]
+    trigger: NonChatTrigger

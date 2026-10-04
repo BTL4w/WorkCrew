@@ -311,7 +311,7 @@ class AssistantTurn:
 class OrchestrationRun:
     id: UUID
     organization_id: UUID
-    turn_id: UUID
+    turn_id: UUID | None
     orchestrator_version: str
     orchestrator_fingerprint: str
     execution_plan: dict[str, Any]
@@ -325,6 +325,16 @@ class OrchestrationRun:
     started_at: datetime | None
     completed_at: datetime | None
     updated_at: datetime
+
+    trigger_kind: str = "CHAT_TURN"
+    actor_membership_id: UUID | None = None
+    project_id: UUID | None = None
+    report_id: UUID | None = None
+    base_version_id: UUID | None = None
+    snapshot_id: UUID | None = None
+    snapshot_hash: str | None = None
+    summary_id: UUID | None = None
+    request_key: str | None = None
 
     @classmethod
     def create(

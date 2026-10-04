@@ -1,7 +1,9 @@
 """Durable orchestration wrapper around the bounded Orchestrator harness."""
 
+import json
 from collections.abc import Mapping
-from typing import Protocol
+from hashlib import sha256
+from typing import Protocol, runtime_checkable
 from uuid import NAMESPACE_URL, UUID, uuid5
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -10,6 +12,7 @@ from work_management_ai.agents.orchestrator.contracts import (
     ExecutionPlan,
     OrchestratorInput,
     OrchestratorOutput,
+    OrchestratorTriggerInput,
     PendingFollowup,
 )
 from work_management_ai.runtime.contracts import (
@@ -34,6 +37,9 @@ class ExecutionCheckpoint(BaseModel):
     agent_result_ids: tuple[UUID, ...]
     remaining_budget: AgentBudget
     pending_followup: PendingFollowup | None = None
+    trigger_result: OrchestratorOutput | None = None
+    trigger_fingerprint: str | None = Field(default=None, pattern=r"^[a-f0-9]{64}$")
+    usage: dict[str, JsonValue] = Field(default_factory=dict)
 
 
 class RecordedAgentRun(BaseModel):
@@ -57,8 +63,14 @@ class ExecutionRecorderPort(Protocol):
     ) -> None: ...
 
 
+@runtime_checkable
 class _OrchestratorPort(Protocol):
     async def run_turn(self, value: OrchestratorInput) -> OrchestratorOutput: ...
+
+
+@runtime_checkable
+class _TriggerOrchestratorPort(Protocol):
+    async def run_trigger(self, value: OrchestratorTriggerInput) -> OrchestratorOutput: ...
 
 
 class DurableSpecialistRunner:
@@ -90,7 +102,7 @@ class DurableSpecialistRunner:
 
 
 class AgentExecutionEngine:
-    def __init__(self, orchestrator: _OrchestratorPort) -> None:
+    def __init__(self, orchestrator: _OrchestratorPort | _TriggerOrchestratorPort) -> None:
         self._orchestrator = orchestrator
 
     async def execute(
@@ -106,6 +118,8 @@ class AgentExecutionEngine:
         adapters replay their typed result before a Harness is invoked again.
         """
         checkpoint = await recorder.load_checkpoint(orchestration_run_id)
+        if not isinstance(self._orchestrator, _OrchestratorPort):
+            raise RuntimeError("CHAT_ORCHESTRATOR_REQUIRED")
         output = await self._orchestrator.run_turn(value)
         checkpoint_sequence = (checkpoint.sequence + 1) if checkpoint else 1
         effective_pending = checkpoint.pending_followup if checkpoint is not None else None
@@ -196,3 +210,61 @@ class AgentExecutionEngine:
         else:
             stage = "team_result"
         return f"assistant:{value.turn_id}:terminal:team:{pending.planning_workflow_run_id}:{stage}"
+
+    async def execute_trigger(
+        self,
+        *,
+        value: OrchestratorTriggerInput,
+        recorder: ExecutionRecorderPort,
+    ) -> OrchestratorOutput:
+        checkpoint = await recorder.load_checkpoint(value.orchestration_run_id)
+        fingerprint = trigger_fingerprint(value)
+        if checkpoint is not None and checkpoint.trigger_result is not None:
+            if checkpoint.trigger_fingerprint != fingerprint:
+                raise RuntimeError("CHECKPOINT_TRIGGER_MISMATCH")
+            return checkpoint.trigger_result
+        if not isinstance(self._orchestrator, _TriggerOrchestratorPort):
+            raise RuntimeError("TRIGGER_ORCHESTRATOR_REQUIRED")
+        output = await self._orchestrator.run_trigger(value)
+        if output.execution_plan is not None:
+            await recorder.save_checkpoint(
+                ExecutionCheckpoint(
+                    orchestration_run_id=value.orchestration_run_id,
+                    sequence=checkpoint.sequence + 1 if checkpoint else 1,
+                    node="terminal",
+                    plan=output.execution_plan,
+                    completed_step_ids=output.completed_step_ids,
+                    agent_result_ids=tuple(
+                        uuid5(NAMESPACE_URL, f"agent-run:{value.orchestration_run_id}:{step}")
+                        for step in output.completed_step_ids
+                    ),
+                    remaining_budget=checkpoint.remaining_budget
+                    if checkpoint
+                    else AgentBudget(
+                        max_iterations=1, max_tool_calls=0, max_handoffs=1, timeout_seconds=120
+                    ),
+                    trigger_result=output,
+                    trigger_fingerprint=fingerprint,
+                    usage={
+                        "model_attempts": sum(
+                            result.model_attempts_used for result in output.agent_results
+                        ),
+                        "iterations": sum(
+                            result.iterations_used for result in output.agent_results
+                        ),
+                        "tool_calls": sum(
+                            result.tool_calls_used for result in output.agent_results
+                        ),
+                    },
+                )
+            )
+        return output
+
+
+def trigger_fingerprint(value: OrchestratorTriggerInput) -> str:
+    """Bind replay to exact server-resolved tenant, owner, locale and source intent."""
+    return sha256(
+        json.dumps(
+            value.model_dump(mode="json"), sort_keys=True, separators=(",", ":"), ensure_ascii=True
+        ).encode()
+    ).hexdigest()

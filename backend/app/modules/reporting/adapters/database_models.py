@@ -23,6 +23,7 @@ from app.core.database import Base
 class ReportModel(Base):
     __tablename__ = "reports"
     __table_args__ = (
+        UniqueConstraint("organization_id", "project_id", "id"),
         UniqueConstraint("organization_id", "id"),
         ForeignKeyConstraint(
             ["organization_id", "project_id"], ["projects.organization_id", "projects.id"]
@@ -85,6 +86,7 @@ class ReportModel(Base):
 class ReportSnapshotModel(Base):
     __tablename__ = "report_metric_snapshots"
     __table_args__ = (
+        UniqueConstraint("organization_id", "report_id", "id", "snapshot_hash"),
         UniqueConstraint("organization_id", "id"),
         UniqueConstraint("organization_id", "report_id", "id"),
         ForeignKeyConstraint(
@@ -111,6 +113,7 @@ class ReportSnapshotModel(Base):
 class ReportVersionModel(Base):
     __tablename__ = "report_versions"
     __table_args__ = (
+        UniqueConstraint("organization_id", "report_id", "id", "snapshot_id"),
         UniqueConstraint("organization_id", "id"),
         UniqueConstraint("organization_id", "report_id", "id"),
         ForeignKeyConstraint(

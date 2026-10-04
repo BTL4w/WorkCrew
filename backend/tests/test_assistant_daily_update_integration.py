@@ -345,7 +345,7 @@ async def test_checkpoint_replay_returns_waiting_daily_card_without_resuming_mod
     actor = ActorReference(organization_id=org, membership_id=uuid4())
     handoff = AgentHandoff(
         orchestration_run_id=orchestration,
-        parent_agent_run_id=uuid4(),
+        parent_agent_run_id=uuid5(NAMESPACE_URL, f"orchestrator:{turn}"),
         target_agent_id=AgentId.DAILY_UPDATE,
         target_agent_version="1.0.0",
         capability="daily_update.prepare",

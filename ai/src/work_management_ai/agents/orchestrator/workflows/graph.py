@@ -12,6 +12,7 @@ from work_management_ai.agents.orchestrator.contracts import (
     OrchestratorInput,
     OrchestratorOutput,
     OrchestratorStatus,
+    OrchestratorTriggerInput,
 )
 from work_management_ai.agents.risk.contracts import RiskReplanRequest
 from work_management_ai.runtime.contracts import (
@@ -211,3 +212,47 @@ class OrchestratorGraph:
 
 def _route(state: OrchestratorState) -> Route:
     return state["route"]
+
+
+TRIGGER_NODES = ("resolve_and_dispatch_trigger", "typed_result")
+
+
+class TriggerState(TypedDict):
+    value: OrchestratorTriggerInput
+    output: OrchestratorOutput | None
+
+
+class TriggerDispatcher(Protocol):
+    async def dispatch_trigger(self, value: OrchestratorTriggerInput) -> OrchestratorOutput: ...
+
+
+class OrchestratorTriggerGraph:
+    """Deterministic typed path: one guarded handoff, zero intent calls/replans/retries."""
+
+    def __init__(self, dispatcher: TriggerDispatcher):
+        self._dispatcher = dispatcher
+        builder = StateGraph(TriggerState)
+        builder.add_node("resolve_and_dispatch_trigger", self.dispatch)
+        builder.add_node("typed_result", self.result)
+        builder.add_edge(START, "resolve_and_dispatch_trigger")
+        builder.add_edge("resolve_and_dispatch_trigger", "typed_result")
+        builder.add_edge("typed_result", END)
+        self._compiled = builder.compile()
+
+    async def dispatch(self, state: TriggerState) -> dict[str, object]:
+        return {"output": await self._dispatcher.dispatch_trigger(state["value"])}
+
+    @staticmethod
+    def result(state: TriggerState) -> dict[str, object]:
+        if state["output"] is None:
+            raise RuntimeError("TRIGGER_OUTPUT_MISSING")
+        return {"output": state["output"]}
+
+    async def run(self, value: OrchestratorTriggerInput) -> OrchestratorOutput:
+        result = await self._compiled.ainvoke(
+            TriggerState(value=value, output=None), config={"recursion_limit": 8}
+        )
+        output = result["output"]
+        if output is None:
+            raise RuntimeError("TRIGGER_OUTPUT_MISSING")
+        return output

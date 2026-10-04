@@ -22,6 +22,7 @@ class AgentId(StrEnum):
     ASSIGNMENT = "assignment"
     DAILY_UPDATE = "daily_update"
     RISK = "risk"
+    REPORTING = "reporting"
 
 
 class AgentRunStatus(StrEnum):
