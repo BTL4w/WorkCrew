@@ -1,6 +1,7 @@
 "use client";
 
 import { EvidencePicker } from "@/features/daily-updates/evidence-picker";
+import { DailySummarySettings } from "@/features/automations/daily-summary-settings";
 import { RiskPanel } from "@/features/risk/risk-panel";
 import { NotificationList } from "@/features/risk/notification-list";
 import { BlockerPanel } from "@/features/blockers/blocker-panel";
@@ -111,7 +112,7 @@ export function WorkWorkspace({
   const [tasksPage, setTasksPage] = useState(1);
   const [myTasksPage, setMyTasksPage] = useState(1);
   const [assignmentMode, setAssignmentMode] = useState(false);
-  const [projectSection, setProjectSection] = useState<"tasks" | "plan" | "projectTeam">("tasks");
+  const [projectSection, setProjectSection] = useState<"tasks" | "plan" | "projectTeam" | "automations">("tasks");
 
   const projects = useQuery({
     queryKey: [...workQueryKey, "projects", projectsPage],
@@ -352,8 +353,8 @@ function ProjectsView(props: {
   onRetryProjects: () => void; onRetryTasks: () => void;
   onProjectsPage: (page: number) => void; onTasksPage: (page: number) => void;
   planningContext: PlanningContext;
-  projectSection: "tasks" | "plan" | "projectTeam";
-  onProjectSection: (section: "tasks" | "plan" | "projectTeam") => void;
+  projectSection: "tasks" | "plan" | "projectTeam" | "automations";
+  onProjectSection: (section: "tasks" | "plan" | "projectTeam" | "automations") => void;
 }) {
   const t = useTranslations("work");
   if (props.selectedTask) return <TaskDetail task={props.selectedTask} canEdit={props.canManage} onEdit={() => props.onEditTask(props.selectedTask!)} onUpdated={props.onTaskUpdated} onBack={() => props.onSelectTask(null)} onOpenTeam={() => { props.onSelectTask(null); props.onProjectSection("projectTeam"); }} onReloadTask={props.onReloadTask} planningContext={props.planningContext} tasks={props.tasks.items} />;
@@ -369,8 +370,9 @@ function ProjectsView(props: {
           <button aria-selected={props.projectSection === "tasks"} className="secondary-button" role="tab" type="button" onClick={() => props.onProjectSection("tasks")}>{t("project.tasksTab")}</button>
           <button aria-selected={props.projectSection === "plan"} className="secondary-button" role="tab" type="button" onClick={() => props.onProjectSection("plan")}>{t("project.planTab")}</button>
           <button aria-selected={props.projectSection === "projectTeam"} className="secondary-button" role="tab" type="button" onClick={() => props.onProjectSection("projectTeam")}>{t("project.teamTab")}</button>
+        {props.canManage ? <button aria-selected={props.projectSection === "automations"} className="secondary-button" role="tab" type="button" onClick={() => props.onProjectSection("automations")}>{t("project.automationTab")}</button> : null}
         </div>
-        {props.projectSection === "tasks" ? <><div className="mt-10 flex items-center justify-between"><h3 className="text-xl font-semibold">{t("task.sectionTitle")}</h3>{props.canManage ? <button className="primary-button" type="button" onClick={props.onNewTask}>{t("task.create")}</button> : null}</div><TaskCards tasks={props.tasks} isLoading={props.tasksLoading} error={props.tasksError} onRetry={props.onRetryTasks} onSelect={props.onSelectTask} /><Pagination page={props.tasks} onPage={props.onTasksPage} /></> : props.projectSection === "plan" ? <><ProjectPlanPanel organizationId={props.planningContext.organizationId} actorMembershipId={props.planningContext.actorMembershipId} canManage={props.planningContext.canManage} projectId={props.selectedProject.id} tasks={props.tasks.items} />{props.canManage ? <WeeklyProgressPanel organizationId={props.planningContext.organizationId} actorMembershipId={props.planningContext.actorMembershipId} projectId={props.selectedProject.id} /> : null}</> : <div className="mt-8"><TeamPanel projectId={props.selectedProject.id} canManage={props.canManage} onOpenTask={props.onSelectTask} /></div>}
+        {props.projectSection === "automations" && props.canManage ? <DailySummarySettings projectId={props.selectedProject.id} organizationId={props.planningContext.organizationId} membershipId={props.planningContext.actorMembershipId}/> : props.projectSection === "tasks" ? <><div className="mt-10 flex items-center justify-between"><h3 className="text-xl font-semibold">{t("task.sectionTitle")}</h3>{props.canManage ? <button className="primary-button" type="button" onClick={props.onNewTask}>{t("task.create")}</button> : null}</div><TaskCards tasks={props.tasks} isLoading={props.tasksLoading} error={props.tasksError} onRetry={props.onRetryTasks} onSelect={props.onSelectTask} /><Pagination page={props.tasks} onPage={props.onTasksPage} /></> : props.projectSection === "plan" ? <><ProjectPlanPanel organizationId={props.planningContext.organizationId} actorMembershipId={props.planningContext.actorMembershipId} canManage={props.planningContext.canManage} projectId={props.selectedProject.id} tasks={props.tasks.items} />{props.canManage ? <WeeklyProgressPanel organizationId={props.planningContext.organizationId} actorMembershipId={props.planningContext.actorMembershipId} projectId={props.selectedProject.id} /> : null}</> : <div className="mt-8"><TeamPanel projectId={props.selectedProject.id} canManage={props.canManage} onOpenTask={props.onSelectTask} /></div>}
       </section>
     );
   }

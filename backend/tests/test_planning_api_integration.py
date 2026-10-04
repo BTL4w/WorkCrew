@@ -586,6 +586,25 @@ async def test_manual_planning_crud_security_concurrency_and_audit() -> None:
                 text("DELETE FROM outbox_events WHERE organization_id IN (:org, :foreign_org)"),
                 {"org": organization_id, "foreign_org": foreign_organization_id},
             )
+            await connection.execute(
+                text(
+                    "ALTER TABLE automation_task_scope_history "
+                    "DISABLE TRIGGER scope_history_immutable"
+                )
+            )
+            await connection.execute(
+                text(
+                    "DELETE FROM automation_task_scope_history "
+                    "WHERE organization_id IN (:org,:foreign_org)"
+                ),
+                {"org": organization_id, "foreign_org": foreign_organization_id},
+            )
+            await connection.execute(
+                text(
+                    "ALTER TABLE automation_task_scope_history "
+                    "ENABLE TRIGGER scope_history_immutable"
+                )
+            )
             for table in (
                 "acceptance_criteria",
                 "task_dependencies",

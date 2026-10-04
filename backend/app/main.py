@@ -297,6 +297,14 @@ def create_app(
         GatewayRiskAssessment(build_model_gateway(resolved_settings)),
     )
     app.include_router(risk_router, prefix="/api/v1")
+    from app.modules.automations.adapters.repository import ScheduleTransactions
+    from app.modules.automations.api.routes import router as schedule_router
+    from app.modules.automations.application.schedule_service import ScheduleService
+
+    app.state.schedule_service = ScheduleService(
+        ScheduleTransactions(create_session_factory(database_engine))
+    )
+    app.include_router(schedule_router, prefix="/api/v1")
     from app.modules.progress.api.blocker_routes import router as blocker_router
     from app.modules.progress.application.blocker_service import BlockerService
 

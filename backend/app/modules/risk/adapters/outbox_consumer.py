@@ -6,6 +6,7 @@ from uuid import NAMESPACE_URL, UUID, uuid5
 from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
+from app.modules.automations.domain.schedules import ScheduleChanged
 from app.modules.identity.adapters.current_actor import CurrentActorResolver
 from app.modules.identity.domain.auth import AuthenticatedActor
 from app.modules.organization.domain.roles import MembershipRole
@@ -51,6 +52,14 @@ class RiskOutboxPublisher:
             for value in cast(list[object], values):
                 UUID(str(value))
             await self.runner.queue_event(event)
+        elif event.event_type == "automation.schedule.changed.v1":
+            change = ScheduleChanged.model_validate(event.payload)
+            if (
+                event.aggregate_type != "daily_summary_schedule"
+                or change.schedule_id != event.aggregate_id
+            ):
+                raise ValueError("Invalid schedule event aggregate")
+            # Configuration-only event; digest jobs are not active in Task 13.
         elif event.event_type in {"risk.review_recorded.v1", "risk.notification_read.v1"}:
             UUID(str(event.aggregate_id))
         else:
