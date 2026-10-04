@@ -13,6 +13,7 @@ from work_management_ai.agents.orchestrator.contracts import (
     OrchestratorOutput,
     OrchestratorStatus,
 )
+from work_management_ai.agents.risk.contracts import RiskReplanRequest
 from work_management_ai.runtime.contracts import (
     AgentHandoff,
     AgentResult,
@@ -55,6 +56,7 @@ type Route = Literal[
 
 class OrchestratorState(TypedDict):
     value: OrchestratorInput
+    risk_replan: RiskReplanRequest | None
     current_actor: ResolvedActorContext | None
     plan: ExecutionPlan | None
     prior_plan: ExecutionPlan | None

@@ -62,6 +62,7 @@ class RiskHarness:
             if context is None or explanation is None:
                 raise ValueError("RISK_CONTEXT_REQUIRED")
             replan = RiskReplanRequest(
+                fingerprint=context.fingerprint,
                 affected_week_ids=context.affected_week_ids,
                 observation_ids=tuple(o.id for o in context.observations),
                 risk_assessment_id=context.risk_assessment_id,

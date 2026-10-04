@@ -199,7 +199,8 @@ def create_app(
         if database_engine is None:
             database_engine = create_database_engine(resolved_settings)
         planning_transaction_factory = PostgreSQLPlanningRunTransactionFactory(
-            create_session_factory(database_engine)
+            create_session_factory(database_engine),
+            reporting_timezone=resolved_settings.reporting_timezone,
         )
         if resolved_planning_run_service is None:
             resolved_planning_run_service = PlanningRunService(
@@ -236,7 +237,10 @@ def create_app(
             resolved_assistant_service = AssistantService(
                 transaction_factory=assistant_transaction_factory,
                 planning_snapshot=PostgreSQLPlanningSnapshot(
-                    PostgreSQLPlanningRunTransactionFactory(create_session_factory(database_engine))
+                    PostgreSQLPlanningRunTransactionFactory(
+                        create_session_factory(database_engine),
+                        reporting_timezone=resolved_settings.reporting_timezone,
+                    )
                 ),
                 team_recommendation_snapshot=TeamRecommendationSnapshotAdapter(
                     resolved_team_recommendation_service

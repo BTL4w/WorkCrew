@@ -69,6 +69,7 @@ class RiskExplanation(Contract):
 
 
 class RiskReplanRequest(Contract):
+    fingerprint: str = Field(pattern=r"^[a-f0-9]{64}$")
     affected_week_ids: tuple[UUID, ...]
     observation_ids: tuple[str, ...]
     risk_assessment_id: UUID | None

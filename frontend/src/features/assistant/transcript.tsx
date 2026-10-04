@@ -79,8 +79,12 @@ function latestRecommendationVersions(messages: AssistantMessage[]) {
 function collapseProposalBlocks(messages: AssistantMessage[]): AssistantMessage[] {
   const originalLocations = new Map<string, string>();
   const latestBlocks = new Map<string, ProposalBlock>();
+  const decisions = new Map<string, string>();
   for (const message of messages) {
     message.content_blocks.forEach((block, index) => {
+      if (block.kind === "decision_result" && block.decision !== "UNKNOWN") {
+        decisions.set(`${block.proposal_id}:${block.proposal_version}`, block.decision);
+      }
       if (block.kind === "proposal") {
         const versionKey = `${block.proposal_id}:${block.proposal_version}`;
         if (!originalLocations.has(versionKey)) {
@@ -89,6 +93,11 @@ function collapseProposalBlocks(messages: AssistantMessage[]): AssistantMessage[
         latestBlocks.set(versionKey, block);
       }
     });
+  }
+
+  for (const [key, decision] of decisions) {
+    const proposal = latestBlocks.get(key);
+    if (proposal) latestBlocks.set(key, { ...proposal, read_only: true, state: decision });
   }
 
   return messages.flatMap((message) => {

@@ -64,7 +64,16 @@ const assumptionSchema = z.object({
   source: z.string(),
 });
 
+const riskReplanMetadataSchema = z.object({
+  binding: z.object({task_id:z.string(),risk_assessment_id:z.string(),fingerprint:z.string(),observation_ids:z.array(z.string()),affected_week_ids:z.array(z.string())}),
+  before:z.object({project_id:z.string(),project_version:z.number(),project_title:z.string(),project_description:z.string().nullable(),
+    weeks:z.array(z.object({id:z.string(),version:z.number(),week_number:z.number(),start_date:z.string(),end_date:z.string(),objective:z.string(),status:z.string(),baseline_id:z.string().nullable(),baseline_sequence:z.number().nullable()})),
+    tasks:z.array(z.object({id:z.string(),version:z.number(),project_week_id:z.string().nullable(),title:z.string(),description:z.string().nullable(),due_date:z.string().nullable(),estimated_effort_hours:z.number().nullable(),assignee_membership_id:z.string().nullable(),status:z.string(),required_skill_labels:z.array(z.string()),acceptance_criteria:z.array(z.string())}).passthrough()),
+  }),
+});
+
 export const proposalContentSchema = z.object({
+  risk_replan:riskReplanMetadataSchema.optional(),
   project: projectDraftSchema,
   goal: goalDraftSchema,
   milestones: z.array(milestoneDraftSchema),

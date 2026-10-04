@@ -6,6 +6,7 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from work_management_ai.agents.risk.contracts import RiskReplanRequest
 from work_management_ai.runtime.contracts import JsonValue, RequestedHandoff
 
 
@@ -28,9 +29,22 @@ class PlanningAgentInput(_StrictFrozenModel):
     proposal_id: UUID | None = None
     expected_proposal_version: int | None = Field(default=None, ge=1)
     manager_instruction: str | None = Field(default=None, max_length=8_000)
+    risk_context: RiskReplanRequest | None = None
 
     @model_validator(mode="after")
     def operation_references_are_complete(self) -> "PlanningAgentInput":
+        if self.risk_context is not None:
+            if (
+                self.operation is not PlanningOperation.REVISE
+                or not self.manager_instruction
+                or self.risk_context.risk_assessment_id is None
+            ):
+                raise ValueError(
+                    "risk revision requires a verified assessment and Manager instruction"
+                )
+            if self.workflow_run_id is not None or self.proposal_id is not None:
+                raise ValueError("risk revision cannot select an unrelated proposal")
+            return self
         if self.operation is PlanningOperation.CREATE:
             return self
         if self.workflow_run_id is None:

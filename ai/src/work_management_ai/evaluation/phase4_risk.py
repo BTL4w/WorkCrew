@@ -90,7 +90,7 @@ async def evaluate(case: Case) -> bool:
         ],
         "limitations": [],
         "recommendations": [],
-        "replan_requested": False,
+        "replan_requested": case.scenario == "replan",
     }
     if case.scenario == "contradictory":
         output = {
@@ -163,6 +163,19 @@ async def evaluate(case: Case) -> bool:
     )
     if case.scenario in {"revoked", "authority"}:
         return result.status is AgentRunStatus.FAILED and "score" not in result.typed_output
+    if case.scenario == "replan":
+        requested = result.requested_handoff
+        return (
+            result.status is AgentRunStatus.COMPLETED
+            and result.typed_output.get("score") == "83"
+            and requested is not None
+            and requested.target_capability == "planning.revise"
+            and requested.typed_input.get("task_id") == tools.context["task_id"]
+            and requested.typed_input.get("risk_assessment_id")
+            == tools.context["risk_assessment_id"]
+            and requested.typed_input.get("fingerprint") == tools.context["fingerprint"]
+            and requested.typed_input.get("observation_ids") == ["observation:0"]
+        )
     return (
         result.status is AgentRunStatus.COMPLETED
         and result.typed_output.get("score") == "83"

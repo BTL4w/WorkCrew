@@ -206,7 +206,9 @@ async def _run_worker() -> None:
         max_overflow=20,
     )
     session_factory = async_sessionmaker(engine, expire_on_commit=False)
-    planning_transaction_factory = PostgreSQLPlanningRunTransactionFactory(session_factory)
+    planning_transaction_factory = PostgreSQLPlanningRunTransactionFactory(
+        session_factory, reporting_timezone=settings.reporting_timezone
+    )
     assistant_transaction_factory = PostgreSQLAssistantTransactionFactory(session_factory)
     actor_resolver = CurrentActorResolver(
         CurrentActorService(SqlAlchemyAuthTransactionFactory(session_factory))

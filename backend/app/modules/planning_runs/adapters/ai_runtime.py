@@ -6,7 +6,7 @@ import json
 from collections.abc import Callable
 from datetime import UTC, datetime
 from time import monotonic
-from typing import Protocol, cast
+from typing import Any, Protocol, cast
 from uuid import UUID, uuid4
 
 from pydantic import BaseModel, ValidationError
@@ -99,6 +99,10 @@ class PlanningAIRuntime:
             raise UnsupportedPlanningCapabilityError
 
     def validate_proposal_content(self, content: dict[str, object]) -> dict[str, object]:
+        if "risk_replan" in content:
+            from app.modules.planning_runs.domain.risk_replanning import validate_content
+
+            return validate_content(content)
         validated = PlanningModelOutput.model_validate(content)
         return cast(dict[str, object], validated.model_dump(mode="json"))
 
@@ -108,6 +112,11 @@ class PlanningAIRuntime:
         *,
         active_membership_ids: frozenset[UUID],
     ) -> dict[str, object]:
+        if "risk_replan" in content:
+            from app.modules.planning_runs.domain.risk_replanning import validate_content
+
+            validate_content(content)
+            return {"can_approve": True, "errors": [], "warnings": []}
         validated = PlanningModelOutput.model_validate(content)
         result = verify_plan(
             validated,
@@ -214,6 +223,39 @@ class _Phase2MockModelGateway:
     async def generate_structured[StructuredOutputT: BaseModel](
         self, request: StructuredModelRequest[StructuredOutputT]
     ) -> StructuredModelResponse[StructuredOutputT]:
+        if request.invocation_key.endswith(".risk_replan"):
+            payload = self._payload(request)
+            context = cast(dict[str, Any], payload["context"])
+            plan = context["plan"]
+            task = next(t for t in plan["tasks"] if t["id"] == context["risk"]["task_id"])
+            current = next(w for w in plan["weeks"] if w["id"] == task["project_week_id"])
+            target = next(
+                (
+                    w
+                    for w in plan["weeks"]
+                    if w["status"] != "COMPLETED" and w["week_number"] > current["week_number"]
+                ),
+                None,
+            )
+            if target is None:
+                raise ModelUnavailableError("mock weekly replan requires another open week")
+            fixture = {
+                "task_changes": [
+                    {
+                        "task_id": task["id"],
+                        "project_week_id": target["id"],
+                        "due_date": target["end_date"],
+                        "estimated_effort_hours": task["estimated_effort_hours"],
+                    }
+                ],
+                "new_tasks": [],
+                "change_summary": "Điều chỉnh lịch tuần"
+                if ".vi." in request.invocation_key
+                else "Revise weekly schedule",
+            }
+            return await MockModelGateway(
+                fixtures={request.invocation_key: fixture}
+            ).generate_structured(request)
         if request.invocation_key.startswith("planning."):
             return await self._planning.generate_structured(request)
         fixture = self._agent_fixture(request)
@@ -241,6 +283,37 @@ class _Phase2MockModelGateway:
         key = request.invocation_key
         payload = self._payload(request)
         locale = "vi" if ".vi." in key else "en"
+        if key.startswith("risk.") and key.endswith(".explain"):
+            context = cast(dict[str, Any], payload["context"])
+            sources = {s["id"]: s for s in context["permitted_sources"]}
+            explanations: list[dict[str, Any]] = []
+            for observation in context["observations"][:10]:
+                source = sources[observation["source_ids"][0]]
+                field, value = next(
+                    (k, v)
+                    for k, v in source["values"].items()
+                    if v is None or isinstance(v, (str, int, float, bool))
+                )
+                explanations.append(
+                    {
+                        "text": "Xem lại dữ liệu đã lưu."
+                        if locale == "vi"
+                        else "Review the recorded facts.",
+                        "observation_ids": [observation["id"]],
+                        "source_ids": [source["id"]],
+                        "assertions": [{"source_id": source["id"], "field": field, "value": value}],
+                    }
+                )
+            question = str(payload.get("question", "")).casefold()
+            return {
+                "observation_explanations": explanations,
+                "limitations": [],
+                "recommendations": [],
+                "replan_requested": any(
+                    word in question
+                    for word in ("điều chỉnh kế hoạch", "lập lại kế hoạch", "replan", "revise plan")
+                ),
+            }
         if key.startswith("daily_update.") and key.endswith(".extract"):
             # Local fixture only; hosted interpretation always goes through the gateway.
             import re
@@ -867,11 +940,13 @@ class ProposalRevalidationJobHandler:
             )
             if version is None:
                 raise RuntimeError("PROPOSAL_VERSION_UNAVAILABLE")
-            validation = verify_plan(
-                PlanningModelOutput.model_validate(version.content),
-                PlanningVerificationContext(),
+            if "risk_replan" in version.content:
+                await transaction.repository.verify_risk_plan_content(
+                    actor=actor, content=version.content
+                )
+            public_validation = PlanningAIRuntime().validate_proposal_deterministically(
+                version.content, active_membership_ids=frozenset()
             )
-            public_validation = _validation_json(validation)
             await transaction.repository.append_event(
                 event=WorkflowEvent(
                     id=uuid4(),
@@ -910,8 +985,11 @@ class ProposalRevalidationJobHandler:
                         "approval_id": (
                             str(proposal.approval_id) if proposal.approval_id is not None else None
                         ),
-                        "can_approve": validation.can_approve,
-                        "error_codes": [item.code for item in validation.errors],
+                        "can_approve": bool(public_validation["can_approve"]),
+                        "error_codes": [
+                            str(item["code"])
+                            for item in cast(list[dict[str, object]], public_validation["errors"])
+                        ],
                     },
                 )
             )
@@ -1176,7 +1254,29 @@ def build_planning_job_handlers(
             persistence_port=_RevisionOnlyPersistenceAdapter(),
         )
 
+    from app.modules.planning_runs.adapters.risk_replanning import RiskReplanningJobHandler
+
     return {
+        "proposal.risk_replan": RiskReplanningJobHandler(
+            transaction_factory=transaction_factory,
+            actor_resolver=actor_resolver,
+            gateway_factory=lambda run: WorkflowRecordingModelGateway(
+                gateway=build_model_gateway(settings),
+                transaction_factory=transaction_factory,
+                organization_id=run.organization_id,
+                workflow_run_id=run.id,
+            ),
+        ),
+        "proposal.risk_replan_revision": RiskReplanningJobHandler(
+            transaction_factory=transaction_factory,
+            actor_resolver=actor_resolver,
+            gateway_factory=lambda run: WorkflowRecordingModelGateway(
+                gateway=build_model_gateway(settings),
+                transaction_factory=transaction_factory,
+                organization_id=run.organization_id,
+                workflow_run_id=run.id,
+            ),
+        ),
         "planning.start": planning,
         "planning.resume": planning,
         "proposal.ai_revise": ProposalAIRevisionJobHandler(

@@ -22,11 +22,12 @@ class PostgreSQLPlanningRunTransaction(PlanningRunTransaction):
         session: AsyncSession,
         organization_id: UUID,
         membership_id: UUID | None = None,
+        reporting_timezone: str = "UTC",
     ) -> None:
         self._session = session
         self._organization_id = organization_id
         self._membership_id = membership_id
-        self._repository = PostgreSQLPlanningRunRepository(session)
+        self._repository = PostgreSQLPlanningRunRepository(session, reporting_timezone)
         self._transaction: AsyncSessionTransaction | None = None
 
     @property
@@ -86,7 +87,10 @@ class PostgreSQLPlanningRunTransaction(PlanningRunTransaction):
 class PostgreSQLPlanningRunTransactionFactory:
     """Factory creating tenant-scoped planning run transactions."""
 
-    def __init__(self, session_factory: async_sessionmaker[AsyncSession]) -> None:
+    def __init__(
+        self, session_factory: async_sessionmaker[AsyncSession], reporting_timezone: str = "UTC"
+    ) -> None:
+        self._reporting_timezone = reporting_timezone
         self._session_factory = session_factory
 
     def __call__(self, context: AuthenticatedActor | UUID) -> PlanningRunTransaction:
@@ -96,8 +100,10 @@ class PostgreSQLPlanningRunTransactionFactory:
                 session=session,
                 organization_id=context.organization_id,
                 membership_id=context.membership_id,
+                reporting_timezone=self._reporting_timezone,
             )
         return PostgreSQLPlanningRunTransaction(
             session=session,
             organization_id=context,
+            reporting_timezone=self._reporting_timezone,
         )

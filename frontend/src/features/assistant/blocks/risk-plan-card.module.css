@@ -1,0 +1,195 @@
+.card {
+  border: 1px solid #dce3ed;
+  background: #fff;
+  border-radius: 18px;
+  padding: 26px;
+  max-width: 900px;
+  color: #172d46;
+  box-shadow: 0 3px 12px #182b4510;
+}
+.header {
+  display: flex;
+  justify-content: space-between;
+  gap: 22px;
+  align-items: flex-start;
+}
+.header h3 {
+  font-size: 21px;
+  margin: 8px 0;
+}
+.header p {
+  font-size: 13px;
+  line-height: 1.6;
+  color: #65758b;
+  margin: 0;
+}
+.header .kicker {
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-size: 11px;
+  font-weight: 650;
+  color: #475e7e;
+}
+.badge {
+  font-size: 11px;
+  background: #eff5ff;
+  border: 1px solid #d9e6fa;
+  color: #365988;
+  border-radius: 10px;
+  padding: 9px 12px;
+  max-width: 160px;
+  line-height: 1.5;
+}
+.diff {
+  margin: 24px 0;
+  border: 1px solid #e3e9f1;
+  border-radius: 12px;
+  overflow: hidden;
+}
+.columns,
+.row {
+  display: grid;
+  grid-template-columns: 1.15fr 1fr 1fr;
+  gap: 20px;
+  padding: 16px 18px;
+}
+.columns {
+  background: #f5f7fa;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #61728b;
+  font-weight: 650;
+}
+.row {
+  border-top: 1px solid #e5eaf1;
+  font-size: 13px;
+  line-height: 1.6;
+}
+.row strong {
+  font-weight: 600;
+}
+.row p {
+  margin: 4px 0;
+  color: #687a90;
+  font-size: 12px;
+}
+.proposed {
+  background: #f2f7ff;
+  border-radius: 8px;
+  padding: 10px;
+  margin: -6px;
+}
+.row .proposed p {
+  color: #44668f;
+}
+.policy {
+  font-size: 12px;
+  line-height: 1.7;
+  color: #65758b;
+}
+.sources {
+  margin-top: 18px;
+  padding-top: 16px;
+  border-top: 1px solid #e5eaf1;
+  font-size: 12px;
+  color: #62748c;
+}
+.sources summary {
+  cursor: pointer;
+  color: #334b67;
+  font-weight: 600;
+}
+.sources p {
+  overflow-wrap: anywhere;
+}
+.footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 22px;
+  flex-wrap: wrap;
+}
+.card button {
+  border: 1px solid #d5dfe9;
+  background: #fff;
+  padding: 9px 13px;
+  border-radius: 8px;
+  color: #344f70;
+  font-size: 12px;
+  cursor: pointer;
+}
+.card button:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+.card button.primary {
+  background: #305d96;
+  border-color: #305d96;
+  color: #fff;
+}
+.card button.reject {
+  color: #9e4844;
+  margin-right: auto;
+}
+.notice {
+  padding: 12px;
+  background: #fff7e8;
+  color: #896426;
+  font-size: 12px;
+  border-radius: 8px;
+}
+.card label {
+  display: block;
+  font-size: 11px;
+  color: #4b6484;
+  margin-bottom: 8px;
+}
+.card input,
+.card select,
+.card textarea {
+  display: block;
+  width: 100%;
+  box-sizing: border-box;
+  font: inherit;
+  border: 1px solid #cfd9e6;
+  border-radius: 6px;
+  padding: 7px;
+  background: white;
+  margin-top: 4px;
+}
+.revise {
+  margin-top: 18px;
+}
+.revise textarea {
+  min-height: 90px;
+}
+.revise button {
+  margin-right: 8px;
+}
+@media (max-width: 640px) {
+  .card {
+    padding: 18px;
+  }
+  .header {
+    flex-direction: column;
+    gap: 12px;
+  }
+  .badge {
+    max-width: none;
+  }
+  .columns,
+  .row {
+    grid-template-columns: 1fr 1fr;
+    gap: 14px;
+  }
+  .columns span:first-child {
+    display: none;
+  }
+  .row > div:first-child {
+    grid-column: 1/-1;
+  }
+  .footer button {
+    flex-grow: 1;
+  }
+}

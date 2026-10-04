@@ -71,6 +71,28 @@ class AssistantPlanningToolAdapter:
         if agent_run.agent_id != "planning" or agent_run.organization_id != actor.organization_id:
             return self._reject("PLANNING_RUN_NOT_FOUND")
         try:
+            if value.risk_context is not None:
+                result = await self._proposals.request_risk_revision(
+                    actor=actor,
+                    risk_context=value.risk_context.model_dump(mode="json"),
+                    instruction=value.manager_instruction or "",
+                    locale=value.locale,
+                    request_id=f"assistant-tool:{request.agent_run_id}:{request.call_id}",
+                    idempotency_key=request.idempotency_key,
+                )
+                async with self._assistant_transactions(actor) as transaction:
+                    await transaction.repository.link_agent_workflow_run(
+                        organization_id=actor.organization_id,
+                        agent_run_id=request.agent_run_id,
+                        workflow_run_id=result.run.id,
+                    )
+                    await transaction.commit()
+                return self._success(
+                    value,
+                    workflow_run_id=result.run.id,
+                    workflow_status=result.run.status.value,
+                    awaiting="MANAGER_DECISION",
+                )
             if value.operation is PlanningOperation.CREATE:
                 result = await self._planning_runs.create_planning_run(
                     actor=actor,

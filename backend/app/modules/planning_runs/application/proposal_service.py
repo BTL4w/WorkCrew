@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable
+from dataclasses import replace
 from typing import cast
 from uuid import UUID, uuid4
 
@@ -13,6 +14,7 @@ from app.modules.planning_runs.application.ports import (
     PlanningRunTransaction,
     ProposalMutationResult,
     ProposalRevisionRequestResult,
+    WorkflowRunMutationResult,
 )
 from app.modules.planning_runs.application.run_service import fingerprint
 from app.modules.planning_runs.domain.models import (
@@ -25,7 +27,9 @@ from app.modules.planning_runs.domain.models import (
     ResourceVersionMismatchError,
     WorkflowJob,
     WorkflowJobStatus,
+    WorkflowRun,
 )
+from app.modules.planning_runs.domain.risk_replanning import RiskPlanBinding, base_content
 
 _WRITE_ROLES = frozenset({MembershipRole.ADMIN, MembershipRole.MANAGER})
 
@@ -124,6 +128,11 @@ class ProposalService:
             )
             async with self._transaction_factory(actor) as transaction:
                 repository = transaction.repository
+                replay_source = await repository.get_proposal_version(
+                    actor=actor, proposal_id=proposal_id, version_number=expected_version
+                )
+                if replay_source is not None and "risk_replan" in replay_source.content:
+                    await repository.authenticate_risk_plan_actor(actor=actor)
                 replay = await repository.find_proposal_mutation_replay(
                     actor=actor,
                     operation=f"proposal.edit:{proposal_id}",
@@ -144,6 +153,12 @@ class ProposalService:
                 )
                 if previous is None:
                     raise PlanningRunNotFoundError
+                if "risk_replan" in previous.content:
+                    if normalized.get("risk_replan") != previous.content["risk_replan"]:
+                        raise ValueError("RISK_PLAN_BINDING_IMMUTABLE")
+                    await repository.verify_risk_plan_content(actor=actor, content=previous.content)
+                elif "risk_replan" in normalized:
+                    raise ValueError("RISK_PLAN_BINDING_IMMUTABLE")
                 raw_tasks = normalized.get("tasks", [])
                 if not isinstance(raw_tasks, list):
                     raise ValueError("proposal tasks are invalid")
@@ -218,6 +233,85 @@ class ProposalService:
             )
             raise
 
+    async def request_risk_revision(
+        self,
+        *,
+        actor: AuthenticatedActor,
+        risk_context: dict[str, object],
+        instruction: str,
+        locale: str,
+        request_id: str,
+        idempotency_key: str,
+    ) -> WorkflowRunMutationResult:
+        try:
+            if actor.role not in _WRITE_ROLES:
+                raise PlanningRunForbiddenError
+            binding = RiskPlanBinding.model_validate(risk_context)
+            normalized = instruction.strip()
+            if not normalized or len(normalized) > 8000 or locale not in {"vi", "en"}:
+                raise ValueError("RISK_REVISION_INPUT_INVALID")
+            request_fingerprint = fingerprint(
+                "risk-plan.revise",
+                {
+                    "binding": binding.model_dump(mode="json"),
+                    "instruction": normalized,
+                    "locale": locale,
+                },
+            )
+            async with self._transaction_factory(actor) as tx:
+                await tx.repository.authenticate_risk_plan_actor(actor=actor)
+                replay = await tx.repository.find_workflow_run_mutation_replay(
+                    actor=actor,
+                    operation="planning_run.create",
+                    idempotency_key=idempotency_key,
+                    request_fingerprint=request_fingerprint,
+                )
+                if replay is not None:
+                    return replay
+                metadata, _ = await tx.repository.load_risk_plan(actor=actor, binding=binding)
+                base_content(metadata.before)
+                run = WorkflowRun.create(
+                    organization_id=actor.organization_id,
+                    project_id=metadata.before.project_id,
+                    requested_by_membership_id=actor.membership_id,
+                    workflow_name="risk_weekly_replanning",
+                    workflow_version="risk-replan.v1",
+                    verifier_version="risk-weekly-plan.v1",
+                    input_goal_text=normalized,
+                )
+                job = WorkflowJob(
+                    id=uuid4(),
+                    organization_id=actor.organization_id,
+                    workflow_run_id=run.id,
+                    job_type="proposal.risk_replan",
+                    status=WorkflowJobStatus.QUEUED,
+                    max_attempts=1,
+                    payload={
+                        "risk_replan": metadata.model_dump(mode="json"),
+                        "instruction": normalized,
+                        "locale": locale,
+                        "requester_membership_id": str(actor.membership_id),
+                    },
+                )
+                return await tx.repository.create_planning_run_mutation(
+                    actor=actor,
+                    run=run,
+                    job=job,
+                    request_id=request_id,
+                    idempotency_key=idempotency_key,
+                    request_fingerprint=request_fingerprint,
+                )
+        except (PlanningRunDomainError, ValueError) as error:
+            async with self._transaction_factory(actor) as tx:
+                await tx.repository.audit_rejection(
+                    actor=actor,
+                    action="risk_plan.revision_requested",
+                    request_id=request_id,
+                    reason_code=type(error).__name__,
+                    idempotency_key=idempotency_key,
+                )
+            raise
+
     async def request_ai_revision(
         self,
         *,
@@ -267,6 +361,33 @@ class ProposalService:
                 },
             )
             async with self._transaction_factory(actor) as transaction:
+                previous = await transaction.repository.get_proposal_version(
+                    actor=actor, proposal_id=proposal_id, version_number=expected_version
+                )
+                if previous is not None and "risk_replan" in previous.content:
+                    await transaction.repository.verify_risk_plan_content(
+                        actor=actor, content=previous.content
+                    )
+                    proposal = await transaction.repository.get_proposal(
+                        actor=actor, proposal_id=proposal_id
+                    )
+                    if proposal is None:
+                        raise PlanningRunNotFoundError
+                    checkpoint = await transaction.repository.get_latest_checkpoint(
+                        actor=actor, run_id=proposal.workflow_run_id
+                    )
+                    job = replace(
+                        job,
+                        job_type="proposal.risk_replan_revision",
+                        max_attempts=1,
+                        payload={
+                            **job.payload,
+                            "risk_replan": previous.content["risk_replan"],
+                            "locale": str(checkpoint.state.get("locale", "en"))
+                            if checkpoint
+                            else "en",
+                        },
+                    )
                 return await transaction.repository.request_ai_revision_mutation(
                     actor=actor,
                     proposal_id=proposal_id,

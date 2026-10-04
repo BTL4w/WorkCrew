@@ -19,10 +19,27 @@ from app.modules.planning_runs.domain.models import (
     WorkflowJob,
     WorkflowRun,
 )
+from app.modules.planning_runs.domain.risk_replanning import RiskPlanBinding, RiskPlanMetadata
 
 
 class PlanningRunRepository(Protocol):
     """Repository port for AI planning run entities and workflow state."""
+
+    async def fail_risk_revision_run(self, *, organization_id: UUID, run_id: UUID) -> bool: ...
+
+    async def authenticate_risk_plan_actor(self, *, actor: AuthenticatedActor) -> None: ...
+    async def load_risk_plan(
+        self, *, actor: AuthenticatedActor, binding: RiskPlanBinding
+    ) -> tuple[RiskPlanMetadata, dict[str, object]]: ...
+    async def verify_risk_plan(
+        self, *, actor: AuthenticatedActor, metadata: RiskPlanMetadata
+    ) -> None: ...
+    async def verify_risk_plan_content(
+        self, *, actor: AuthenticatedActor, content: dict[str, object]
+    ) -> None: ...
+    async def get_risk_revision_job(
+        self, *, actor: AuthenticatedActor, run_id: UUID
+    ) -> WorkflowJob | None: ...
 
     async def create_workflow_run(
         self,

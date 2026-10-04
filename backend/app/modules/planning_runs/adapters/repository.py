@@ -26,6 +26,7 @@ from app.modules.planning_runs.adapters.database_models import (
     WorkflowJobModel,
     WorkflowRunModel,
 )
+from app.modules.planning_runs.adapters.risk_replanning import RiskPlanPersistence
 from app.modules.planning_runs.application.approval_ports import (
     ApprovalDecision,
     ApprovalDecisionResult,
@@ -64,6 +65,7 @@ from app.modules.planning_runs.domain.models import (
     WorkflowRun,
     WorkflowRunStatus,
 )
+from app.modules.planning_runs.domain.risk_replanning import RiskPlanBinding, RiskPlanMetadata
 from app.modules.progress.adapters.progress_repository import capture_project_baselines
 from app.modules.work.adapters.database_models import (
     IdempotencyRecordModel,
@@ -147,7 +149,8 @@ def _decision_result(body: dict[str, Any], *, replayed: bool) -> ApprovalDecisio
 class PostgreSQLPlanningRunRepository(PlanningRunRepository):
     """PostgreSQL implementation of PlanningRunRepository with RLS and tenant scoping."""
 
-    def __init__(self, session: AsyncSession) -> None:
+    def __init__(self, session: AsyncSession, reporting_timezone: str = "UTC") -> None:
+        self._reporting_timezone = reporting_timezone
         self._session = session
 
     async def _find_replay(
@@ -274,6 +277,24 @@ class PostgreSQLPlanningRunRepository(PlanningRunRepository):
         idempotency_key = str(values["idempotency_key"])
         request_fingerprint = str(values["request_fingerprint"])
         operation = f"approval.decision:{approval_id}"
+
+        decision_content = await self._session.scalar(
+            select(ProposalVersionModel.content)
+            .join(
+                ApprovalModel,
+                (
+                    (ApprovalModel.organization_id == ProposalVersionModel.organization_id)
+                    & (ApprovalModel.proposal_id == ProposalVersionModel.proposal_id)
+                    & (ApprovalModel.proposal_version_number == ProposalVersionModel.version_number)
+                ),
+            )
+            .where(
+                ApprovalModel.organization_id == actor.organization_id,
+                ApprovalModel.id == approval_id,
+            )
+        )
+        if decision_content is not None and "risk_replan" in decision_content:
+            await self.authenticate_risk_plan_actor(actor=actor)
 
         replay = await self._find_replay(
             actor=actor,
@@ -577,6 +598,90 @@ class PostgreSQLPlanningRunRepository(PlanningRunRepository):
             "acceptance_criterion_ids": [str(value) for value in created.acceptance_criterion_ids],
         }
 
+    async def fail_risk_revision_run(self, *, organization_id: UUID, run_id: UUID) -> bool:
+        model = await self._session.scalar(
+            select(WorkflowRunModel)
+            .where(
+                WorkflowRunModel.organization_id == organization_id, WorkflowRunModel.id == run_id
+            )
+            .with_for_update()
+        )
+        if model is None or model.status not in {"QUEUED", "RUNNING"}:
+            return False
+        model.status = "FAILED"
+        model.error_message = "RISK_REPLAN_UNAVAILABLE"
+        model.version += 1
+        model.updated_at = datetime.now(UTC)
+        await self._session.flush()
+        return True
+
+    async def authenticate_risk_plan_actor(self, *, actor: AuthenticatedActor) -> None:
+        from app.modules.planning_runs.domain.models import PlanningRunForbiddenError
+        from app.modules.progress.domain.blockers import BlockerError
+        from app.modules.risk.adapters.repository import RiskRepository
+
+        try:
+            await RiskRepository(self._session, actor, self._reporting_timezone).authenticate()
+        except BlockerError as error:
+            raise PlanningRunForbiddenError from error
+
+    async def load_risk_plan(
+        self, *, actor: AuthenticatedActor, binding: RiskPlanBinding
+    ) -> tuple[RiskPlanMetadata, dict[str, object]]:
+        from app.modules.progress.domain.blockers import BlockerError
+
+        try:
+            metadata = await RiskPlanPersistence(self._session, self._reporting_timezone).load(
+                actor, binding
+            )
+        except BlockerError as error:
+            raise PlanningRunNotFoundError from error
+        from app.modules.risk.adapters.repository import RiskRepository
+
+        context = await RiskRepository(self._session, actor, self._reporting_timezone).read_context(
+            binding.task_id
+        )
+        return metadata, {
+            "plan": metadata.before.model_dump(mode="json"),
+            "risk": context.model_dump(mode="json"),
+        }
+
+    async def verify_risk_plan(
+        self, *, actor: AuthenticatedActor, metadata: RiskPlanMetadata
+    ) -> None:
+        await self.authenticate_risk_plan_actor(actor=actor)
+        await RiskPlanPersistence(self._session, self._reporting_timezone).verify(actor, metadata)
+
+    async def verify_risk_plan_content(
+        self, *, actor: AuthenticatedActor, content: dict[str, object]
+    ) -> None:
+        await self.verify_risk_plan(
+            actor=actor, metadata=RiskPlanMetadata.model_validate(content["risk_replan"])
+        )
+
+    async def get_risk_revision_job(
+        self, *, actor: AuthenticatedActor, run_id: UUID
+    ) -> WorkflowJob | None:
+        model = await self._session.scalar(
+            select(WorkflowJobModel).where(
+                WorkflowJobModel.organization_id == actor.organization_id,
+                WorkflowJobModel.workflow_run_id == run_id,
+                WorkflowJobModel.job_type == "proposal.risk_replan",
+            )
+        )
+        if model is None:
+            return None
+        return WorkflowJob(
+            id=model.id,
+            organization_id=model.organization_id,
+            workflow_run_id=model.workflow_run_id,
+            job_type=model.job_type,
+            status=WorkflowJobStatus(model.status),
+            payload=model.payload,
+            attempt_count=model.attempt_count,
+            max_attempts=model.max_attempts,
+        )
+
     async def _verify_source_freshness(
         self,
         *,
@@ -612,7 +717,12 @@ class PostgreSQLPlanningRunRepository(PlanningRunRepository):
                 resource_id = UUID(str(item["resource_id"]))
             except (KeyError, ValueError) as error:
                 raise ProposalStaleError from error
-            if resource_type == "PROJECT":
+            if resource_type == "RISK_WEEKLY_PLAN":
+                metadata = RiskPlanMetadata.model_validate(item["metadata"])
+                if metadata.before.project_id != resource_id:
+                    raise ProposalStaleError
+                await self.verify_risk_plan(actor=actor, metadata=metadata)
+            elif resource_type == "PROJECT":
                 model = await self._session.scalar(
                     select(ProjectModel).where(
                         ProjectModel.organization_id == actor.organization_id,
@@ -666,6 +776,10 @@ class PostgreSQLPlanningRunRepository(PlanningRunRepository):
         request_id: str = "approved-plan-capture",
         idempotency_key: str | None = None,
     ) -> CreatedBusinessIds:
+        if "risk_replan" in content:
+            return await RiskPlanPersistence(self._session, self._reporting_timezone).apply(
+                actor, content, request_id, idempotency_key
+            )
         project_data = _mapping(content.get("project"), "project")
         goal_data = _mapping(content.get("goal"), "goal")
         milestone_data = _items(content.get("milestones"), "milestones")
@@ -2764,6 +2878,50 @@ class PostgreSQLPlanningRunRepository(PlanningRunRepository):
         now: datetime,
         lease_until: datetime,
     ) -> WorkflowJob | None:
+        expired_conditions = [
+            WorkflowJobModel.job_type.in_(
+                ("proposal.risk_replan", "proposal.risk_replan_revision")
+            ),
+            WorkflowJobModel.status == WorkflowJobStatus.RUNNING.value,
+            WorkflowJobModel.lease_until < now,
+            WorkflowJobModel.attempt_count >= WorkflowJobModel.max_attempts,
+        ]
+        if organization_id is not None:
+            expired_conditions.append(WorkflowJobModel.organization_id == organization_id)
+        expired = (
+            await self._session.scalars(
+                select(WorkflowJobModel)
+                .where(*expired_conditions)
+                .order_by(WorkflowJobModel.created_at)
+                .limit(10)
+                .with_for_update(skip_locked=True)
+            )
+        ).all()
+        for abandoned in expired:
+            abandoned.status = WorkflowJobStatus.FAILED.value
+            abandoned.last_error = "RISK_REPLAN_LEASE_EXPIRED"
+            abandoned.locked_by_worker_id = None
+            abandoned.lease_until = None
+            abandoned.updated_at = now
+            failed = await self.fail_risk_revision_run(
+                organization_id=abandoned.organization_id,
+                run_id=abandoned.workflow_run_id,
+            )
+            if failed or abandoned.job_type == "proposal.risk_replan_revision":
+                await self.append_event(
+                    event=WorkflowEvent(
+                        id=uuid4(),
+                        organization_id=abandoned.organization_id,
+                        workflow_run_id=abandoned.workflow_run_id,
+                        sequence=0,
+                        event_type="workflow.failed" if failed else "proposal.revision_failed",
+                        public_payload={
+                            "safe_error_code": "RISK_REPLAN_LEASE_EXPIRED",
+                            "manual_fallback": "PROJECT_TASK_EDITOR",
+                        },
+                    )
+                )
+        await self._session.flush()
         conditions = [
             WorkflowJobModel.attempt_count < WorkflowJobModel.max_attempts,
             (WorkflowJobModel.status == WorkflowJobStatus.QUEUED.value)
@@ -2790,6 +2948,8 @@ class PostgreSQLPlanningRunRepository(PlanningRunRepository):
 
         model.status = WorkflowJobStatus.RUNNING.value
         model.locked_by_worker_id = worker_id
+        if model.job_type in {"proposal.risk_replan", "proposal.risk_replan_revision"}:
+            lease_until = max(lease_until, now + timedelta(seconds=150))
         model.lease_until = lease_until
         model.attempt_count += 1
         model.updated_at = now

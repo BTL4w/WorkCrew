@@ -31,6 +31,7 @@ from work_management_ai.agents.orchestrator.workflows.graph import (
     OrchestratorGraph,
     OrchestratorState,
 )
+from work_management_ai.agents.risk.contracts import RiskCardContent, RiskReplanRequest
 from work_management_ai.model_gateway.contracts import ModelGateway, StructuredModelRequest
 from work_management_ai.model_gateway.errors import ModelGatewayError
 from work_management_ai.runtime.agent_registry import AgentRegistry
@@ -75,6 +76,7 @@ _REVISION_SIGNALS = (
     "move",
     "remove",
     "revise",
+    "replan",
     "rút ngắn",
     "sửa",
     "thay đổi",
@@ -122,6 +124,7 @@ class OrchestratorHarness:
                 handoffs_used=0,
                 model_refs=(),
                 pending_requested_handoff=None,
+                risk_replan=None,
                 output=None,
             )
         )
@@ -457,7 +460,9 @@ class OrchestratorHarness:
                 target_agent_version=step.target_agent_version,
                 capability=step.capability,
                 objective=step.objective,
-                typed_input=self._trusted_specialist_input(step, state["value"]),
+                typed_input=self._trusted_specialist_input(
+                    step, state["value"], state["risk_replan"]
+                ),
                 context_references=(),
                 actor=state["value"].actor,
                 budget=AgentBudget(
@@ -504,7 +509,7 @@ class OrchestratorHarness:
 
     @staticmethod
     def _trusted_specialist_input(
-        step: ExecutionStep, value: OrchestratorInput
+        step: ExecutionStep, value: OrchestratorInput, risk_replan: RiskReplanRequest | None = None
     ) -> dict[str, JsonValue]:
         """Reconstruct mutation contracts from trusted turn/card context."""
         if step.target_agent_id is AgentId.RISK:
@@ -561,6 +566,13 @@ class OrchestratorHarness:
         if step.target_agent_id is not AgentId.PLANNING:
             return step.typed_input
         base: dict[str, JsonValue] = {"locale": value.locale, "brief": value.message}
+        if step.capability == "planning.revise" and risk_replan is not None:
+            return {
+                "operation": "REVISE",
+                **base,
+                "manager_instruction": value.message,
+                "risk_context": cast(dict[str, JsonValue], risk_replan.model_dump(mode="json")),
+            }
         if step.capability == "planning.create":
             return {"operation": "CREATE", **base}
         active = value.active_context.active_planning
@@ -619,10 +631,60 @@ class OrchestratorHarness:
             for result in results
         ):
             return {**updates, "route": "human_gate"}
-        # Task 11 records a typed replan request; Task 12 owns its execution.
-        # Risk results remain read-only and render without model synthesis.
-        if any(result.agent_id is AgentId.RISK for result in results):
-            return {**updates, "route": "next"}
+        risk = next((r for r in results if r.agent_id is AgentId.RISK), None)
+        if risk is not None:
+            if risk.requested_handoff is None:
+                return {**updates, "route": "next"}
+            actor = await self._actor_resolver.resolve(state["value"].actor)
+            try:
+                card = RiskCardContent.model_validate(risk.typed_output)
+                binding = RiskReplanRequest.model_validate(risk.requested_handoff.typed_input)
+                if (
+                    actor.role not in {"MANAGER", "ADMIN"}
+                    or not actor.is_active
+                    or card.scope != "MANAGER"
+                    or card.state != "READY"
+                    or card.score is None
+                    or binding.risk_assessment_id != card.risk_assessment_id
+                    or binding.task_id != card.task_id
+                    or binding.fingerprint != card.fingerprint
+                    or binding.observation_ids != tuple(o.id for o in card.observations)
+                    or binding.affected_week_ids != card.affected_week_ids
+                    or risk.requested_handoff.target_capability != "planning.revise"
+                    or not _has_revision_signal(state["value"].message)
+                ):
+                    raise ValueError("RISK_REPLAN_CONTEXT_INVALID")
+                plan = state["plan"]
+                if plan is None or state["replans_used"] >= _MAX_REPLANS:
+                    raise ValueError("RISK_REPLAN_BUDGET")
+                registered = self._registry.resolve(AgentId.PLANNING, "1.0.0", _ACTIVE_PHASE)
+                candidate = plan.model_copy(
+                    update={
+                        "steps": (
+                            *plan.steps,
+                            ExecutionStep(
+                                step_id="risk-replan",
+                                target_agent_id=AgentId.PLANNING,
+                                target_agent_version=registered.manifest.agent.version,
+                                capability="planning.revise",
+                                objective=state["value"].message,
+                                typed_input={},
+                                depends_on=(state["last_batch_handoffs"][0].step_id,),
+                                mode=StepMode.PROPOSAL,
+                            ),
+                        )
+                    }
+                )
+                validate_execution_plan(candidate, self._registry, actor)
+            except (ValueError, ExecutionPlanError):
+                return {**updates, "route": "next"}
+            return {
+                **updates,
+                "route": "next",
+                "plan": candidate,
+                "risk_replan": binding,
+                "replans_used": state["replans_used"] + 1,
+            }
         requested = tuple(
             result.requested_handoff for result in results if result.requested_handoff is not None
         )
@@ -820,6 +882,27 @@ class OrchestratorHarness:
                 "status": OrchestratorStatus.AWAITING_HUMAN,
                 "stop_reason": "DAILY_UPDATE_AWAIT_OWNER",
             }
+        if state["risk_replan"] is not None:
+            planning = next(
+                (r for r in state["last_batch_results"] if r.agent_id is AgentId.PLANNING), None
+            )
+            if planning is not None:
+                risk = next(r for r in state["results"] if r.agent_id is AgentId.RISK)
+                return {
+                    "blocks": (
+                        RiskResponseBlock(
+                            task_id=UUID(str(risk.typed_output["task_id"])),
+                            fingerprint=str(risk.typed_output["fingerprint"]),
+                            content=risk.typed_output,
+                        ),
+                        PlanningRunResponseBlock(
+                            workflow_run_id=UUID(str(planning.typed_output["workflow_run_id"])),
+                            status=str(planning.typed_output["workflow_status"]),
+                        ),
+                    ),
+                    "status": OrchestratorStatus.AWAITING_HUMAN,
+                    "stop_reason": "RISK_PLAN_AWAIT_MANAGER",
+                }
         pending = self._pending_followup(state)
         if pending is not None and pending.state == "WAITING_PROJECT_PROPOSAL":
             result = state["last_batch_results"][0]

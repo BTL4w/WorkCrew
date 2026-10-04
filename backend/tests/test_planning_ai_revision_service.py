@@ -82,6 +82,13 @@ class _Repository:
     async def audit_rejection(self, *, action: str, reason_code: str, **_):
         self.audit.append((action, reason_code))
 
+    async def get_proposal_version(self, *, actor, proposal_id, version_number):
+        return (
+            self.version
+            if self.proposal.id == proposal_id and self.version.version_number == version_number
+            else None
+        )
+
     async def request_ai_revision_mutation(self, **values):
         from app.modules.planning_runs.application.ports import ProposalRevisionRequestResult
 
