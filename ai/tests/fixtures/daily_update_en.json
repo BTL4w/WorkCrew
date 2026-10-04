@@ -1,0 +1,328 @@
+{
+  "locale": "en",
+  "redacted": true,
+  "provenance": "synthetic:phase4-closure:v1",
+  "daily_updates": [
+    {
+      "case_id": "daily-update-en-draft",
+      "locale": "en",
+      "scenario": "draft",
+      "provenance": "synthetic:phase4-task8:v1",
+      "redacted": true
+    },
+    {
+      "case_id": "daily-update-en-needs-input",
+      "locale": "en",
+      "scenario": "needs_input",
+      "provenance": "synthetic:phase4-task8:v1",
+      "redacted": true
+    },
+    {
+      "case_id": "daily-update-en-provider-timeout",
+      "locale": "en",
+      "scenario": "provider_timeout",
+      "provenance": "synthetic:phase4-task8:v1",
+      "redacted": true
+    },
+    {
+      "case_id": "daily-update-en-invalid-output",
+      "locale": "en",
+      "scenario": "invalid_output",
+      "provenance": "synthetic:phase4-task8:v1",
+      "redacted": true
+    },
+    {
+      "case_id": "daily-update-en-authority-injection",
+      "locale": "en",
+      "scenario": "authority_injection",
+      "provenance": "synthetic:phase4-task8:v1",
+      "redacted": true
+    },
+    {
+      "case_id": "daily-update-en-peer-delegation",
+      "locale": "en",
+      "scenario": "peer_delegation",
+      "provenance": "synthetic:phase4-task8:v1",
+      "redacted": true
+    },
+    {
+      "case_id": "daily-update-en-cross-tenant",
+      "locale": "en",
+      "scenario": "cross_tenant",
+      "provenance": "synthetic:phase4-task8:v1",
+      "redacted": true
+    },
+    {
+      "case_id": "daily-blocker-en",
+      "locale": "en",
+      "scenario": "blocker",
+      "provenance": "synthetic:phase4-task9-owner-confirmation-v1",
+      "redacted": true
+    }
+  ],
+  "evidence": [
+    {
+      "id": "evidence-en-unsupported-pdf",
+      "locale": "en",
+      "scenario": "unsupported-pdf",
+      "source_format": "PDF",
+      "claim": "Completed the supplier survey.",
+      "finding": "SUPPORTED",
+      "model_score": null,
+      "expected_score": null,
+      "expected_warnings": [],
+      "expect_rejection": true,
+      "expected_error": "ORIGINAL_FORMAT_UNSUPPORTED"
+    },
+    {
+      "id": "evidence-en-unsupported-docx",
+      "locale": "en",
+      "scenario": "unsupported-docx",
+      "source_format": "DOCX",
+      "claim": "Completed the supplier survey.",
+      "finding": "SUPPORTED",
+      "model_score": null,
+      "expected_score": null,
+      "expected_warnings": [],
+      "expect_rejection": true,
+      "expected_error": "ORIGINAL_FORMAT_UNSUPPORTED"
+    },
+    {
+      "id": "evidence-en-unsupported-markdown",
+      "locale": "en",
+      "scenario": "unsupported-markdown",
+      "source_format": "MARKDOWN",
+      "claim": "Completed the supplier survey.",
+      "finding": "SUPPORTED",
+      "model_score": null,
+      "expected_score": null,
+      "expected_warnings": [],
+      "expect_rejection": true,
+      "expected_error": "ORIGINAL_FORMAT_UNSUPPORTED"
+    },
+    {
+      "id": "evidence-en-unsupported-text",
+      "locale": "en",
+      "scenario": "unsupported-text",
+      "source_format": "TEXT",
+      "claim": "Completed the supplier survey.",
+      "finding": "SUPPORTED",
+      "model_score": null,
+      "expected_score": null,
+      "expected_warnings": [],
+      "expect_rejection": true,
+      "expected_error": "ORIGINAL_FORMAT_UNSUPPORTED"
+    },
+    {
+      "id": "evidence-en-png-supported",
+      "locale": "en",
+      "scenario": "png-supported",
+      "source_format": "PNG",
+      "claim": "Completed the supplier survey.",
+      "finding": "SUPPORTED",
+      "model_score": "82",
+      "expected_score": "82",
+      "expected_warnings": [],
+      "expect_rejection": false,
+      "expected_error": null
+    },
+    {
+      "id": "evidence-en-jpeg-supported",
+      "locale": "en",
+      "scenario": "jpeg-supported",
+      "source_format": "JPEG",
+      "claim": "Completed the supplier survey.",
+      "finding": "SUPPORTED",
+      "model_score": "82",
+      "expected_score": "82",
+      "expected_warnings": [],
+      "expect_rejection": false,
+      "expected_error": null
+    },
+    {
+      "id": "evidence-en-contradiction-above-70",
+      "locale": "en",
+      "scenario": "contradiction-above-70",
+      "source_format": "PNG",
+      "claim": "Completed the supplier survey.",
+      "finding": "CONTRADICTED",
+      "model_score": "92",
+      "expected_score": "92",
+      "expected_warnings": [
+        "CONTRADICTION"
+      ],
+      "expect_rejection": false,
+      "expected_error": null
+    },
+    {
+      "id": "evidence-en-contradiction-at-70",
+      "locale": "en",
+      "scenario": "contradiction-at-70",
+      "source_format": "PNG",
+      "claim": "Completed the supplier survey.",
+      "finding": "CONTRADICTED",
+      "model_score": "70",
+      "expected_score": "70",
+      "expected_warnings": [
+        "CONTRADICTION"
+      ],
+      "expect_rejection": false,
+      "expected_error": null
+    },
+    {
+      "id": "evidence-en-exactly-70",
+      "locale": "en",
+      "scenario": "exactly-70",
+      "source_format": "PNG",
+      "claim": "Completed the supplier survey.",
+      "finding": "SUPPORTED",
+      "model_score": "70",
+      "expected_score": "70",
+      "expected_warnings": [],
+      "expect_rejection": false,
+      "expected_error": null
+    },
+    {
+      "id": "evidence-en-partial-support",
+      "locale": "en",
+      "scenario": "partial-support",
+      "source_format": "PNG",
+      "claim": "Completed the supplier survey.",
+      "finding": "PARTIAL",
+      "model_score": "65",
+      "expected_score": "65",
+      "expected_warnings": [
+        "LOW_SUPPORT"
+      ],
+      "expect_rejection": false,
+      "expected_error": null
+    },
+    {
+      "id": "evidence-en-incomplete-coverage",
+      "locale": "en",
+      "scenario": "incomplete-coverage",
+      "source_format": "PNG",
+      "claim": "Completed the supplier survey.",
+      "finding": "SUPPORTED",
+      "model_score": "85",
+      "expected_score": "85",
+      "expected_warnings": [
+        "INSUFFICIENT_ASSESSMENT"
+      ],
+      "expect_rejection": false,
+      "total_count": 2,
+      "expected_error": null
+    },
+    {
+      "id": "evidence-en-unreadable",
+      "locale": "en",
+      "scenario": "unreadable",
+      "source_format": "PNG",
+      "claim": "Completed the supplier survey.",
+      "finding": "UNASSESSABLE",
+      "model_score": null,
+      "expected_score": null,
+      "expected_warnings": [
+        "INSUFFICIENT_ASSESSMENT"
+      ],
+      "expect_rejection": false,
+      "expected_error": null
+    },
+    {
+      "id": "evidence-en-unassessable-numeric",
+      "locale": "en",
+      "scenario": "unassessable-numeric",
+      "source_format": "PNG",
+      "claim": "Completed the supplier survey.",
+      "finding": "UNASSESSABLE",
+      "model_score": "90",
+      "expected_score": null,
+      "expected_warnings": [],
+      "expect_rejection": true,
+      "expected_error": "INVALID_ASSESSMENT"
+    },
+    {
+      "id": "evidence-en-omitted-claim",
+      "locale": "en",
+      "scenario": "omitted-claim",
+      "source_format": "PNG",
+      "claim": "Completed the supplier survey.",
+      "finding": "SUPPORTED",
+      "model_score": "82",
+      "expected_score": null,
+      "expected_warnings": [],
+      "expect_rejection": true,
+      "inventory": "OMITTED",
+      "expected_error": "INCOMPLETE_CLAIM_INVENTORY"
+    },
+    {
+      "id": "evidence-en-false-citation",
+      "locale": "en",
+      "scenario": "false-citation",
+      "source_format": "PNG",
+      "claim": "Completed the supplier survey.",
+      "finding": "SUPPORTED",
+      "model_score": "82",
+      "expected_score": null,
+      "expected_warnings": [],
+      "expect_rejection": true,
+      "source_reference": "FOREIGN",
+      "expected_error": "INVALID_ASSESSMENT"
+    },
+    {
+      "id": "evidence-en-wrong-version",
+      "locale": "en",
+      "scenario": "wrong-version",
+      "source_format": "PNG",
+      "claim": "Completed the supplier survey.",
+      "finding": "SUPPORTED",
+      "model_score": "82",
+      "expected_score": null,
+      "expected_warnings": [],
+      "expect_rejection": true,
+      "source_reference": "WRONG_VERSION",
+      "expected_error": "INVALID_ASSESSMENT"
+    },
+    {
+      "id": "evidence-en-warning-override",
+      "locale": "en",
+      "scenario": "warning-override",
+      "source_format": "PNG",
+      "claim": "Completed the supplier survey.",
+      "finding": "SUPPORTED",
+      "model_score": "40",
+      "expected_score": "40",
+      "expected_warnings": [
+        "LOW_SUPPORT"
+      ],
+      "expect_rejection": false,
+      "expected_error": null
+    },
+    {
+      "id": "evidence-en-provider-timeout",
+      "locale": "en",
+      "scenario": "provider-timeout",
+      "source_format": "PNG",
+      "claim": "Completed the supplier survey.",
+      "finding": "SUPPORTED",
+      "model_score": null,
+      "expected_score": null,
+      "expected_warnings": [],
+      "expect_rejection": true,
+      "expected_error": "MODEL_TIMEOUT"
+    },
+    {
+      "id": "evidence-en-correction",
+      "locale": "en",
+      "scenario": "correction",
+      "source_format": "PNG",
+      "claim": "Completed the supplier survey.",
+      "finding": "SUPPORTED",
+      "model_score": "88",
+      "expected_score": "88",
+      "expected_warnings": [],
+      "expect_rejection": false,
+      "expected_error": null
+    }
+  ]
+}

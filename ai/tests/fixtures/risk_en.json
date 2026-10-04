@@ -1,0 +1,55 @@
+{
+  "locale": "en",
+  "redacted": true,
+  "provenance": "synthetic:phase4-closure:v1",
+  "risks": [
+    {
+      "id": "en-success",
+      "locale": "en",
+      "scenario": "success",
+      "provenance": "synthetic:phase4-risk-v1"
+    },
+    {
+      "id": "en-timeout",
+      "locale": "en",
+      "scenario": "timeout",
+      "provenance": "synthetic:phase4-risk-v1"
+    },
+    {
+      "id": "en-invalid",
+      "locale": "en",
+      "scenario": "invalid",
+      "provenance": "synthetic:phase4-risk-v1"
+    },
+    {
+      "id": "en-unsupported",
+      "locale": "en",
+      "scenario": "unsupported",
+      "provenance": "synthetic:phase4-risk-v1"
+    },
+    {
+      "id": "en-revoked",
+      "locale": "en",
+      "scenario": "revoked",
+      "provenance": "synthetic:phase4-risk-v1"
+    },
+    {
+      "id": "en-authority",
+      "locale": "en",
+      "scenario": "authority",
+      "provenance": "synthetic:phase4-risk-v1"
+    },
+    {
+      "id": "risk-en-contradictory",
+      "locale": "en",
+      "scenario": "contradictory",
+      "provenance": "synthetic:phase4-risk:v1"
+    },
+    {
+      "id": "risk-replan-en",
+      "locale": "en",
+      "scenario": "replan",
+      "provenance": "synthetic phase4 risk-to-planning source binding"
+    }
+  ]
+}

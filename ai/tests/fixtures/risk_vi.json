@@ -1,0 +1,55 @@
+{
+  "locale": "vi",
+  "redacted": true,
+  "provenance": "synthetic:phase4-closure:v1",
+  "risks": [
+    {
+      "id": "vi-success",
+      "locale": "vi",
+      "scenario": "success",
+      "provenance": "synthetic:phase4-risk-v1"
+    },
+    {
+      "id": "vi-timeout",
+      "locale": "vi",
+      "scenario": "timeout",
+      "provenance": "synthetic:phase4-risk-v1"
+    },
+    {
+      "id": "vi-invalid",
+      "locale": "vi",
+      "scenario": "invalid",
+      "provenance": "synthetic:phase4-risk-v1"
+    },
+    {
+      "id": "vi-unsupported",
+      "locale": "vi",
+      "scenario": "unsupported",
+      "provenance": "synthetic:phase4-risk-v1"
+    },
+    {
+      "id": "vi-revoked",
+      "locale": "vi",
+      "scenario": "revoked",
+      "provenance": "synthetic:phase4-risk-v1"
+    },
+    {
+      "id": "vi-authority",
+      "locale": "vi",
+      "scenario": "authority",
+      "provenance": "synthetic:phase4-risk-v1"
+    },
+    {
+      "id": "risk-vi-contradictory",
+      "locale": "vi",
+      "scenario": "contradictory",
+      "provenance": "synthetic:phase4-risk:v1"
+    },
+    {
+      "id": "risk-replan-vi",
+      "locale": "vi",
+      "scenario": "replan",
+      "provenance": "synthetic phase4 risk-to-planning source binding"
+    }
+  ]
+}

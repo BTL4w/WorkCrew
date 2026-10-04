@@ -1,0 +1,328 @@
+{
+  "locale": "vi",
+  "redacted": true,
+  "provenance": "synthetic:phase4-closure:v1",
+  "daily_updates": [
+    {
+      "case_id": "daily-update-vi-draft",
+      "locale": "vi",
+      "scenario": "draft",
+      "provenance": "synthetic:phase4-task8:v1",
+      "redacted": true
+    },
+    {
+      "case_id": "daily-update-vi-needs-input",
+      "locale": "vi",
+      "scenario": "needs_input",
+      "provenance": "synthetic:phase4-task8:v1",
+      "redacted": true
+    },
+    {
+      "case_id": "daily-update-vi-provider-timeout",
+      "locale": "vi",
+      "scenario": "provider_timeout",
+      "provenance": "synthetic:phase4-task8:v1",
+      "redacted": true
+    },
+    {
+      "case_id": "daily-update-vi-invalid-output",
+      "locale": "vi",
+      "scenario": "invalid_output",
+      "provenance": "synthetic:phase4-task8:v1",
+      "redacted": true
+    },
+    {
+      "case_id": "daily-update-vi-authority-injection",
+      "locale": "vi",
+      "scenario": "authority_injection",
+      "provenance": "synthetic:phase4-task8:v1",
+      "redacted": true
+    },
+    {
+      "case_id": "daily-update-vi-peer-delegation",
+      "locale": "vi",
+      "scenario": "peer_delegation",
+      "provenance": "synthetic:phase4-task8:v1",
+      "redacted": true
+    },
+    {
+      "case_id": "daily-update-vi-cross-tenant",
+      "locale": "vi",
+      "scenario": "cross_tenant",
+      "provenance": "synthetic:phase4-task8:v1",
+      "redacted": true
+    },
+    {
+      "case_id": "daily-blocker-vi",
+      "locale": "vi",
+      "scenario": "blocker",
+      "provenance": "synthetic:phase4-task9-owner-confirmation-v1",
+      "redacted": true
+    }
+  ],
+  "evidence": [
+    {
+      "id": "evidence-vi-unsupported-pdf",
+      "locale": "vi",
+      "scenario": "unsupported-pdf",
+      "source_format": "PDF",
+      "claim": "Đã hoàn thành khảo sát nhà cung cấp.",
+      "finding": "SUPPORTED",
+      "model_score": null,
+      "expected_score": null,
+      "expected_warnings": [],
+      "expect_rejection": true,
+      "expected_error": "ORIGINAL_FORMAT_UNSUPPORTED"
+    },
+    {
+      "id": "evidence-vi-unsupported-docx",
+      "locale": "vi",
+      "scenario": "unsupported-docx",
+      "source_format": "DOCX",
+      "claim": "Đã hoàn thành khảo sát nhà cung cấp.",
+      "finding": "SUPPORTED",
+      "model_score": null,
+      "expected_score": null,
+      "expected_warnings": [],
+      "expect_rejection": true,
+      "expected_error": "ORIGINAL_FORMAT_UNSUPPORTED"
+    },
+    {
+      "id": "evidence-vi-unsupported-markdown",
+      "locale": "vi",
+      "scenario": "unsupported-markdown",
+      "source_format": "MARKDOWN",
+      "claim": "Đã hoàn thành khảo sát nhà cung cấp.",
+      "finding": "SUPPORTED",
+      "model_score": null,
+      "expected_score": null,
+      "expected_warnings": [],
+      "expect_rejection": true,
+      "expected_error": "ORIGINAL_FORMAT_UNSUPPORTED"
+    },
+    {
+      "id": "evidence-vi-unsupported-text",
+      "locale": "vi",
+      "scenario": "unsupported-text",
+      "source_format": "TEXT",
+      "claim": "Đã hoàn thành khảo sát nhà cung cấp.",
+      "finding": "SUPPORTED",
+      "model_score": null,
+      "expected_score": null,
+      "expected_warnings": [],
+      "expect_rejection": true,
+      "expected_error": "ORIGINAL_FORMAT_UNSUPPORTED"
+    },
+    {
+      "id": "evidence-vi-png-supported",
+      "locale": "vi",
+      "scenario": "png-supported",
+      "source_format": "PNG",
+      "claim": "Đã hoàn thành khảo sát nhà cung cấp.",
+      "finding": "SUPPORTED",
+      "model_score": "82",
+      "expected_score": "82",
+      "expected_warnings": [],
+      "expect_rejection": false,
+      "expected_error": null
+    },
+    {
+      "id": "evidence-vi-jpeg-supported",
+      "locale": "vi",
+      "scenario": "jpeg-supported",
+      "source_format": "JPEG",
+      "claim": "Đã hoàn thành khảo sát nhà cung cấp.",
+      "finding": "SUPPORTED",
+      "model_score": "82",
+      "expected_score": "82",
+      "expected_warnings": [],
+      "expect_rejection": false,
+      "expected_error": null
+    },
+    {
+      "id": "evidence-vi-contradiction-above-70",
+      "locale": "vi",
+      "scenario": "contradiction-above-70",
+      "source_format": "PNG",
+      "claim": "Đã hoàn thành khảo sát nhà cung cấp.",
+      "finding": "CONTRADICTED",
+      "model_score": "92",
+      "expected_score": "92",
+      "expected_warnings": [
+        "CONTRADICTION"
+      ],
+      "expect_rejection": false,
+      "expected_error": null
+    },
+    {
+      "id": "evidence-vi-contradiction-at-70",
+      "locale": "vi",
+      "scenario": "contradiction-at-70",
+      "source_format": "PNG",
+      "claim": "Đã hoàn thành khảo sát nhà cung cấp.",
+      "finding": "CONTRADICTED",
+      "model_score": "70",
+      "expected_score": "70",
+      "expected_warnings": [
+        "CONTRADICTION"
+      ],
+      "expect_rejection": false,
+      "expected_error": null
+    },
+    {
+      "id": "evidence-vi-exactly-70",
+      "locale": "vi",
+      "scenario": "exactly-70",
+      "source_format": "PNG",
+      "claim": "Đã hoàn thành khảo sát nhà cung cấp.",
+      "finding": "SUPPORTED",
+      "model_score": "70",
+      "expected_score": "70",
+      "expected_warnings": [],
+      "expect_rejection": false,
+      "expected_error": null
+    },
+    {
+      "id": "evidence-vi-partial-support",
+      "locale": "vi",
+      "scenario": "partial-support",
+      "source_format": "PNG",
+      "claim": "Đã hoàn thành khảo sát nhà cung cấp.",
+      "finding": "PARTIAL",
+      "model_score": "65",
+      "expected_score": "65",
+      "expected_warnings": [
+        "LOW_SUPPORT"
+      ],
+      "expect_rejection": false,
+      "expected_error": null
+    },
+    {
+      "id": "evidence-vi-incomplete-coverage",
+      "locale": "vi",
+      "scenario": "incomplete-coverage",
+      "source_format": "PNG",
+      "claim": "Đã hoàn thành khảo sát nhà cung cấp.",
+      "finding": "SUPPORTED",
+      "model_score": "85",
+      "expected_score": "85",
+      "expected_warnings": [
+        "INSUFFICIENT_ASSESSMENT"
+      ],
+      "expect_rejection": false,
+      "total_count": 2,
+      "expected_error": null
+    },
+    {
+      "id": "evidence-vi-unreadable",
+      "locale": "vi",
+      "scenario": "unreadable",
+      "source_format": "PNG",
+      "claim": "Đã hoàn thành khảo sát nhà cung cấp.",
+      "finding": "UNASSESSABLE",
+      "model_score": null,
+      "expected_score": null,
+      "expected_warnings": [
+        "INSUFFICIENT_ASSESSMENT"
+      ],
+      "expect_rejection": false,
+      "expected_error": null
+    },
+    {
+      "id": "evidence-vi-unassessable-numeric",
+      "locale": "vi",
+      "scenario": "unassessable-numeric",
+      "source_format": "PNG",
+      "claim": "Đã hoàn thành khảo sát nhà cung cấp.",
+      "finding": "UNASSESSABLE",
+      "model_score": "90",
+      "expected_score": null,
+      "expected_warnings": [],
+      "expect_rejection": true,
+      "expected_error": "INVALID_ASSESSMENT"
+    },
+    {
+      "id": "evidence-vi-omitted-claim",
+      "locale": "vi",
+      "scenario": "omitted-claim",
+      "source_format": "PNG",
+      "claim": "Đã hoàn thành khảo sát nhà cung cấp.",
+      "finding": "SUPPORTED",
+      "model_score": "82",
+      "expected_score": null,
+      "expected_warnings": [],
+      "expect_rejection": true,
+      "inventory": "OMITTED",
+      "expected_error": "INCOMPLETE_CLAIM_INVENTORY"
+    },
+    {
+      "id": "evidence-vi-false-citation",
+      "locale": "vi",
+      "scenario": "false-citation",
+      "source_format": "PNG",
+      "claim": "Đã hoàn thành khảo sát nhà cung cấp.",
+      "finding": "SUPPORTED",
+      "model_score": "82",
+      "expected_score": null,
+      "expected_warnings": [],
+      "expect_rejection": true,
+      "source_reference": "FOREIGN",
+      "expected_error": "INVALID_ASSESSMENT"
+    },
+    {
+      "id": "evidence-vi-wrong-version",
+      "locale": "vi",
+      "scenario": "wrong-version",
+      "source_format": "PNG",
+      "claim": "Đã hoàn thành khảo sát nhà cung cấp.",
+      "finding": "SUPPORTED",
+      "model_score": "82",
+      "expected_score": null,
+      "expected_warnings": [],
+      "expect_rejection": true,
+      "source_reference": "WRONG_VERSION",
+      "expected_error": "INVALID_ASSESSMENT"
+    },
+    {
+      "id": "evidence-vi-warning-override",
+      "locale": "vi",
+      "scenario": "warning-override",
+      "source_format": "PNG",
+      "claim": "Đã hoàn thành khảo sát nhà cung cấp.",
+      "finding": "SUPPORTED",
+      "model_score": "40",
+      "expected_score": "40",
+      "expected_warnings": [
+        "LOW_SUPPORT"
+      ],
+      "expect_rejection": false,
+      "expected_error": null
+    },
+    {
+      "id": "evidence-vi-provider-timeout",
+      "locale": "vi",
+      "scenario": "provider-timeout",
+      "source_format": "PNG",
+      "claim": "Đã hoàn thành khảo sát nhà cung cấp.",
+      "finding": "SUPPORTED",
+      "model_score": null,
+      "expected_score": null,
+      "expected_warnings": [],
+      "expect_rejection": true,
+      "expected_error": "MODEL_TIMEOUT"
+    },
+    {
+      "id": "evidence-vi-correction",
+      "locale": "vi",
+      "scenario": "correction",
+      "source_format": "PNG",
+      "claim": "Đã hoàn thành khảo sát nhà cung cấp.",
+      "finding": "SUPPORTED",
+      "model_score": "88",
+      "expected_score": "88",
+      "expected_warnings": [],
+      "expect_rejection": false,
+      "expected_error": null
+    }
+  ]
+}

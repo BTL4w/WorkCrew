@@ -49,7 +49,11 @@ class DailyUpdateToolAdapter:
                 organization_id=request.actor.organization_id,
                 membership_id=request.actor.membership_id,
             )
-            if actor is None:
+            if (
+                actor is None
+                or actor.organization_id != request.actor.organization_id
+                or actor.membership_id != request.actor.membership_id
+            ):
                 raise ValueError("ACTOR_INACTIVE")
             value = DailyUpdateToolInput.model_validate(request.typed_input)
             context = await self.updates.context(actor, value.task_id)

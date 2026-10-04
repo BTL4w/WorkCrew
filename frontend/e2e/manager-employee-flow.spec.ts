@@ -118,14 +118,18 @@ test("Manager assigns a Task and Employee reports evidence before completion", a
   await reporting.getByRole("group", { name: "Chọn minh chứng cho task này" }).getByRole("checkbox").check();
   await reporting.getByRole("button", { name: "Xem lại báo cáo" }).click();
   await reporting.getByRole("button", { name: "Xác nhận báo cáo" }).click();
+  await expect(reporting.getByRole("alert")).toHaveText("Hãy đánh giá bằng chứng đã chọn trước khi gửi.");
+  await reporting.getByRole("button", { name: "Đánh giá bằng chứng", exact: true }).click();
+  await reporting.getByRole("checkbox", { name: "Tôi đã đọc các cảnh báo này và vẫn muốn gửi báo cáo.", exact: true }).check();
+  await reporting.getByRole("button", { name: "Vẫn gửi dù có cảnh báo", exact: true }).click();
   await expect(reporting.getByRole("status")).toHaveText("Đã xác nhận báo cáo");
   await expect(page.getByRole("button", { name: "Hoàn tất" })).toBeEnabled();
   await page.getByRole("button", { name: "Hoàn tất" }).click();
-  await expect(page.getByText("Hoàn thành")).toBeVisible();
+  await expect(page.getByText("Hoàn thành", { exact: true })).toBeVisible();
   await signOut(page);
 
   await signIn(page, "manager@example.test");
   await page.getByRole("button", { name: projectName }).click();
   await page.getByRole("button", { name: taskTitle }).click();
-  await expect(page.getByText("Hoàn thành")).toBeVisible();
+  await expect(page.getByText("Hoàn thành", { exact: true })).toBeVisible();
 });

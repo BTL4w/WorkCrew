@@ -20,7 +20,16 @@ def verify_planning_result(
         raise PlanningResultError("PLANNING_WORKFLOW_MISMATCH")
     if value.proposal_id is not None and output.proposal_id != value.proposal_id:
         raise PlanningResultError("PLANNING_PROPOSAL_MISMATCH")
-    if output.awaiting == "MANAGER_DECISION" and (
-        output.proposal_id is None or output.proposal_version is None
+    queued_risk_revision = (
+        value.risk_context is not None
+        and output.workflow_status == "QUEUED"
+        and output.proposal_id is None
+        and output.proposal_version is None
+        and output.approval_id is None
+    )
+    if (
+        not queued_risk_revision
+        and output.awaiting == "MANAGER_DECISION"
+        and (output.proposal_id is None or output.proposal_version is None)
     ):
         raise PlanningResultError("PLANNING_PROPOSAL_REFERENCE_MISSING")

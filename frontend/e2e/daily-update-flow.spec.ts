@@ -61,6 +61,10 @@ test("Employee confirms a manual report and corrects hours without changing Task
  await page.getByLabel("Lý do sửa báo cáo",{exact:true}).fill("Sửa lại thời gian thực tế");
  await page.getByRole("button",{name:"Xem lại báo cáo",exact:true}).click();
  await page.getByRole("button",{name:"Xác nhận báo cáo",exact:true}).click();
+ await expect(page.getByRole("alert").filter({hasText:"Hãy đánh giá bằng chứng đã chọn trước khi gửi."})).toBeVisible();
+ await page.getByRole("button",{name:"Đánh giá bằng chứng",exact:true}).click();
+ await page.getByRole("checkbox",{name:"Tôi đã đọc các cảnh báo này và vẫn muốn gửi báo cáo.",exact:true}).check();
+ await page.getByRole("button",{name:"Vẫn gửi dù có cảnh báo",exact:true}).click();
  await expect(page.getByRole("status")).toHaveText("Đã xác nhận báo cáo");
  await expect(page.getByText("Đã được sửa; số giờ này không tính vào tổng.")).toBeVisible();
  const after=await(await page.request.get(`/api/v1/tasks/${task.id}`)).json();

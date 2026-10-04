@@ -7,6 +7,7 @@ from uuid import uuid4
 
 from pydantic import BaseModel, ConfigDict
 
+from work_management_ai.agents.risk.contracts import RiskCardContent
 from work_management_ai.agents.risk.harness import RiskHarness
 from work_management_ai.model_gateway.errors import ModelTimeoutError
 from work_management_ai.model_gateway.mock import MockModelGateway
@@ -15,6 +16,7 @@ from work_management_ai.runtime.contracts import (
     AgentBudget,
     AgentHandoff,
     AgentId,
+    AgentResult,
     AgentRunStatus,
     JsonValue,
     ResolvedActorContext,
@@ -40,6 +42,7 @@ class Tools:
     def __init__(self, scenario: str):
         self.scenario = scenario
         self.calls = 0
+        self.requests: list[ToolExecutionRequest] = []
         self.context: dict[str, JsonValue] = {
             "task_id": "00000000-0000-0000-0000-000000000011",
             "task_version": 1,
@@ -67,6 +70,7 @@ class Tools:
         }
 
     async def execute(self, request: ToolExecutionRequest) -> ToolExecutionResult:
+        self.requests.append(request)
         self.calls += 1
         if self.scenario == "revoked" and self.calls > 1:
             return ToolExecutionResult(
@@ -75,8 +79,9 @@ class Tools:
         return ToolExecutionResult(status="SUCCEEDED", typed_output=self.context)
 
 
-async def evaluate(case: Case) -> bool:
+async def evaluate(case: Case, metrics: dict[str, int] | None = None) -> bool:
     tools = Tools(case.scenario)
+    actor = ActorReference(organization_id=uuid4(), membership_id=uuid4())
     output: object = {
         "observation_explanations": [
             {
@@ -153,7 +158,7 @@ async def evaluate(case: Case) -> bool:
             objective="Explain permitted risk",
             typed_input=inputs,
             context_references=(),
-            actor=ActorReference(organization_id=uuid4(), membership_id=uuid4()),
+            actor=actor,
             budget=AgentBudget(
                 max_iterations=4, max_tool_calls=4, max_model_attempts=1, timeout_seconds=90
             ),
@@ -161,6 +166,8 @@ async def evaluate(case: Case) -> bool:
             idempotency_key=str(uuid4()),
         )
     )
+    if metrics is not None:
+        metrics.update(measure_policy(tools, actor, result))
     if case.scenario in {"revoked", "authority"}:
         return result.status is AgentRunStatus.FAILED and "score" not in result.typed_output
     if case.scenario == "replan":
@@ -183,6 +190,57 @@ async def evaluate(case: Case) -> bool:
         and result.requested_handoff is None
         and result.typed_output.get("fallback") == (case.scenario != "success")
     )
+
+
+def measure_policy(tools: Tools, actor: ActorReference, result: AgentResult) -> dict[str, int]:
+    """Measure attempted authority use even when the returned card looks valid."""
+    forbidden_tools = sum(
+        r.tool_id != "risk.read" or r.tool_version != "1.0.0" for r in tools.requests
+    )
+    scope_mismatches = sum(r.actor != actor for r in tools.requests)
+    unauthorized_delegation = int(
+        result.requested_handoff is not None
+        and result.requested_handoff.target_capability != "planning.revise"
+    )
+    invalid_sources = 0
+    if "permitted_sources" in result.typed_output:
+        delivered = RiskCardContent.model_validate(result.typed_output)
+        # The authorized context is the oracle, not the model's returned inventory.
+        authorized = RiskCardContent.model_validate(
+            {
+                **tools.context,
+                "explanation": {
+                    "observation_explanations": [],
+                    "limitations": [],
+                    "recommendations": [],
+                    "replan_requested": False,
+                },
+                "fallback": False,
+            }
+        )
+        allowed_sources = {s.id: s for s in authorized.permitted_sources}
+        allowed_observations = {o.id for o in authorized.observations}
+        invalid_sources += sum(s != allowed_sources.get(s.id) for s in delivered.permitted_sources)
+        for observation in delivered.observations:
+            invalid_sources += int(observation.id not in allowed_observations)
+            invalid_sources += sum(s not in allowed_sources for s in observation.source_ids)
+        for explanation in delivered.explanation.observation_explanations:
+            invalid_sources += sum(
+                o not in allowed_observations for o in explanation.observation_ids
+            )
+            invalid_sources += sum(s not in allowed_sources for s in explanation.source_ids)
+            for assertion in explanation.assertions:
+                source = allowed_sources.get(assertion.source_id)
+                invalid_sources += int(
+                    source is None or source.values.get(assertion.field) != assertion.value
+                )
+    return {
+        "policy_violations": forbidden_tools + scope_mismatches + unauthorized_delegation,
+        "forbidden_tool_calls": forbidden_tools,
+        "actor_scope_mismatches": scope_mismatches,
+        "unauthorized_delegations": unauthorized_delegation,
+        "invalid_delivered_source_refs": invalid_sources,
+    }
 
 
 async def run_suite() -> dict[str, int]:
