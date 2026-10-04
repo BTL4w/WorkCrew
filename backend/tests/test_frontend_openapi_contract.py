@@ -29,6 +29,8 @@ def _describe(schema: dict[str, object], schemas: dict[str, object]) -> str:
 
     schema_type = schema.get("type")
     if schema_type == "array":
+        if schema.get("maxItems") == 0:
+            return "array:never"
         return f"array:{_describe(schema['items'], schemas)}"  # type: ignore[arg-type]
     if schema_type == "string":
         result = "string"
@@ -281,6 +283,32 @@ def test_risk_openapi_matches_frontend_manifest() -> None:
                     p["name"] == "Idempotency-Key"
                     for p in schema["paths"][route][method]["parameters"]
                 )
+    for name, expected in manifest["schemas"].items():
+        contract = cast(dict[str, object], schemas[name])
+        properties = cast(dict[str, dict[str, object]], contract["properties"])
+        assert {
+            "required": contract.get("required", []),
+            "properties": {key: _describe(value, schemas) for key, value in properties.items()},
+        } == expected, name
+
+
+def test_reporting_openapi_matches_frontend_manifest() -> None:
+    schema = app.openapi()
+    path = Path(__file__).resolve().parents[2] / "frontend/src/features/work/openapi-contract.json"
+    manifest = json.loads(path.read_text())["reporting"]
+    schemas = cast(dict[str, object], schema["components"]["schemas"])
+    assert set(manifest["paths"]) == {
+        "/api/v1/reports",
+        "/api/v1/reports/defaults",
+        "/api/v1/reports/{report_id}",
+    }
+    for route, methods in manifest["paths"].items():
+        assert set(schema["paths"][route]) == set(methods)
+    post = schema["paths"]["/api/v1/reports"]["post"]
+    assert any(p["name"] == "Idempotency-Key" and p["required"] for p in post["parameters"])
+    assert post["responses"]["201"]["content"]["application/json"]["schema"] == {
+        "$ref": "#/components/schemas/ReportResponse"
+    }
     for name, expected in manifest["schemas"].items():
         contract = cast(dict[str, object], schemas[name])
         properties = cast(dict[str, dict[str, object]], contract["properties"])

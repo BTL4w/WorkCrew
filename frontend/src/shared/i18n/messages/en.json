@@ -150,6 +150,7 @@
       "sections": "Project sections",
       "tasksTab": "Tasks",
       "planTab": "Plan",
+      "reportsTab": "Reports",
       "automationTab": "Daily summaries",
       "teamTab": "Team"
     },
@@ -809,5 +810,44 @@
     "acknowledged_at": "Acknowledged at",
     "warnings": "Acknowledged warnings"
   }
-}
+},
+  "reports": {
+    "title": "Reports",
+    "eyebrow": "Project overview",
+    "description": "Captured metrics and management commentary for this project.",
+    "create": "Create report",
+    "newReport": "New report",
+    "generate": "Generate report",
+    "creating": "Capturing metrics…",
+    "cancel": "Cancel",
+    "date": "Reporting date",
+    "timezone": "Reporting timezone",
+    "projectTimezone": "Project default",
+    "defaultsExplanation": "Leave the date blank for today. The project reporting timezone is used unless you choose another IANA timezone.",
+    "unknown": "Unknown",
+    "aiUnavailable": "AI commentary unavailable. Your metrics remain available.",
+    "manualOnly": "This report contains verified metrics only.",
+    "daily": "Daily report",
+    "detail": "Report details",
+    "captureExplanation": "Task statuses reflect the capture time, even when the reporting date is earlier.",
+    "captured": "Captured {at}",
+    "version": "Version {version}",
+    "partialPeriod": "Period still in progress",
+    "metricsOnly": "Metrics only",
+    "history": "Report history",
+    "empty": "No reports yet. Create a report to capture the project’s current metrics.",
+    "loading": "Loading reports…",
+    "error": "Unable to load or create the report. Check the date and timezone, then retry.",
+    "retry": "Retry",
+    "previous": "Previous",
+    "next": "Next",
+    "metrics": {
+      "total": "Total tasks",
+      "todo": "To do",
+      "inProgress": "In progress",
+      "done": "Done",
+      "noDeadline": "No deadline",
+      "coverage": "Progress observation coverage"
+    }
+  }
 }

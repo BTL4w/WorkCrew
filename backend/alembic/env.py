@@ -29,6 +29,7 @@ from app.modules.progress.adapters import (
     extraction_models,
     progress_models,
 )
+from app.modules.reporting.adapters import database_models as reporting_models
 from app.modules.risk.adapters import database_models as risk_models
 from app.modules.work.adapters import database_models as work_models
 from app.modules.work.planning.adapters import database_models as planning_models
@@ -36,6 +37,7 @@ from app.modules.work.planning.assignment.adapters import database_models as tea
 from app.modules.work.planning.assignment.adapters import recommendation_models
 
 _MODEL_MODULES = (
+    reporting_models,
     delivery_models,
     automation_models,
     risk_models,

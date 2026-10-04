@@ -867,5 +867,223 @@
       }
     }
   }
-}
+},
+  "reporting": {
+    "paths": {
+      "/api/v1/reports": [
+        "post",
+        "get"
+      ],
+      "/api/v1/reports/defaults": [
+        "get"
+      ],
+      "/api/v1/reports/{report_id}": [
+        "get"
+      ]
+    },
+    "schemas": {
+      "ReportCreateRequest": {
+        "required": [
+          "project_id"
+        ],
+        "properties": {
+          "project_id": "string:uuid",
+          "kind": "enum:ReportKind",
+          "period_start": "null|string:date",
+          "timezone": "null|string",
+          "locale": "literal:vi|en",
+          "narrative_enabled": "boolean"
+        }
+      },
+      "ReportDefaultsResponse": {
+        "required": [
+          "timezone",
+          "period_start"
+        ],
+        "properties": {
+          "timezone": "string",
+          "period_start": "string:date"
+        }
+      },
+      "ReportResponse": {
+        "required": [
+          "report",
+          "snapshot",
+          "selected_version",
+          "generation_state"
+        ],
+        "properties": {
+          "report": "ref:Report",
+          "snapshot": "ref:ReportMetricSnapshot",
+          "selected_version": "ref:ReportVersion",
+          "publications": "array:never",
+          "generation_state": "literal:NOT_REQUESTED|AI_UNAVAILABLE",
+          "replayed": "boolean"
+        }
+      },
+      "ReportPageResponse": {
+        "required": [
+          "items",
+          "page",
+          "page_size",
+          "total"
+        ],
+        "properties": {
+          "items": "array:ref:Report",
+          "page": "integer",
+          "page_size": "integer",
+          "total": "integer"
+        }
+      },
+      "Report": {
+        "required": [
+          "id",
+          "organization_id",
+          "project_id",
+          "kind",
+          "locale",
+          "version",
+          "snapshot_id",
+          "selected_version_id",
+          "created_by_membership_id",
+          "narrative_requested",
+          "created_at"
+        ],
+        "properties": {
+          "id": "string:uuid",
+          "organization_id": "string:uuid",
+          "project_id": "string:uuid",
+          "kind": "enum:ReportKind",
+          "locale": "literal:vi|en",
+          "version": "integer",
+          "snapshot_id": "string:uuid",
+          "selected_version_id": "string:uuid",
+          "created_by_membership_id": "string:uuid",
+          "narrative_requested": "boolean",
+          "created_at": "string:date-time"
+        }
+      },
+      "ReportVersion": {
+        "required": [
+          "id",
+          "report_id",
+          "snapshot_id",
+          "locale",
+          "created_at"
+        ],
+        "properties": {
+          "id": "string:uuid",
+          "report_id": "string:uuid",
+          "snapshot_id": "string:uuid",
+          "origin": "literal:METRICS_ONLY",
+          "locale": "literal:vi|en",
+          "created_at": "string:date-time"
+        }
+      },
+      "ReportMetricSnapshot": {
+        "required": [
+          "id",
+          "organization_id",
+          "report_id",
+          "project_id",
+          "period",
+          "captured_at",
+          "snapshot_hash",
+          "metrics"
+        ],
+        "properties": {
+          "id": "string:uuid",
+          "organization_id": "string:uuid",
+          "report_id": "string:uuid",
+          "project_id": "string:uuid",
+          "period": "ref:ReportPeriod",
+          "captured_at": "string:date-time",
+          "catalog_version": "string",
+          "query_version": "string",
+          "snapshot_hash": "string",
+          "metrics": "object",
+          "sources": "array:ref:SourceRef",
+          "receipts": "array:ref:AggregateReceipt",
+          "limitations": "array:string"
+        }
+      },
+      "ReportPeriod": {
+        "required": [
+          "kind",
+          "local_start",
+          "local_end",
+          "timezone",
+          "start_utc",
+          "end_utc",
+          "observed_through",
+          "partial_period"
+        ],
+        "properties": {
+          "kind": "enum:ReportKind",
+          "local_start": "string:date",
+          "local_end": "string:date",
+          "timezone": "string",
+          "start_utc": "string:date-time",
+          "end_utc": "string:date-time",
+          "observed_through": "string:date-time",
+          "partial_period": "boolean"
+        }
+      },
+      "MetricValue": {
+        "required": [
+          "key",
+          "value",
+          "unit",
+          "state",
+          "time_basis"
+        ],
+        "properties": {
+          "key": "string",
+          "value": "null|string",
+          "unit": "literal:COUNT|HOURS|FRACTION|PERCENT|SCORE|DAYS",
+          "state": "enum:MetricState",
+          "time_basis": "literal:AT_CAPTURE|IN_PERIOD|DECLARED_REPORTING_DATE",
+          "policy_version": "string",
+          "source_refs": "array:ref:SourceRef",
+          "limitations": "array:string"
+        }
+      },
+      "SourceRef": {
+        "required": [
+          "resource_type",
+          "resource_id",
+          "version",
+          "observed_at"
+        ],
+        "properties": {
+          "resource_type": "string",
+          "resource_id": "string:uuid",
+          "version": "integer",
+          "fingerprint": "null|string",
+          "observed_at": "string:date-time"
+        }
+      },
+      "AggregateReceipt": {
+        "required": [
+          "id",
+          "project_id",
+          "metric_keys",
+          "row_count",
+          "captured_at",
+          "scope_hash"
+        ],
+        "properties": {
+          "id": "string:uuid",
+          "project_id": "string:uuid",
+          "query_version": "string",
+          "catalog_version": "string",
+          "metric_keys": "array:string",
+          "row_count": "integer",
+          "captured_at": "string:date-time",
+          "isolation": "literal:repeatable read",
+          "scope_hash": "string"
+        }
+      }
+    }
+  }
 }

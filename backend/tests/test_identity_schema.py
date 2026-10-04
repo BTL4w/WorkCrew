@@ -18,9 +18,11 @@ from app.modules.progress.adapters import (
     extraction_models,
     progress_models,
 )
+from app.modules.reporting.adapters import database_models as reporting_models
 from app.modules.work.adapters import database_models as work_models
 
 _MODEL_MODULES = (
+    reporting_models,
     automation_models,
     delivery_models,
     assessment_models,
@@ -40,6 +42,11 @@ _MODEL_MODULES = (
 
 def test_active_phase_tables_are_registered() -> None:
     assert set(Base.metadata.tables) == {
+        "reports",
+        "report_metric_snapshots",
+        "report_versions",
+        "report_snapshot_sources",
+        "report_snapshot_receipts",
         "daily_summary_triggers",
         "daily_summary_snapshots",
         "daily_summary_deliveries",

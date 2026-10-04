@@ -1,0 +1,37 @@
+import { z } from "zod";
+
+export const reportKindSchema = z.enum(["DAILY", "WEEKLY"]);
+export const reportSchema = z.object({
+  id: z.uuid(), organization_id: z.uuid(), project_id: z.uuid(), kind: reportKindSchema,
+  locale: z.enum(["vi", "en"]), version: z.number().int().positive(), snapshot_id: z.uuid(),
+  selected_version_id: z.uuid(), created_by_membership_id: z.uuid(), narrative_requested: z.boolean(),
+  created_at: z.string().datetime({ offset: true }),
+});
+export const metricSchema = z.object({
+  key: z.string(), value: z.string().nullable(), unit: z.enum(["COUNT", "HOURS", "FRACTION", "PERCENT", "SCORE", "DAYS"]),
+  state: z.enum(["KNOWN", "PARTIAL", "UNKNOWN", "STALE", "NOT_APPLICABLE"]),
+  time_basis: z.enum(["AT_CAPTURE", "IN_PERIOD", "DECLARED_REPORTING_DATE"]), policy_version: z.string(),
+  source_refs: z.array(z.object({ resource_type: z.string(), resource_id: z.uuid(), version: z.number().int().positive(), fingerprint: z.string().nullable(), observed_at: z.string() })),
+  limitations: z.array(z.string()),
+});
+const periodSchema = z.object({ kind: reportKindSchema, local_start: z.string(), local_end: z.string(), timezone: z.string(), start_utc: z.string(), end_utc: z.string(), observed_through: z.string(), partial_period: z.boolean() });
+export const snapshotSchema = z.object({
+  id: z.uuid(), organization_id: z.uuid(), project_id: z.uuid(), report_id: z.uuid(),
+  captured_at: z.string(), snapshot_hash: z.string().regex(/^[a-f0-9]{64}$/), catalog_version: z.string(), query_version: z.string(),
+  period: periodSchema, metrics: z.record(z.string(), metricSchema),
+  sources: z.array(z.object({ resource_type: z.string(), resource_id: z.uuid(), version: z.number().int(), fingerprint: z.string().nullable(), observed_at: z.string() })),
+  receipts: z.array(z.object({ id: z.uuid(), project_id: z.uuid(), query_version: z.string(), catalog_version: z.string(), metric_keys: z.array(z.string()), row_count: z.number().int(), captured_at: z.string(), isolation: z.literal("repeatable read"), scope_hash: z.string() })),
+  limitations: z.array(z.string()),
+});
+export const reportResultSchema = z.object({
+  report: reportSchema, snapshot: snapshotSchema,
+  selected_version: z.object({ id: z.uuid(), report_id: z.uuid(), snapshot_id: z.uuid(), origin: z.literal("METRICS_ONLY"), locale: z.enum(["vi", "en"]), created_at: z.string() }),
+  publications: z.array(z.never()), generation_state: z.enum(["NOT_REQUESTED", "AI_UNAVAILABLE"]), replayed: z.boolean(),
+});
+export const reportPageSchema = z.object({ items: z.array(reportSchema), page: z.number().int(), page_size: z.number().int(), total: z.number().int() });
+export type Report = z.infer<typeof reportSchema>;
+export type ReportResult = z.infer<typeof reportResultSchema>;
+export type Metric = z.infer<typeof metricSchema>;
+export type ReportInput = { project_id: string; kind: "DAILY" | "WEEKLY"; period_start?: string; timezone?: string; locale: "vi" | "en"; narrative_enabled: boolean };
+
+export const reportDefaultsSchema = z.object({ timezone: z.string(), period_start: z.string() });

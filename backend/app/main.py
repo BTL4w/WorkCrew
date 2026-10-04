@@ -49,6 +49,7 @@ from app.modules.progress.api.evidence_routes import router as evidence_router
 from app.modules.progress.api.progress_routes import router as progress_router
 from app.modules.progress.application.evidence_service import EvidenceService
 from app.modules.progress.application.weekly_progress_service import WeeklyProgressService
+from app.modules.reporting.application.report_service import ReportService
 from app.modules.work.adapters.project_repository import SqlAlchemyProjectTransactionFactory
 from app.modules.work.adapters.task_repository import SqlAlchemyTaskTransactionFactory
 from app.modules.work.api.routes import router as project_router
@@ -114,6 +115,7 @@ def create_app(
     team_recommendation_service: TeamRecommendationService | None = None,
     explicit_assignment_service: ExplicitTaskAssignmentService | None = None,
     evidence_service: EvidenceService | None = None,
+    reporting_service: ReportService | None = None,
 ) -> FastAPI:
     """Build an isolated application instance for runtime or tests."""
 
@@ -302,7 +304,15 @@ def create_app(
     from app.modules.automations.api.routes import router as schedule_router
     from app.modules.automations.application.digest_service import DigestService
     from app.modules.automations.application.schedule_service import ScheduleService
+    from app.modules.reporting.adapters.transaction import ReportTransactions
+    from app.modules.reporting.api.routes import router as reporting_router
 
+    app.state.reporting_service = reporting_service or ReportService(
+        ReportTransactions(
+            create_session_factory(database_engine), resolved_settings.reporting_timezone
+        )
+    )
+    app.include_router(reporting_router, prefix="/api/v1")
     app.state.digest_service = DigestService(
         DigestTransactions(create_session_factory(database_engine))
     )

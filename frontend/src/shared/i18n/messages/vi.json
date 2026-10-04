@@ -150,6 +150,7 @@
       "sections": "Các phần của project",
       "tasksTab": "Tasks",
       "planTab": "Kế hoạch",
+      "reportsTab": "Báo cáo",
       "automationTab": "Tổng hợp hằng ngày",
       "teamTab": "Đội ngũ"
     },
@@ -809,5 +810,44 @@
     "acknowledged_at": "Thời điểm xác nhận",
     "warnings": "Cảnh báo đã xác nhận"
   }
-}
+},
+  "reports": {
+    "title": "Báo cáo",
+    "eyebrow": "Tổng quan dự án",
+    "description": "Số liệu tại thời điểm chụp và nhận xét quản lý cho dự án này.",
+    "create": "Tạo báo cáo",
+    "newReport": "Báo cáo mới",
+    "generate": "Tạo báo cáo số liệu",
+    "creating": "Đang chụp số liệu…",
+    "cancel": "Hủy",
+    "date": "Ngày báo cáo",
+    "timezone": "Múi giờ báo cáo",
+    "projectTimezone": "Theo dự án",
+    "defaultsExplanation": "Để trống ngày để báo cáo hôm nay. Múi giờ theo cấu hình báo cáo dự án, trừ khi bạn nhập múi giờ IANA khác.",
+    "unknown": "Chưa xác định",
+    "aiUnavailable": "Nhận xét AI chưa khả dụng. Bạn vẫn có thể sử dụng số liệu.",
+    "manualOnly": "Báo cáo này chỉ gồm số liệu đã kiểm chứng.",
+    "daily": "Báo cáo ngày",
+    "detail": "Chi tiết báo cáo",
+    "captureExplanation": "Trạng thái Task phản ánh thời điểm chụp, kể cả khi ngày báo cáo đã qua.",
+    "captured": "Chụp lúc {at}",
+    "version": "Phiên bản {version}",
+    "partialPeriod": "Kỳ báo cáo đang diễn ra",
+    "metricsOnly": "Chỉ số liệu",
+    "history": "Lịch sử báo cáo",
+    "empty": "Chưa có báo cáo. Tạo báo cáo để chụp số liệu hiện tại của dự án.",
+    "loading": "Đang tải báo cáo…",
+    "error": "Không thể tải hoặc tạo báo cáo. Kiểm tra ngày và múi giờ rồi thử lại.",
+    "retry": "Thử lại",
+    "previous": "Trước",
+    "next": "Tiếp",
+    "metrics": {
+      "total": "Tổng số Task",
+      "todo": "Chưa bắt đầu",
+      "inProgress": "Đang thực hiện",
+      "done": "Hoàn thành",
+      "noDeadline": "Chưa có hạn",
+      "coverage": "Độ phủ ghi nhận tiến độ"
+    }
+  }
 }
