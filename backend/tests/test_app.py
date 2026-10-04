@@ -36,6 +36,8 @@ async def test_openapi_document_is_available() -> None:
     assert response.json()["info"]["title"] == "Work Management API"
     assert set(response.json()["paths"]) == {
         "/api/v1/automations/daily-summaries",
+        "/api/v1/automations/daily-summaries/deliveries",
+        "/api/v1/automations/daily-summaries/drafts/{draft_id}",
         "/api/v1/automations/daily-summaries/preview",
         "/api/v1/automations/daily-summaries/confirm",
         "/api/v1/automations/daily-summaries/{schedule_id}/pause",

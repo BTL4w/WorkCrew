@@ -80,6 +80,11 @@ export const assignmentResultBlockSchema = strict({
   membership_id: uuid,
   warning_codes: z.array(z.string()).default([]),
 });
+export const dailySummaryBlockSchema = strict({
+  kind:z.literal("daily_summary"), project_id:uuid, draft_id:uuid.nullable(),
+  expected_version:z.number().int().nonnegative(),operation:z.enum(["CONFIGURE","PAUSE","RESUME"]),
+  needs_manager_confirmation:z.literal(true),
+});
 export const dailyUpdateBlockSchema = strict({
  kind:z.literal("daily_update"),draft_id:uuid,draft_version:z.number().int().positive(),
  task_id:uuid,task_version:z.number().int().positive(),assessment_id:uuid.nullable().default(null),
@@ -122,6 +127,7 @@ export const assistantBlockSchema = z.discriminatedUnion("kind", [
   teamRecommendationBlockSchema,
   teamDecisionResultBlockSchema,
   assignmentResultBlockSchema,
+  dailySummaryBlockSchema,
   dailyUpdateBlockSchema,
   riskBlockSchema,
   safeErrorBlockSchema,

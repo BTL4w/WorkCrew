@@ -14,6 +14,7 @@ from work_management_ai.agents.orchestrator.contracts import (
     OrchestratorStatus,
     OrchestratorSynthesis,
     PendingFollowup,
+    ScheduleIntent,
     SpecialistRunnerPort,
     StepMode,
 )
@@ -27,12 +28,16 @@ from work_management_ai.agents.orchestrator.prompts import (
     build_plan_messages,
     build_synthesis_messages,
 )
+from work_management_ai.agents.orchestrator.prompts.schedule_v1 import build_schedule_messages
 from work_management_ai.agents.orchestrator.workflows.graph import (
     OrchestratorGraph,
     OrchestratorState,
 )
 from work_management_ai.agents.risk.contracts import RiskCardContent, RiskReplanRequest
-from work_management_ai.model_gateway.contracts import ModelGateway, StructuredModelRequest
+from work_management_ai.model_gateway.contracts import (
+    ModelGateway,
+    StructuredModelRequest,
+)
 from work_management_ai.model_gateway.errors import ModelGatewayError
 from work_management_ai.runtime.agent_registry import AgentRegistry
 from work_management_ai.runtime.contracts import (
@@ -44,6 +49,7 @@ from work_management_ai.runtime.contracts import (
     AgentRunStatus,
     AssignmentResultResponseBlock,
     CapabilityUnavailableResponseBlock,
+    DailySummaryResponseBlock,
     DailyUpdateResponseBlock,
     JsonValue,
     PlanningRunResponseBlock,
@@ -54,6 +60,8 @@ from work_management_ai.runtime.contracts import (
     SafeErrorResponseBlock,
     TeamRecommendationResponseBlock,
     TextResponseBlock,
+    ToolExecutionRequest,
+    ToolExecutorPort,
     WorkEvidenceResponseBlock,
 )
 from work_management_ai.runtime.policy_guard import AgentPolicyError, PolicyGuard
@@ -95,12 +103,14 @@ class OrchestratorHarness:
         policy_guard: PolicyGuard,
         actor_resolver: ActorContextResolverPort,
         specialists: SpecialistRunnerPort,
+        automation_tools: ToolExecutorPort | None = None,
     ) -> None:
         self._model_gateway = model_gateway
         self._registry = registry
         self._guard = policy_guard
         self._actor_resolver = actor_resolver
         self._specialists = specialists
+        self._automation_tools = automation_tools
         self._graph = OrchestratorGraph(self)
 
     async def run_turn(self, value: OrchestratorInput) -> OrchestratorOutput:
@@ -148,11 +158,70 @@ class OrchestratorHarness:
         }
 
     async def build_context(self, state: OrchestratorState) -> dict[str, object]:
+        message = state["value"].message.casefold()
+        if self._automation_tools and any(
+            signal in message
+            for signal in (
+                "daily summary",
+                "daily summaries",
+                "tổng hợp hằng ngày",
+                "tổng hợp hàng ngày",
+            )
+        ):
+            return {"route": "schedule"}
         if state["value"].active_context.daily_update_resolution_issue:
             return {"route": "ask_user", "stop_reason": "DAILY_UPDATE_CLARIFICATION_REQUIRED"}
         if state["value"].active_context.assignment_resolution_issue is not None:
             return {"route": "ask_user", "stop_reason": "ASSIGNMENT_CLARIFICATION_REQUIRED"}
         return {"route": "execute"}
+
+    async def prepare_schedule(self, state: OrchestratorState) -> dict[str, object]:
+        actor, value = state["current_actor"], state["value"]
+        if actor is None or actor.role not in {"MANAGER", "ADMIN"}:
+            return self._failure("SCHEDULE_FORBIDDEN")
+        manifest = self._registry.resolve(AgentId.ORCHESTRATOR, "1.0.0", active_phase=4).manifest
+        if (
+            "automation.preview@1" not in manifest.allowed_tools
+            or manifest.runtime.max_tool_calls < 1
+        ):
+            return self._failure("TOOL_NOT_ALLOWED")
+        assert self._automation_tools is not None
+        try:
+            response = await self._model_gateway.generate_structured(
+                StructuredModelRequest(
+                    invocation_key=f"orchestrator.schedule.{value.locale}.v1",
+                    messages=build_schedule_messages(value.message),
+                    output_schema=ScheduleIntent,
+                    timeout_seconds=30,
+                )
+            )
+            request = ToolExecutionRequest(
+                tool_id="automation.preview",
+                tool_version="1.0.0",
+                call_id=f"schedule:{value.turn_id}",
+                idempotency_key=f"schedule:{value.turn_id}",
+                agent_run_id=uuid5(NAMESPACE_URL, f"orchestrator:{value.turn_id}"),
+                actor=value.actor,
+                typed_input=cast(dict[str, JsonValue], response.parsed.model_dump(mode="json")),
+            )
+            result = await asyncio.wait_for(self._automation_tools.execute(request), timeout=15)
+            if result.status != "SUCCEEDED":
+                return self._failure("SCHEDULE_PREVIEW_UNAVAILABLE")
+            block = DailySummaryResponseBlock.model_validate(result.typed_output)
+            return {
+                "plan": ExecutionPlan(
+                    objectives=(value.message,),
+                    response_language=value.locale,
+                    schedule_intent=response.parsed,
+                ),
+                "blocks": (block,),
+                "status": OrchestratorStatus.AWAITING_HUMAN,
+                "stop_reason": "SCHEDULE_CONFIRMATION_REQUIRED",
+                "model_refs": (*state["model_refs"], response.model_ref),
+                "route": "execute",
+            }
+        except (ModelGatewayError, ValueError, TimeoutError):
+            return self._failure("SCHEDULE_PREVIEW_UNAVAILABLE")
 
     async def plan_objective(self, state: OrchestratorState) -> dict[str, object]:
         trusted_plan = self._trusted_action_plan(state)

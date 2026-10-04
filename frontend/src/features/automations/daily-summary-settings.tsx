@@ -15,10 +15,14 @@ export function DailySummarySettings({
   projectId,
   organizationId,
   membershipId,
+  initialDraft,
+  onApplied,
 }: {
   projectId: string;
   organizationId: string;
   membershipId: string;
+  initialDraft?: ScheduleDraft;
+  onApplied?: () => void;
 }) {
   const t = useTranslations("automations");
   const query = useQuery({
@@ -43,8 +47,10 @@ export function DailySummarySettings({
       key={`${projectId}:${query.data.schedule?.version ?? 0}`}
       projectId={projectId}
       view={query.data}
+      initialDraft={initialDraft}
       refresh={async () => {
         await query.refetch();
+        onApplied?.();
       }}
     />
   );
@@ -54,15 +60,17 @@ function ScheduleEditor({
   projectId,
   view,
   refresh,
+  initialDraft,
 }: {
   projectId: string;
   view: ScheduleView;
   refresh: () => Promise<void>;
+  initialDraft?: ScheduleDraft;
 }) {
   const t = useTranslations("automations"),
     locale = useLocale();
   const [command, setCommand] = useState<ScheduleCommand>(
-    commandSchema.parse(view.schedule ?? {
+    commandSchema.parse(initialDraft?.command ?? view.schedule ?? {
       project_id: projectId,
       timezone:
         Intl.DateTimeFormat().resolvedOptions().timeZone || "Asia/Ho_Chi_Minh",
@@ -73,7 +81,7 @@ function ScheduleEditor({
       partial_at_cutoff: true,
     }),
   );
-  const [draft, setDraft] = useState<ScheduleDraft | null>(null),
+  const [draft, setDraft] = useState<ScheduleDraft | null>(initialDraft ?? null),
     [busy, setBusy] = useState(false),
     [error, setError] = useState(false);
   const attempts = useRef(new Map<string, { payload: string; key: string }>());

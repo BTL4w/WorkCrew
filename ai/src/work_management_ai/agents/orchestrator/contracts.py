@@ -22,6 +22,17 @@ class _StrictFrozenModel(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
 
+class ScheduleIntent(_StrictFrozenModel):
+    project_reference: str = Field(min_length=1, max_length=200)
+    operation: Literal["CONFIGURE", "PAUSE", "RESUME"]
+    timezone: str | None = None
+    cutoff: str | None = None
+    weekdays: tuple[int, ...] | None = None
+    recipient_references: tuple[str, ...] | None = Field(default=None, min_length=1, max_length=100)
+    send_when_complete: bool | None = None
+    partial_at_cutoff: bool | None = None
+
+
 class StepMode(StrEnum):
     READ_ONLY = "READ_ONLY"
     PROPOSAL = "PROPOSAL"
@@ -41,6 +52,7 @@ class ExecutionStep(_StrictFrozenModel):
 
 class ExecutionPlan(_StrictFrozenModel):
     schema_version: Literal["1.0"] = "1.0"
+    schedule_intent: ScheduleIntent | None = None
     objectives: tuple[str, ...] = Field(min_length=1, max_length=8)
     steps: tuple[ExecutionStep, ...] = Field(default=(), max_length=8)
     unavailable_capabilities: tuple[str, ...] = Field(default=(), max_length=8)
@@ -48,7 +60,9 @@ class ExecutionPlan(_StrictFrozenModel):
 
     @model_validator(mode="after")
     def require_an_executable_or_unavailable_outcome(self) -> "ExecutionPlan":
-        if not self.steps and not self.unavailable_capabilities:
+        if self.schedule_intent is not None and self.steps:
+            raise ValueError("schedule preview cannot be combined with specialist writes")
+        if not self.steps and not self.unavailable_capabilities and self.schedule_intent is None:
             raise ValueError("execution plan must contain a step or unavailable capability")
         return self
 

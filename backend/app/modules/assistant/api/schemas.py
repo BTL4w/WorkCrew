@@ -169,6 +169,16 @@ class RiskBlock(BaseModel):
     content: RiskCardContent
 
 
+class DailySummaryBlock(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    kind: Literal["daily_summary"] = "daily_summary"
+    project_id: UUID
+    draft_id: UUID | None = None
+    expected_version: int = Field(ge=0)
+    operation: Literal["CONFIGURE", "PAUSE", "RESUME"]
+    needs_manager_confirmation: Literal[True] = True
+
+
 class SafeErrorBlock(BaseModel):
     model_config = ConfigDict(extra="forbid")
     kind: Literal["safe_error"] = "safe_error"
@@ -191,6 +201,7 @@ ContentBlock = Annotated[
     | AssignmentResultBlock
     | DailyUpdateBlock
     | RiskBlock
+    | DailySummaryBlock
     | SafeErrorBlock,
     Field(discriminator="kind"),
 ]

@@ -101,6 +101,7 @@ _SKILL_RESOURCES = (
     ("work_management_ai.skills.analyze_workload", "skill.yaml"),
 )
 _TOOL_RESOURCES = (
+    ("work_management_ai.tools.automation", "tool.yaml"),
     ("work_management_ai.tools.risk", "tool.yaml"),
     ("work_management_ai.tools.daily_update", "tool.yaml"),
     ("work_management_ai.tools.work.read_my_tasks", "tool.yaml"),
@@ -434,6 +435,7 @@ def build_execution_engine_factory(
     assignment_tool_executor: ToolExecutorPort | None = None,
     daily_update_tool_executor: ToolExecutorPort | None = None,
     risk_tool_executor: ToolExecutorPort | None = None,
+    automation_tool_executor: ToolExecutorPort | None = None,
     daily_usage_store: UsageStore | None = None,
     daily_image_token_bound: int | None = None,
 ) -> Callable[[ExecutionRecorderPort], AgentExecutionEngine]:
@@ -514,6 +516,7 @@ def build_execution_engine_factory(
                 policy_guard=PolicyGuard(),
                 actor_resolver=agent_actor_resolver,
                 specialists=specialists,
+                automation_tools=automation_tool_executor,
             )
         )
         return AgentExecutionEngine(orchestrator)

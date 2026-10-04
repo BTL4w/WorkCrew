@@ -106,3 +106,27 @@ def test_migration_forces_rls_and_declares_least_privilege_guards() -> None:
     assert "GRANT SELECT, INSERT" in migration
     assert "protect_assistant_invocation_terminal" in migration
     assert "REVOKE UPDATE, DELETE" in migration
+
+
+def test_daily_summary_confirmation_block_is_public_contract():
+    from typing import cast
+    from uuid import uuid4
+
+    from pydantic import TypeAdapter
+
+    from app.modules.assistant.api.schemas import ContentBlock
+
+    block = cast(
+        ContentBlock,
+        TypeAdapter(ContentBlock).validate_python(
+            {
+                "kind": "daily_summary",
+                "project_id": str(uuid4()),
+                "draft_id": str(uuid4()),
+                "expected_version": 0,
+                "operation": "CONFIGURE",
+                "needs_manager_confirmation": True,
+            }
+        ),
+    )
+    assert block.kind == "daily_summary"

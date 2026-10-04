@@ -10,7 +10,11 @@ from app.modules.assistant.domain.models import InvocationStatus, ToolInvocation
 from app.modules.identity.domain.auth import AuthenticatedActor
 from app.modules.organization.domain.roles import MembershipRole
 from app.modules.work.planning.domain.acceptance_criteria import AcceptanceCriterion
-from work_management_ai.runtime.contracts import ActorReference, ToolExecutionRequest
+from work_management_ai.runtime.contracts import (
+    ActorReference,
+    ToolExecutionRequest,
+    ToolExecutionResult,
+)
 from work_management_ai.runtime.manifests import ToolManifest, load_yaml_resource
 from work_management_ai.runtime.tool_registry import ToolRegistry
 
@@ -204,3 +208,68 @@ async def test_acceptance_criterion_read_reuses_manual_visibility_service() -> N
     assert result.status == "SUCCEEDED"
     assert result.typed_output["resolution"] == "UNIQUE"
     assert result.evidence[0].resource_id == criterion.id
+
+
+@pytest.mark.asyncio
+async def test_schedule_preview_replay_rechecks_authority() -> None:
+    organization_id = uuid4()
+    request = ToolExecutionRequest(
+        agent_run_id=uuid4(),
+        tool_id="automation.preview",
+        tool_version="1.0.0",
+        call_id="read:1",
+        actor=ActorReference(membership_id=uuid4(), organization_id=organization_id),
+        typed_input={"limit": 10},
+        idempotency_key="read-once",
+    )
+    stored = ToolInvocation(
+        id=uuid4(),
+        organization_id=organization_id,
+        agent_run_id=request.agent_run_id,
+        tool_id=request.tool_id,
+        tool_version=request.tool_version,
+        risk_level="PROPOSAL_ONLY",
+        typed_input=request.typed_input,
+        typed_output={"resolution": "NOT_FOUND", "evidence": [], "next_task_id": None},
+        context_references=(),
+        status=InvocationStatus.SUCCEEDED,
+        idempotency_key=request.idempotency_key,
+        dedupe_key=request.call_id,
+        safe_error_code=None,
+        completed_at=None,
+    )
+
+    class Repo:
+        async def get_tool_invocation(self, **_):
+            return stored
+
+    class Transaction:
+        repository = Repo()
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *_):
+            return None
+
+        async def commit(self):
+            return None
+
+    class Backend:
+        async def execute(self, _: ToolExecutionRequest):
+            return ToolExecutionResult(
+                status="REJECTED", typed_output={}, safe_error_code="ACTOR_INACTIVE"
+            )
+
+    executor = RecordingToolExecutor(
+        transaction_factory=lambda _: Transaction(),  # type: ignore[arg-type]
+        tool_registry=ToolRegistry(
+            (load_yaml_resource("work_management_ai.tools.automation", "tool.yaml", ToolManifest),)
+        ),
+        backend=Backend(),  # type: ignore[arg-type]
+    )
+
+    result = await executor.execute(request)
+
+    assert result.status == "REJECTED"
+    assert result.safe_error_code == "ACTOR_INACTIVE"

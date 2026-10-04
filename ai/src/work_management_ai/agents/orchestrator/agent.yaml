@@ -24,7 +24,7 @@ permissions:
 runtime:
   workflow: orchestrator.v1
   max_iterations: 8
-  max_tool_calls: 0
+  max_tool_calls: 1
   max_handoffs: 6
   max_replans: 2
   timeout_seconds: 120
@@ -32,7 +32,7 @@ runtime:
   model_policy: structured_reasoning
 
 allowed_skills: []
-allowed_tools: []
+allowed_tools: [automation.preview@1]
 
 approval:
   produced_writes: NEVER

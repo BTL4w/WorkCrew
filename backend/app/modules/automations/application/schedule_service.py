@@ -6,10 +6,13 @@ from collections.abc import Awaitable, Callable
 from datetime import UTC, datetime, timedelta
 from uuid import UUID, uuid4
 
+from pydantic import ValidationError
+
 from app.modules.identity.domain.auth import AuthenticatedActor
 from app.modules.progress.domain.daily_updates import DailyUpdateError
 
 from ..domain.schedules import (
+    ChatScheduleCommand,
     Contract,
     DailySummarySchedule,
     Reporter,
@@ -41,6 +44,85 @@ class ScheduleService:
             await repo.record_audit(
                 "schedule.transport_rejected", key or request_id, None, "INVALID_REQUEST"
             )
+
+    async def draft(self, actor: AuthenticatedActor, draft_id: UUID) -> ScheduleDraft:
+        try:
+            async with self.transactions(actor) as repo:
+                await repo.authenticate()
+                draft = await repo.preview_by_id(draft_id)
+                await repo.authorize(draft.command.project_id)
+                return draft
+        except DailyUpdateError as exc:
+            raise ScheduleError(exc.code, exc.status) from exc
+
+    async def prepare_from_chat(
+        self, actor: AuthenticatedActor, command: ChatScheduleCommand, key: str
+    ) -> tuple[UUID, ScheduleDraft | None, int]:
+        async def operation() -> tuple[UUID, ScheduleDraft | None, int]:
+            try:
+                return await self._prepare_from_chat(actor, command, key)
+            except ValidationError as exc:
+                raise ScheduleError("INVALID_REQUEST", 422) from exc
+
+        return await self._mutation(actor, key, None, operation)
+
+    async def _prepare_from_chat(
+        self, actor: AuthenticatedActor, command: ChatScheduleCommand, key: str
+    ) -> tuple[UUID, ScheduleDraft | None, int]:
+        async with self.transactions(actor) as repo:
+            await repo.authenticate()
+            project_id = await repo.find_project(command.project_reference)
+            await repo.authorize(project_id)
+            current = await repo.current(project_id)
+            version = current.version if current else 0
+            if command.operation != "CONFIGURE":
+                if current is None:
+                    raise ScheduleError("RESOURCE_NOT_FOUND", 404)
+                return project_id, None, version
+            recipients = await repo.recipients(project_id)
+            selected: list[UUID] = []
+            for reference in (
+                command.recipient_references
+                if command.recipient_references is not None
+                else tuple(str(r) for r in current.recipients)
+                if current
+                else ("SELF",)
+            ):
+                matches = [
+                    r.membership_id
+                    for r in recipients
+                    if (reference == "SELF" and r.membership_id == actor.membership_id)
+                    or str(r.membership_id) == reference
+                    or r.name.casefold() == reference.casefold().strip()
+                ]
+                if len(matches) != 1:
+                    raise ScheduleError("RECIPIENT_AMBIGUOUS_OR_NOT_FOUND", 422)
+                selected.append(matches[0])
+            value = ScheduleCommand(
+                project_id=project_id,
+                recipients=tuple(selected),
+                timezone=command.timezone
+                if command.timezone is not None
+                else (current.timezone if current else "Asia/Ho_Chi_Minh"),
+                cutoff=command.cutoff
+                if command.cutoff is not None
+                else (current.cutoff if current else "17:00"),
+                weekdays=command.weekdays
+                if command.weekdays is not None
+                else (current.weekdays if current else (1, 2, 3, 4, 5)),
+                send_when_complete=command.send_when_complete
+                if command.send_when_complete is not None
+                else current.send_when_complete
+                if current
+                else True,
+                partial_at_cutoff=command.partial_at_cutoff
+                if command.partial_at_cutoff is not None
+                else current.partial_at_cutoff
+                if current
+                else True,
+            )
+        draft = await self.preview(actor, value, version, key)
+        return project_id, draft, version
 
     async def get(self, actor: AuthenticatedActor, project_id: UUID) -> ScheduleView:
         try:
@@ -181,7 +263,7 @@ class ScheduleService:
         self,
         actor: AuthenticatedActor,
         key: str,
-        resource: UUID,
+        resource: UUID | None,
         operation: Callable[[], Awaitable[T]],
     ) -> T:
         try:

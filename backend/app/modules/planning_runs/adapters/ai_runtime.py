@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import re
 from collections.abc import Callable
 from datetime import UTC, datetime
 from time import monotonic
@@ -283,6 +284,33 @@ class _Phase2MockModelGateway:
         key = request.invocation_key
         payload = self._payload(request)
         locale = "vi" if ".vi." in key else "en"
+        if key.startswith("orchestrator.schedule."):
+            message = request.messages[-1].content
+            project = re.search(r"[0-9a-fA-F]{8}-[0-9a-fA-F-]{27,36}", message)
+            quoted = re.search(r'(?:project|dự án)\s+"([^"]+)"', message, re.IGNORECASE)
+            reference = project.group(0) if project else quoted.group(1) if quoted else ""
+            cutoff = re.search(r"\b([0-2][0-9]:[0-5][0-9])\b", message)
+            zone = re.search(r"[A-Za-z_]+/[A-Za-z_]+(?:/[A-Za-z_]+)?", message)
+            lowered = message.casefold()
+            operation = (
+                "PAUSE"
+                if any(x in lowered for x in ("pause", "tạm dừng"))
+                else "RESUME"
+                if any(x in lowered for x in ("resume", "tiếp tục"))
+                else "CONFIGURE"
+            )
+            return {
+                "project_reference": reference,
+                "operation": operation,
+                "timezone": zone.group(0) if zone else None,
+                "cutoff": cutoff.group(1) if cutoff else None,
+                "weekdays": None,
+                "recipient_references": ["SELF"]
+                if any(x in lowered for x in ("cho tôi", "for me", "to me"))
+                else None,
+                "send_when_complete": None,
+                "partial_at_cutoff": None,
+            }
         if key.startswith("risk.") and key.endswith(".explain"):
             context = cast(dict[str, Any], payload["context"])
             sources = {s["id"]: s for s in context["permitted_sources"]}
@@ -316,7 +344,6 @@ class _Phase2MockModelGateway:
             }
         if key.startswith("daily_update.") and key.endswith(".extract"):
             # Local fixture only; hosted interpretation always goes through the gateway.
-            import re
 
             text = str(payload.get("report", ""))
             percentages = re.findall(r"(?<![\d.])(\d{1,3}(?:\.\d+)?)\s*%", text)
@@ -437,8 +464,6 @@ class _Phase2MockModelGateway:
             signal in message
             for signal in ("risk", "rủi ro", "blocker", "bằng chứng", "progress", "tiến độ")
         ):
-            import re
-
             references = re.findall(
                 r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}", message
             )

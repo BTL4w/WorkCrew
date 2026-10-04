@@ -72,6 +72,23 @@ class ScheduleRepository(SqlAlchemyDailyUpdateRepository):
         )
         return tuple(Reporter(membership_id=row[0], name=row[1]) for row in rows)
 
+    async def find_project(self, reference: str) -> UUID:
+        try:
+            project_id = UUID(reference)
+            predicate = ProjectModel.id == project_id
+        except ValueError:
+            predicate = func.lower(ProjectModel.name) == reference.casefold().strip()
+        ids = tuple(
+            await self.session.scalars(
+                select(ProjectModel.id)
+                .where(ProjectModel.organization_id == self.org, predicate)
+                .limit(2)
+            )
+        )
+        if len(ids) != 1:
+            raise ScheduleError("PROJECT_AMBIGUOUS_OR_NOT_FOUND", 422)
+        return ids[0]
+
     async def current(self, project_id: UUID) -> DailySummarySchedule | None:
         row = await self.session.scalar(
             select(ScheduleModel).where(

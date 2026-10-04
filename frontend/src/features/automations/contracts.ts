@@ -46,3 +46,19 @@ export const viewSchema = z.object({
 export type ScheduleCommand = z.infer<typeof commandSchema>;
 export type ScheduleDraft = z.infer<typeof draftSchema>;
 export type ScheduleView = z.infer<typeof viewSchema>;
+
+export const summarySnapshotSchema = z.object({
+  id: z.uuid(), schedule_id: z.uuid(), project_id: z.uuid(), project_name: z.string(),
+  window: windowSchema, reason: z.enum(["COVERAGE", "CUTOFF", "RESUME"]), snapshot_at: z.string(),
+  scope: z.enum(["PROJECT", "OWN_WORK"]), expected_count: z.number().int(), reported_count: z.number().int(),
+  missing_reporters: z.array(z.uuid()), reporters: z.array(z.object({membership_id:z.uuid(),name:z.string()})),
+  tasks: z.array(z.object({id:z.uuid(),title:z.string(),task_version:z.number().int(),assignee_id:z.uuid().nullable(),
+    status:z.string(),observation_id:z.uuid().nullable(),progress_version:z.number().int(),
+    reported_percent:z.string().nullable(),remaining_hours:z.string().nullable(),observed_at:z.string().nullable()})),
+  sources: z.array(z.object({id:z.uuid(),task_id:z.uuid(),version:z.number().int(),kind:z.enum(["BLOCKER","RISK","REVIEW","EVIDENCE"]),
+    text:z.string().nullable(),state:z.string().nullable(),created_at:z.string().nullable(),
+    evidence_id:z.uuid().nullable(),evidence_version:z.number().int().nullable(),href:z.string().nullable()})),
+  unknown_inputs:z.array(z.string()),
+});
+export const deliveriesSchema = z.array(z.object({id:z.uuid(),snapshot:summarySnapshotSchema}));
+export type SummarySnapshot = z.infer<typeof summarySnapshotSchema>;

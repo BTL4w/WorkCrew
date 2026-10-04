@@ -1,0 +1,44 @@
+import {expect,test} from "@playwright/test";
+
+test("Manager configures a schedule in chat and receives one immutable in-app summary",async({page})=>{
+  await page.goto("/login");
+  await page.getByLabel("Email").fill("manager@example.test");
+  await page.getByLabel("Mật khẩu").fill("WorkDemo123!");
+  await page.getByRole("button",{name:"Đăng nhập"}).click();
+  await expect(page.getByRole("button",{name:"Đăng xuất"})).toBeVisible();
+  const name=`Digest ${crypto.randomUUID()}`;
+  const created=await page.request.post("/api/v1/projects",{headers:{"Idempotency-Key":crypto.randomUUID()},data:{name}});
+  expect(created.status(),await created.text()).toBe(201);
+  const project=await created.json();
+  await page.getByRole("navigation",{name:"Điều hướng chính"}).getByRole("button",{name:"Cuộc trò chuyện mới",exact:true}).click();
+  await page.getByLabel("Nhắn cho Trợ lý AI").fill(`Tạo lịch tổng hợp hằng ngày cho project ${project.id}, giờ chốt 00:00, Asia/Ho_Chi_Minh, gửi cho tôi.`);
+  await page.getByRole("button",{name:"Gửi",exact:true}).click();
+  await expect(page.getByRole("heading",{name:"Xác nhận lịch tổng hợp"})).toBeVisible({timeout:60000});
+  const before=await(await page.request.get(`/api/v1/automations/daily-summaries?project_id=${project.id}`)).json();
+  expect(before.schedule).toBeNull();
+  await page.getByRole("button",{name:"Quay lại chỉnh sửa"}).click();
+  await page.getByRole("checkbox",{name:"Thứ Bảy",exact:true}).check();
+  await page.getByRole("checkbox",{name:"Chủ Nhật",exact:true}).check();
+  await page.getByRole("button",{name:"Xem trước lịch",exact:true}).click();
+  await page.getByRole("button",{name:"Xác nhận lưu lịch"}).click();
+  await expect.poll(async()=>{
+    const feed=await(await page.request.get("/api/v1/automations/daily-summaries/deliveries")).json();
+    return feed.filter((delivery:{snapshot:{project_id:string}})=>delivery.snapshot.project_id===project.id).length;
+  },{timeout:30000}).toBe(1);
+  await page.getByRole("navigation",{name:"Điều hướng chính"}).getByRole("button",{name:"Projects",exact:true}).click();
+  await page.reload();
+  await page.getByRole("button",{name:new RegExp(name)}).click();
+  await page.getByRole("tab",{name:"Tổng hợp hằng ngày"}).click();
+  const feed=page.getByRole("region",{name:"Bản tổng hợp hằng ngày"});
+  await expect(feed.getByRole("heading",{name})).toBeVisible();
+  await expect(feed.getByText("0/0 người đã báo cáo")).toBeVisible();
+  await expect(feed.getByText("Không có người cần báo cáo; không tính là đã đủ báo cáo.")).toBeVisible();
+  await feed.screenshot({path:"/tmp/task14-daily-summary.png"});
+  const initial=await(await page.request.get("/api/v1/automations/daily-summaries/deliveries")).json();
+  const card=initial.find((delivery:{snapshot:{project_id:string}})=>delivery.snapshot.project_id===project.id);
+  await page.reload();
+  const after=await(await page.request.get("/api/v1/automations/daily-summaries/deliveries")).json();
+  const cards=after.filter((delivery:{snapshot:{project_id:string}})=>delivery.snapshot.project_id===project.id);
+  expect(cards).toHaveLength(1);
+  expect(cards[0]).toEqual(card);
+});

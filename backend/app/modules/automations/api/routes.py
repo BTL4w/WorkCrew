@@ -15,7 +15,9 @@ from app.core.config import Settings
 from app.modules.identity.api.dependencies import ActorDependency, get_authenticated_actor
 from app.modules.identity.application.auth_service import AuthService
 
+from ..application.digest_service import DigestService
 from ..application.schedule_service import ScheduleService, ScheduleView
+from ..domain.digests import SummaryDelivery
 from ..domain.schedules import (
     ConfirmSchedule,
     DailySummarySchedule,
@@ -111,5 +113,22 @@ async def pause(
         return await service.pause(
             actor, schedule_id, body.expected_version, body.paused, key or ""
         )
+    except ScheduleError as exc:
+        raise error(exc) from exc
+
+
+@router.get("/drafts/{draft_id}", response_model=ScheduleDraft, responses=_ERRORS)
+async def draft(draft_id: UUID, actor: ActorDependency, service: Service) -> ScheduleDraft:
+    try:
+        return await service.draft(actor, draft_id)
+    except ScheduleError as exc:
+        raise error(exc) from exc
+
+
+@router.get("/deliveries", response_model=tuple[SummaryDelivery, ...], responses=_ERRORS)
+async def deliveries(request: Request, actor: ActorDependency) -> tuple[SummaryDelivery, ...]:
+    service = cast(DigestService, request.app.state.digest_service)
+    try:
+        return await service.list(actor)
     except ScheduleError as exc:
         raise error(exc) from exc

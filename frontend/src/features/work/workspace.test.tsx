@@ -304,6 +304,7 @@ describe("WorkWorkspace", () => {
     const keys: Array<string | null> = [];
     vi.stubGlobal("fetch", vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       const path = String(input);
+      if (path === "/api/v1/automations/daily-summaries/deliveries") return response([]);
       if (path === "/api/v1/me") return response(employeeActor);
       if (path.startsWith("/api/v1/my-tasks")) return response(page([task]));
       if (path.endsWith("/reporting-context")) return response({task_id:task.id,task_version:1,progress_version:0,reported_percent:null,remaining_hours:null,reporting_timezone:"UTC",reporting_date:"2026-09-29",project_week_state:"LINKED",evidence_refs:[]});

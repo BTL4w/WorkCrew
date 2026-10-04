@@ -25,6 +25,7 @@ from work_management_ai.runtime.contracts import (
 NODES = (
     "intake_turn",
     "build_context",
+    "prepare_schedule",
     "plan_objective",
     "validate_execution_plan",
     "select_next_step",
@@ -41,6 +42,7 @@ NODES = (
 )
 
 type Route = Literal[
+    "schedule",
     "execute",
     "delegate",
     "next",
@@ -81,6 +83,8 @@ class OrchestratorNodeHandlers(Protocol):
     async def intake_turn(self, state: OrchestratorState) -> dict[str, object]: ...
 
     async def build_context(self, state: OrchestratorState) -> dict[str, object]: ...
+
+    async def prepare_schedule(self, state: OrchestratorState) -> dict[str, object]: ...
 
     async def plan_objective(self, state: OrchestratorState) -> dict[str, object]: ...
 
@@ -127,6 +131,7 @@ class OrchestratorGraph:
         builder = StateGraph(OrchestratorState)
         builder.add_node("intake_turn", handlers.intake_turn)
         builder.add_node("build_context", handlers.build_context)
+        builder.add_node("prepare_schedule", handlers.prepare_schedule)
         builder.add_node("plan_objective", handlers.plan_objective)
         builder.add_node("validate_execution_plan", handlers.validate_plan)
         builder.add_node("select_next_step", handlers.select_next_step)
@@ -150,7 +155,12 @@ class OrchestratorGraph:
         builder.add_conditional_edges(
             "build_context",
             _route,
-            {"execute": "plan_objective", "ask_user": "ask_user"},
+            {"execute": "plan_objective", "ask_user": "ask_user", "schedule": "prepare_schedule"},
+        )
+        builder.add_conditional_edges(
+            "prepare_schedule",
+            _route,
+            {"execute": "persistable_result", "manual_fallback": "manual_fallback"},
         )
         builder.add_edge("plan_objective", "validate_execution_plan")
         builder.add_conditional_edges(

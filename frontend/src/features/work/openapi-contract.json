@@ -98,10 +98,12 @@
       "team_decision_result": "#/components/schemas/TeamDecisionResultBlock",
       "assignment_result": "#/components/schemas/AssignmentResultBlock",
       "daily_update": "#/components/schemas/DailyUpdateBlock",
+      "daily_summary": "#/components/schemas/DailySummaryBlock",
       "risk": "#/components/schemas/RiskBlock",
       "work_evidence": "#/components/schemas/WorkEvidenceBlock"
     },
     "schemas": {
+      "DailySummaryBlock": {"required": ["project_id", "expected_version", "operation"], "properties": {"kind": "literal:daily_summary", "project_id": "string:uuid", "draft_id": "null|string:uuid", "expected_version": "integer", "operation": "literal:CONFIGURE|PAUSE|RESUME", "needs_manager_confirmation": "literal:True"}},
       "CreateConversationRequest": { "required": ["locale"], "properties": { "locale": "literal:vi|en", "title": "null|string[,120]" } },
       "ConversationResponse": { "required": ["id", "locale", "title", "status", "last_message_sequence", "last_event_sequence", "created_at", "updated_at"], "properties": { "id": "string:uuid", "locale": "literal:vi|en", "title": "null|string", "status": "string", "last_message_sequence": "integer", "last_event_sequence": "integer", "created_at": "string:date-time", "updated_at": "string:date-time" } },
       "ConversationListResponse": { "required": ["items"], "properties": { "items": "array:ref:ConversationResponse" } },

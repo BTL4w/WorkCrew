@@ -297,10 +297,15 @@ def create_app(
         GatewayRiskAssessment(build_model_gateway(resolved_settings)),
     )
     app.include_router(risk_router, prefix="/api/v1")
+    from app.modules.automations.adapters.digest_repository import DigestTransactions
     from app.modules.automations.adapters.repository import ScheduleTransactions
     from app.modules.automations.api.routes import router as schedule_router
+    from app.modules.automations.application.digest_service import DigestService
     from app.modules.automations.application.schedule_service import ScheduleService
 
+    app.state.digest_service = DigestService(
+        DigestTransactions(create_session_factory(database_engine))
+    )
     app.state.schedule_service = ScheduleService(
         ScheduleTransactions(create_session_factory(database_engine))
     )

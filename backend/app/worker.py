@@ -23,6 +23,7 @@ from app.modules.assistant.adapters.assignment_tools import (
     AssistantAssignmentContextResolver,
     AssistantAssignmentToolAdapter,
 )
+from app.modules.assistant.adapters.automation_tools import AutomationToolAdapter
 from app.modules.assistant.adapters.daily_update_tools import (
     DailyUpdateContextResolver,
     DailyUpdateToolAdapter,
@@ -35,6 +36,9 @@ from app.modules.assistant.application.execution_service import AssistantExecuti
 from app.modules.assistant.application.job_service import AssistantJobService
 from app.modules.assistant.application.projection_service import AssistantProjectionService
 from app.modules.assistant.application.title_service import ConversationTitleService
+from app.modules.automations.adapters.repository import ScheduleTransactions
+from app.modules.automations.adapters.scheduler import Scheduler
+from app.modules.automations.application.schedule_service import ScheduleService
 from app.modules.identity.adapters.auth_repository import SqlAlchemyAuthTransactionFactory
 from app.modules.identity.adapters.current_actor import CurrentActorResolver
 from app.modules.identity.application.current_actor_service import CurrentActorService
@@ -121,6 +125,7 @@ async def process_tenant_once(
     projection_service: _ProjectionRunner | None = None,
     title_job_service: _AssistantRunner | None = None,
     risk_job_service: _AssistantRunner | None = None,
+    summary_job_service: _AssistantRunner | None = None,
 ) -> bool:
     """Process bounded Task-8 work in fair fixed order."""
     # Separate job filter and task: naming cannot hold up the current answer.
@@ -178,6 +183,18 @@ async def process_tenant_once(
             )
         except Exception:
             logger.exception("Error processing risk jobs for organization %s", organization_id)
+    if summary_job_service is not None:
+        try:
+            processed = (
+                await summary_job_service.run_once(
+                    worker_id=worker_id, organization_id=organization_id
+                )
+                or processed
+            )
+        except Exception:
+            logger.exception(
+                "Error processing daily summaries for organization %s", organization_id
+            )
     if title_task is not None:
         try:
             processed = await title_task or processed
@@ -303,6 +320,14 @@ async def _run_worker() -> None:
         tool_registry=tool_registry,
         backend=AssistantAssignmentToolAdapter(application=assignment_application),
     )
+    automation_tools = RecordingToolExecutor(
+        transaction_factory=assistant_transaction_factory,
+        tool_registry=tool_registry,
+        backend=AutomationToolAdapter(
+            actors=actor_resolver, schedules=ScheduleService(ScheduleTransactions(session_factory))
+        ),
+    )
+    summary_scheduler = Scheduler(session_factory, actor_resolver)
     model_gateway = build_model_gateway(settings)
     daily_updates, daily_assessments, daily_usage = build_daily_services(
         sessions=session_factory,
@@ -347,6 +372,7 @@ async def _run_worker() -> None:
             assignment_tool_executor=assignment_tool_executor,
             daily_update_tool_executor=daily_tools,
             risk_tool_executor=risk_tools,
+            automation_tool_executor=automation_tools,
             daily_usage_store=daily_usage,
             daily_image_token_bound=image_token_bound(settings),
         ),
@@ -426,6 +452,7 @@ async def _run_worker() -> None:
                     projection_service=projection_service,
                     title_job_service=title_job_service,
                     risk_job_service=risk_job_service,
+                    summary_job_service=summary_scheduler,
                 )
                 or processed_any
             )

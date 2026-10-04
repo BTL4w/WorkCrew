@@ -227,6 +227,15 @@ class AssignmentResultResponseBlock(_StrictFrozenModel):
     warning_codes: tuple[str, ...] = ()
 
 
+class DailySummaryResponseBlock(_StrictFrozenModel):
+    kind: Literal["daily_summary"] = "daily_summary"
+    project_id: UUID
+    draft_id: UUID | None = None
+    expected_version: int = Field(ge=0)
+    operation: Literal["CONFIGURE", "PAUSE", "RESUME"]
+    needs_manager_confirmation: Literal[True] = True
+
+
 class DailyUpdateResponseBlock(_StrictFrozenModel):
     kind: Literal["daily_update"] = "daily_update"
     draft_id: UUID
@@ -267,6 +276,7 @@ type ResponseBlock = Annotated[
     | TeamRecommendationResponseBlock
     | TeamDecisionResultResponseBlock
     | AssignmentResultResponseBlock
+    | DailySummaryResponseBlock
     | DailyUpdateResponseBlock
     | RiskResponseBlock
     | SafeErrorResponseBlock,

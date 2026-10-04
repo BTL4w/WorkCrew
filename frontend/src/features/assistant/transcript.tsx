@@ -1,3 +1,4 @@
+import { DailySummaryBlock } from "./blocks/daily-summary-block";
 import { RiskBlock } from "./blocks/risk-block";
 import { DailyUpdateBlock } from "./blocks/daily-update-block";
 import { useTranslations } from "next-intl";
@@ -180,6 +181,7 @@ function BlockView({ block, canManage, onEdit, onRevise, onApprove, onReject, on
 }) {
   const t = useTranslations("assistant");
   switch (block.kind) {
+    case "daily_summary": return canManage ? <DailySummaryBlock block={block}/> : null;
     case "text": return <p>{block.text}</p>;
     case "activity": return <ActivityBlock block={block} />;
     case "work_evidence": return <WorkEvidenceBlock block={block} />;

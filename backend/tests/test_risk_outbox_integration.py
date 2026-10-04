@@ -42,3 +42,28 @@ async def test_unknown_event_explicit_failure_and_typed_envelope():
     assert runner.queued == [event.id]
     with pytest.raises(ValueError):
         await publisher.publish(replace(event, envelope_version="2.0"))
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("delivered", [False, True])
+async def test_summary_events_validate_typed_payload_and_aggregate(delivered: bool):
+    publisher = RiskOutboxPublisher(Runner())
+    id = uuid4()
+    event = OutboxEvent(
+        id=uuid4(),
+        event_id=uuid4(),
+        organization_id=uuid4(),
+        event_type="automation.summary.delivered.v1"
+        if delivered
+        else "automation.summary.captured.v1",
+        aggregate_type="daily_summary_delivery" if delivered else "daily_summary",
+        aggregate_id=id,
+        payload={"delivery_id": str(id), "recipient_id": str(uuid4())}
+        if delivered
+        else {"summary_id": str(id)},
+    )
+    await publisher.publish(event)
+    with pytest.raises(ValueError):
+        await publisher.publish(replace(event, aggregate_id=uuid4()))
+    with pytest.raises(ValueError):
+        await publisher.publish(replace(event, payload={**event.payload, "extra": "private"}))

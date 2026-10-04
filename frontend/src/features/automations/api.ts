@@ -1,5 +1,6 @@
 import { requestJson } from "@/shared/api/client";
 import {
+  deliveriesSchema,
   draftSchema,
   scheduleSchema,
   viewSchema,
@@ -54,4 +55,11 @@ export function pauseSchedule(
       body: JSON.stringify({ expected_version: expectedVersion, paused }),
     },
   });
+}
+
+export function getDraft(draftId: string) {
+  return requestJson(`${base}/drafts/${draftId}`, {schema:draftSchema});
+}
+export function getDeliveries() {
+  return requestJson(`${base}/deliveries`, {schema:deliveriesSchema});
 }

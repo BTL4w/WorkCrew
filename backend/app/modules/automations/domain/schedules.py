@@ -94,3 +94,14 @@ class ScheduleChanged(Contract):
     schedule_id: UUID
     version: StrictInt = Field(ge=1)
     paused: StrictBool
+
+
+class ChatScheduleCommand(Contract):
+    project_reference: str = Field(min_length=1, max_length=200)
+    operation: Literal["CONFIGURE", "PAUSE", "RESUME"]
+    timezone: str | None = None
+    cutoff: str | None = None
+    weekdays: tuple[int, ...] | None = None
+    recipient_references: tuple[str, ...] | None = Field(default=None, min_length=1, max_length=100)
+    send_when_complete: bool | None = None
+    partial_at_cutoff: bool | None = None

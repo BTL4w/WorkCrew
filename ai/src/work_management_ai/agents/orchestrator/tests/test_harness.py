@@ -203,7 +203,9 @@ evaluators: [{agent_id.value}_evaluator@1]
 def _registry(tmp_path: Path, monkeypatch: MonkeyPatch) -> AgentRegistry:
     registry = AgentRegistry(
         skill_registry=SkillRegistry(),
-        tool_registry=ToolRegistry(),
+        tool_registry=ToolRegistry(
+            (load_yaml_resource("work_management_ai.tools.automation", "tool.yaml", ToolManifest),)
+        ),
         evaluator_ids=frozenset(
             {
                 "orchestrator_plan@1",
@@ -239,7 +241,9 @@ def _registry(tmp_path: Path, monkeypatch: MonkeyPatch) -> AgentRegistry:
 def _revision_registry(tmp_path: Path, monkeypatch: MonkeyPatch) -> AgentRegistry:
     registry = AgentRegistry(
         skill_registry=SkillRegistry(),
-        tool_registry=ToolRegistry(),
+        tool_registry=ToolRegistry(
+            (load_yaml_resource("work_management_ai.tools.automation", "tool.yaml", ToolManifest),)
+        ),
         evaluator_ids=frozenset({"orchestrator_plan@1", "planning_evaluator@1"}),
     )
     registry.register_resource("work_management_ai.agents.orchestrator", "agent.yaml")
@@ -265,6 +269,7 @@ def _phase3_registry() -> AgentRegistry:
         "work_management_ai.skills.analyze_workload",
     )
     tool_packages = (
+        "work_management_ai.tools.automation",
         "work_management_ai.tools.risk",
         "work_management_ai.tools.work.read_my_tasks",
         "work_management_ai.tools.work.read_resource",
@@ -318,16 +323,16 @@ def _harness(
     )
 
 
-def test_orchestrator_manifest_has_zero_business_tools() -> None:
+def test_orchestrator_manifest_has_preview_tool_without_business_writes() -> None:
     manifest = load_yaml_resource(
         "work_management_ai.agents.orchestrator", "agent.yaml", AgentManifest
     )
 
     assert manifest.agent.id is AgentId.ORCHESTRATOR
     assert manifest.agent.version == "1.0.0"
-    assert manifest.allowed_tools == ()
+    assert manifest.allowed_tools == ("automation.preview@1",)
     assert manifest.allowed_skills == ()
-    assert manifest.runtime.max_tool_calls == 0
+    assert manifest.runtime.max_tool_calls == 1
     assert manifest.runtime.max_handoffs == 6
     assert manifest.runtime.max_replans == 2
 

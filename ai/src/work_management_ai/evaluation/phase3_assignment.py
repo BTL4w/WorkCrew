@@ -111,6 +111,7 @@ _SKILLS = (
     "analyze_workload",
 )
 _TOOLS = (
+    "automation",
     "risk",
     "work.read_my_tasks",
     "work.read_resource",

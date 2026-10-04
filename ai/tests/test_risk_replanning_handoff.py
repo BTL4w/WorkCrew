@@ -41,7 +41,7 @@ def registry() -> AgentRegistry:
         ),
         tool_registry=ToolRegistry(
             load_yaml_resource(f"work_management_ai.tools.{name}", "tool.yaml", ToolManifest)
-            for name in ("risk", "planning.manage_run")
+            for name in ("risk", "planning.manage_run", "automation")
         ),
         evaluator_ids=frozenset(
             {

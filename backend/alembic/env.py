@@ -15,6 +15,7 @@ from app.modules.assistant.adapters import daily_update_usage_models
 from app.modules.assistant.adapters import database_models as assistant_models
 from app.modules.audit.adapters import database_models as audit_models
 from app.modules.automations.adapters import database_models as automation_models
+from app.modules.automations.adapters import delivery_models
 from app.modules.identity.adapters import database_models as identity_models
 from app.modules.organization.adapters import database_models as organization_models
 from app.modules.people_capacity.adapters import database_models as people_capacity_models
@@ -35,6 +36,7 @@ from app.modules.work.planning.assignment.adapters import database_models as tea
 from app.modules.work.planning.assignment.adapters import recommendation_models
 
 _MODEL_MODULES = (
+    delivery_models,
     automation_models,
     risk_models,
     daily_update_usage_models,

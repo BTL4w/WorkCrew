@@ -1,0 +1,17 @@
+schema_version: "1.0"
+name: automation.preview
+version: "1.0.0"
+owner: automations
+tenant_scope: actor_membership
+roles: [ADMIN, MANAGER, EMPLOYEE]
+risk_level: PROPOSAL_ONLY
+input_contract: work_management_ai.tools.automation.contracts.AutomationToolInput
+output_contract: work_management_ai.tools.automation.contracts.AutomationToolOutput
+timeout_seconds: 15
+max_attempts: 1
+retry_policy: NONE
+idempotency: REQUIRED
+audit: REQUIRED
+evidence_output: false
+freshness_output: true
+trace_metadata: [tool_id, duration_ms, result_status]

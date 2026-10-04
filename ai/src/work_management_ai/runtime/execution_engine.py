@@ -112,7 +112,7 @@ class AgentExecutionEngine:
         if output.execution_plan is not None:
             budget = AgentBudget(
                 max_iterations=8,
-                max_tool_calls=0,
+                max_tool_calls=1 if output.execution_plan.schedule_intent is not None else 0,
                 max_handoffs=6,
                 max_replans=2,
                 timeout_seconds=120,
