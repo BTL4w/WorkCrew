@@ -142,7 +142,7 @@ class FactBlock(Contract):
     source_bindings: tuple[SourceBinding, ...] = Field(default=(), max_length=100)
 
 
-class TextBlock(Contract):
+class NarrativeTextBlock(Contract):
     id: str = Field(pattern=r"^[a-z][a-z0-9_]{0,63}$")
     section: Section
     kind: Literal["INTERPRETATION", "RECOMMENDATION", "LIMITATION"]
@@ -158,6 +158,8 @@ class TextBlock(Contract):
             raise ValueError("analysis requires sources")
         return self
 
+
+TextBlock = NarrativeTextBlock
 
 type NarrativeBlock = Annotated[FactBlock | TextBlock, Field(discriminator="kind")]
 
@@ -235,3 +237,19 @@ class ReportingProposal(Contract):
     skill_versions: tuple[str, ...]
     tool_versions: tuple[str, ...]
     model_refs: tuple[str, ...]
+
+
+class ReportingUsageScope(Contract):
+    organization_id: UUID
+    membership_id: UUID
+    generation_id: UUID
+    fence: int = Field(ge=1)
+    worker_id: str = Field(min_length=1, max_length=128)
+
+
+class ReportingUsage(Contract):
+    attempts: int = Field(ge=0, le=3)
+    input_reserved: int = Field(ge=0, le=48000)
+    output_reserved: int = Field(ge=0, le=8000)
+    tools: int = Field(ge=0, le=6)
+    retries: int = Field(ge=0, le=1)

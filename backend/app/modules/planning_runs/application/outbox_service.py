@@ -100,7 +100,7 @@ class OutboxService:
                 async with self._transaction_factory(organization_id) as txn:
                     await txn.repository.mark_outbox_event_published(
                         organization_id=organization_id,
-                        event_id=event.id,
+                        event_id=event.event_id,
                         worker_id=worker_id,
                         now=now,
                         published_at=datetime.now(UTC),
@@ -119,7 +119,7 @@ class OutboxService:
                     backoff = compute_backoff_seconds(event.attempt_count)
                     await txn.repository.record_outbox_event_failure(
                         organization_id=organization_id,
-                        event_id=event.id,
+                        event_id=event.event_id,
                         worker_id=worker_id,
                         now=now,
                         error_code="PUBLISH_ERROR",

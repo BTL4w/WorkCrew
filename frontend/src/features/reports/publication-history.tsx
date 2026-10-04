@@ -23,7 +23,7 @@ export function PublicationHistory({ data, publish = publishReport, onPublished,
     if (intent.current?.binding !== binding) intent.current = {binding, key: crypto.randomUUID()};
     setPending(true); setError(null);
     try {
-      const result = await publish(data.report.id, {mode:"METRICS_ONLY", report_version_id:data.selected_version.id, snapshot_hash:data.snapshot.snapshot_hash}, data.report.version, intent.current.key);
+      const result = await publish(data.report.id, {mode:"METRICS_ONLY", report_version_id:data.metrics_version_id ?? data.selected_version.id, snapshot_hash:data.snapshot.snapshot_hash}, data.report.version, intent.current.key);
       intent.current = null;
       onPublished(result);
     } catch (cause) {

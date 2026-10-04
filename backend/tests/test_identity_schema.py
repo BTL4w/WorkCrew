@@ -45,6 +45,8 @@ def test_active_phase_tables_are_registered() -> None:
         "reports",
         "report_metric_snapshots",
         "report_versions",
+        "report_generation_jobs",
+        "report_generation_usage",
         "report_publications",
         "report_review_decisions",
         "report_snapshot_sources",

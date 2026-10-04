@@ -156,7 +156,7 @@ class PostgreSQLExecutionRecorder(ExecutionRecorderPort):
             )
             if existing is not None:
                 if (
-                    existing.agent_id == "daily_update"
+                    existing.agent_id in {"daily_update", "reporting"}
                     and existing.status is DomainAgentRunStatus.AWAITING_HUMAN
                 ):
                     if existing.typed_output is None:
@@ -238,6 +238,18 @@ class PostgreSQLExecutionRecorder(ExecutionRecorderPort):
                 or run.agent_version != result.agent_version
             ):
                 raise RuntimeError("AGENT_RUN_NOT_FOUND")
+            if (
+                run.agent_id == "reporting"
+                and run.status is DomainAgentRunStatus.AWAITING_HUMAN
+                and result.status is AgentRunStatus.AWAITING_HUMAN
+            ):
+                if (
+                    run.typed_output is None
+                    or run.typed_output.get("typed_output") != result.typed_output
+                ):
+                    raise RuntimeError("REPORTING_RESULT_REPLAY_MISMATCH")
+                await transaction.commit()
+                return
             if result.status is AgentRunStatus.COMPLETED:
                 updated = run.mark_completed(
                     typed_output=result.model_dump(mode="json"),

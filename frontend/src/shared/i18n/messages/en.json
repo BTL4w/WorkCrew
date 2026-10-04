@@ -968,6 +968,27 @@
     "closePublication": "Close published version",
     "snapshotReceipt": "Metric snapshot receipt",
     "publishError": "Publication could not be confirmed. Retry to check the same request.",
-    "publishStale": "This report changed. Review the refreshed version before publishing."
+    "publishStale": "This report changed. Review the refreshed version before publishing.",
+    "narrativeTitle": "AI report draft",
+    "draftNotice": "Verified draft awaiting Manager review. Publishing metrics keeps the narrative separate.",
+    "retryNarrative": "Generate AI draft",
+    "generationSubmitting": "Queuing draft…",
+    "generationStale": "This report changed. Review the refreshed version before retrying.",
+    "generationError": "Generation could not be confirmed. Retry to check the same request.",
+    "requestNarrative": "Request an AI narrative",
+    "assumption": "Assumption: {text}",
+    "generation": {
+      "NOT_REQUESTED": "AI narrative was not requested. Metrics are ready.",
+      "QUEUED": "AI draft queued. Metrics are ready to publish.",
+      "RUNNING": "AI draft is being verified. Metrics are ready to publish.",
+      "AWAITING_REVIEW": "AI draft is ready for Manager review.",
+      "AI_UNAVAILABLE": "AI narrative is unavailable. Publish metrics or retry explicitly.",
+      "FAILED": "AI draft failed. Publish metrics or retry explicitly."
+    },
+    "blockKind": {
+      "INTERPRETATION": "Interpretation",
+      "RECOMMENDATION": "Advisory recommendation",
+      "LIMITATION": "Limitation"
+    }
   }
 }

@@ -968,6 +968,27 @@
     "closePublication": "Đóng bản đã xuất bản",
     "snapshotReceipt": "Biên nhận số liệu",
     "publishError": "Chưa xác nhận được việc xuất bản. Thử lại để kiểm tra cùng yêu cầu.",
-    "publishStale": "Báo cáo đã thay đổi. Xem lại phiên bản mới trước khi xuất bản."
+    "publishStale": "Báo cáo đã thay đổi. Xem lại phiên bản mới trước khi xuất bản.",
+    "narrativeTitle": "Bản nháp báo cáo AI",
+    "draftNotice": "Bản nháp đã được kiểm chứng, chờ Quản lý xem xét. Xuất bản số liệu giữ riêng phần diễn giải.",
+    "retryNarrative": "Tạo bản nháp AI",
+    "generationSubmitting": "Đang xếp hàng…",
+    "generationStale": "Báo cáo đã thay đổi. Xem lại phiên bản mới trước khi thử lại.",
+    "generationError": "Chưa xác nhận được yêu cầu. Thử lại để kiểm tra cùng yêu cầu.",
+    "requestNarrative": "Yêu cầu diễn giải bằng AI",
+    "assumption": "Giả định: {text}",
+    "generation": {
+      "NOT_REQUESTED": "Chưa yêu cầu diễn giải AI. Số liệu đã sẵn sàng.",
+      "QUEUED": "Bản nháp AI đang chờ. Có thể xuất bản số liệu ngay.",
+      "RUNNING": "Đang kiểm chứng bản nháp AI. Có thể xuất bản số liệu ngay.",
+      "AWAITING_REVIEW": "Bản nháp AI đã sẵn sàng, chờ Quản lý xem xét.",
+      "AI_UNAVAILABLE": "Không có diễn giải AI. Có thể xuất bản số liệu hoặc chủ động thử lại.",
+      "FAILED": "Tạo bản nháp AI thất bại. Có thể xuất bản số liệu hoặc chủ động thử lại."
+    },
+    "blockKind": {
+      "INTERPRETATION": "Diễn giải",
+      "RECOMMENDATION": "Khuyến nghị tham khảo",
+      "LIMITATION": "Giới hạn"
+    }
   }
 }

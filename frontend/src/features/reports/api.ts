@@ -28,3 +28,7 @@ export function publishReport(id: string, body: PublishReportInput, version: num
     method: "POST", headers: { "Content-Type": "application/json", "Idempotency-Key": key, "If-Match": `"${version}"` }, body: JSON.stringify(body),
   } });
 }
+
+export function generateNarrative(id: string, body: { base_version_id: string; snapshot_hash: string }, version: number, key: string) {
+  return requestJson(`/api/v1/reports/${encodeURIComponent(id)}/generate`, {schema:reportResultSchema,expectedStatus:202,init:{method:"POST",headers:{"Content-Type":"application/json","Idempotency-Key":key,"If-Match":`"${version}"`},body:JSON.stringify(body)}});
+}

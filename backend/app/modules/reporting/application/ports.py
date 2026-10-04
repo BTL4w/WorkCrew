@@ -6,9 +6,21 @@ from typing import Protocol
 from uuid import UUID
 
 from app.modules.identity.domain.auth import AuthenticatedActor
+from work_management_ai.agents.reporting.contracts import (
+    ReportingContext,
+    ReportingProposal,
+    ReportingRequest,
+    ReportingUsageScope,
+)
 
-from ..domain.commands import CaptureReportCommand, CreateReportCommand, PublishReportCommand
-from ..domain.reports import ReportPage, ReportResult, ReportSourcePage
+from ..domain.commands import (
+    CaptureReportCommand,
+    CreateReportCommand,
+    GenerateNarrativeCommand,
+    PublishReportCommand,
+)
+from ..domain.generation import GenerationJob
+from ..domain.reports import ReportPage, ReportResult, ReportSourcePage, ReportVersion
 from ..domain.snapshots import ReportMetricSnapshot
 
 
@@ -59,3 +71,43 @@ class ReportTransactionFactory(Protocol):
     def __call__(
         self, actor: AuthenticatedActor
     ) -> AbstractAsyncContextManager[ReportRepository]: ...
+
+
+class GenerationRepository(Protocol):
+    async def request(
+        self,
+        report_id: UUID,
+        command: GenerateNarrativeCommand,
+        expected: int,
+        key: str,
+        fingerprint: str,
+    ) -> ReportResult: ...
+    async def context(
+        self, request: ReportingRequest, scope: ReportingUsageScope
+    ) -> ReportingContext: ...
+    async def store(
+        self, proposal: ReportingProposal, scope: ReportingUsageScope
+    ) -> ReportVersion: ...
+    async def audit(
+        self,
+        action: str,
+        resource_id: UUID | None,
+        *,
+        succeeded: bool,
+        key: str | None = None,
+        code: str | None = None,
+    ) -> None: ...
+    async def recoverable(self) -> GenerationJob | None: ...
+    async def reconcile(self, job: GenerationJob, *, succeeded: bool) -> None: ...
+    async def claim(self, worker_id: str) -> GenerationJob | None: ...
+    async def heartbeat(self, scope: ReportingUsageScope) -> None: ...
+    async def complete(
+        self, scope: ReportingUsageScope, *, succeeded: bool, code: str | None = None
+    ) -> None: ...
+    async def attach_run(self, scope: ReportingUsageScope, run_id: UUID) -> None: ...
+
+
+class GenerationTransactionFactory(Protocol):
+    def __call__(
+        self, actor: AuthenticatedActor | UUID
+    ) -> AbstractAsyncContextManager[GenerationRepository]: ...

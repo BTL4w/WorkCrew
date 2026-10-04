@@ -14,13 +14,14 @@ export function ReportForm({ projectId, defaults, onCreated, onCancel }: { proje
   const [kind, setKind] = useState<"DAILY" | "WEEKLY">("DAILY");
   const [day, setDay] = useState(defaults.period_start);
   const [timezone, setTimezone] = useState(defaults.timezone);
+  const [narrativeEnabled, setNarrativeEnabled] = useState(true);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState(false);
   const attempt = useRef<{ fingerprint: string; key: string } | null>(null);
   async function submit(event: FormEvent) {
     event.preventDefault();
     if (pending) return;
-    const body: ReportInput = { project_id: projectId, kind, locale, narrative_enabled: true,
+    const body: ReportInput = { project_id: projectId, kind, locale, narrative_enabled: narrativeEnabled,
       ...(day ? { period_start: day } : {}), ...(timezone ? { timezone } : {}) };
     const fingerprint = JSON.stringify(body);
     if (attempt.current?.fingerprint !== fingerprint) attempt.current = { fingerprint, key: crypto.randomUUID() };
@@ -35,6 +36,7 @@ export function ReportForm({ projectId, defaults, onCreated, onCancel }: { proje
     <div className={styles.formGrid}><label className={styles.field}>{t("date")}<input className="form-input" type="date" value={day} onChange={e => setDay(e.target.value)} /></label>
       <label className={styles.field}>{t("timezone")}<input className="form-input" value={timezone} placeholder={t("projectTimezone")} onChange={e => setTimezone(e.target.value)} /></label></div>
     <p className={styles.description}>{t("defaultsExplanation")}</p>
+    <label><input type="checkbox" checked={narrativeEnabled} onChange={e => setNarrativeEnabled(e.target.checked)} /> {t("requestNarrative")}</label>
     {error && <p className="error-message mt-3" role="alert">{t("error")}</p>}
     <div className={styles.actions}><button className="primary-button" type="submit" disabled={pending}>{t(pending ? "creating" : "generate")}</button>
       <button className="secondary-button" type="button" disabled={pending} onClick={onCancel}>{t("cancel")}</button></div>

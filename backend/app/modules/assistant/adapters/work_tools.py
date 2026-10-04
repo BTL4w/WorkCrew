@@ -103,7 +103,7 @@ class RecordingToolExecutor:
                 )
             elif invocation.status.is_terminal:
                 await transaction.commit()
-                if request.tool_id in {"risk.read", "automation.preview"}:
+                if request.tool_id in {"risk.read", "automation.preview", "reporting.read"}:
                     # Read replay is operationally idempotent, never cached authority.
                     return await self._backend.execute(request)
                 return ToolExecutionResult(

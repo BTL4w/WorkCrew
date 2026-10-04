@@ -126,7 +126,7 @@ class ReportVersionModel(Base):
             deferrable=True,
             initially="DEFERRED",
         ),
-        CheckConstraint("origin IN ('METRICS_ONLY')", name="origin"),
+        CheckConstraint("origin IN ('METRICS_ONLY','AI_PROPOSED')", name="origin"),
         CheckConstraint("locale IN ('vi','en')", name="locale"),
         Index("ix_report_versions_timeline", "organization_id", "report_id", "created_at", "id"),
     )
@@ -137,6 +137,8 @@ class ReportVersionModel(Base):
     origin: Mapped[str] = mapped_column(String(24))
     locale: Mapped[str] = mapped_column(String(2))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+    payload: Mapped[dict[str, Any]] = mapped_column(JSONB, default=dict, server_default="{}")
 
 
 class ReportSourceModel(Base):

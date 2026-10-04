@@ -140,6 +140,8 @@ async def report_harness() -> AsyncGenerator[ReportHarness]:
                 "skill_invocations",
                 "tool_invocations",
                 "agent_usage_budgets",
+                "report_generation_usage",
+                "report_generation_jobs",
                 "reporting_window_reporters",
                 "reporting_windows",
                 "automation_schedule_recipients",
@@ -210,7 +212,7 @@ async def test_create_replay_conflict_and_rejected_audit(report_harness: ReportH
         assert first.headers["ETag"] == '"1"'
         assert report["snapshot"]["metrics"]["tasks.status.total_count"]["value"] == "1"
         assert report["snapshot"]["metrics"]["tasks.status.done_count"]["value"] == "0"
-        assert report["generation_state"] == "AI_UNAVAILABLE"
+        assert report["generation_state"] == "QUEUED"
         replay = await client.post("/api/v1/reports", json=h.body(), headers=headers)
         assert replay.json()["report"]["id"] == report["report"]["id"]
         assert replay.headers["Idempotency-Replayed"] == "true"

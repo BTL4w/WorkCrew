@@ -312,6 +312,14 @@ def create_app(
             create_session_factory(database_engine), resolved_settings.reporting_timezone
         )
     )
+    from app.modules.reporting.adapters.generation_repository import GenerationTransactions
+    from app.modules.reporting.application.generation_service import GenerationService
+
+    app.state.report_generation_service = GenerationService(
+        GenerationTransactions(
+            create_session_factory(database_engine), resolved_settings.reporting_timezone
+        )
+    )
     app.include_router(reporting_router, prefix="/api/v1")
     app.state.digest_service = DigestService(
         DigestTransactions(create_session_factory(database_engine))

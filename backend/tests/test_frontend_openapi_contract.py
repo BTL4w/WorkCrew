@@ -303,6 +303,7 @@ def test_reporting_openapi_matches_frontend_manifest() -> None:
         "/api/v1/reports/{report_id}",
         "/api/v1/reports/{report_id}/sources",
         "/api/v1/reports/{report_id}/publish",
+        "/api/v1/reports/{report_id}/generate",
     }
     for route, methods in manifest["paths"].items():
         assert set(schema["paths"][route]) == set(methods)
@@ -325,3 +326,10 @@ def test_report_publication_requires_transport_precondition_and_retry_key():
     assert any(p["name"] == "Idempotency-Key" and p["required"] for p in post["parameters"])
     assert any(p["name"] == "If-Match" for p in post["parameters"])
     assert {"201", "400", "403", "404", "409", "412", "422", "428"} <= set(post["responses"])
+
+
+def test_report_generation_requires_retry_key_and_version():
+    post = app.openapi()["paths"]["/api/v1/reports/{report_id}/generate"]["post"]
+    assert any(p["name"] == "Idempotency-Key" and p["required"] for p in post["parameters"])
+    assert any(p["name"] == "If-Match" for p in post["parameters"])
+    assert {"202", "400", "403", "404", "409", "412", "422", "428"} <= set(post["responses"])

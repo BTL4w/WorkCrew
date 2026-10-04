@@ -222,7 +222,7 @@ class FakeJobRepository:
         next_available_at: datetime,
     ) -> None:
         for i, event in enumerate(self.outbox_events):
-            if event.id == event_id:
+            if event.event_id == event_id:
                 status = (
                     OutboxStatus.FAILED
                     if event.attempt_count >= event.max_attempts

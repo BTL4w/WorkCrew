@@ -885,6 +885,9 @@
       ],
       "/api/v1/reports/{report_id}/publish": [
         "post"
+      ],
+      "/api/v1/reports/{report_id}/generate": [
+        "post"
       ]
     },
     "schemas": {
@@ -923,7 +926,9 @@
           "snapshot": "ref:ReportMetricSnapshot",
           "selected_version": "ref:ReportVersion",
           "publications": "array:ref:ReportPublication",
-          "generation_state": "literal:NOT_REQUESTED|AI_UNAVAILABLE",
+          "generation_state": "enum:GenerationState",
+          "generation_id": "null|string:uuid",
+          "metrics_version_id": "null|string:uuid",
           "replayed": "boolean"
         }
       },
@@ -982,9 +987,14 @@
           "id": "string:uuid",
           "report_id": "string:uuid",
           "snapshot_id": "string:uuid",
-          "origin": "literal:METRICS_ONLY",
+          "origin": "literal:METRICS_ONLY|AI_PROPOSED",
           "locale": "literal:vi|en",
-          "created_at": "string:date-time"
+          "created_at": "string:date-time",
+          "narrative": "null|ref:ReportingNarrative",
+          "rendered_facts": "object",
+          "provenance": "object",
+          "generation_id": "null|string:uuid",
+          "base_version_id": "null|string:uuid"
         }
       },
       "ReportMetricSnapshot": {
@@ -1149,6 +1159,80 @@
           "mode": "literal:METRICS_ONLY",
           "report_version_id": "string:uuid",
           "snapshot_hash": "string"
+        }
+      },
+      "GenerateNarrativeCommand": {
+        "required": [
+          "base_version_id",
+          "snapshot_hash"
+        ],
+        "properties": {
+          "base_version_id": "string:uuid",
+          "snapshot_hash": "string"
+        }
+      },
+      "ReportingNarrative": {
+        "required": [
+          "snapshot_id",
+          "snapshot_hash",
+          "locale",
+          "blocks"
+        ],
+        "properties": {
+          "schema_version": "literal:1.0",
+          "snapshot_id": "string:uuid",
+          "snapshot_hash": "string",
+          "catalog_version": "literal:report-metrics.v1",
+          "locale": "literal:vi|en",
+          "blocks": "array:ref:NarrativeBlock"
+        }
+      },
+      "FactBlock": {
+        "required": [
+          "id",
+          "section",
+          "template"
+        ],
+        "properties": {
+          "id": "string",
+          "section": "enum:Section",
+          "kind": "literal:FACT",
+          "template": "literal:METRIC|DONE_RATIO|RISK_SCORE",
+          "bindings": "array:ref:MetricBinding",
+          "source_bindings": "array:ref:SourceBinding"
+        }
+      },
+      "NarrativeTextBlock": {
+        "required": [
+          "id",
+          "section",
+          "kind",
+          "text",
+          "source_refs"
+        ],
+        "properties": {
+          "id": "string",
+          "section": "enum:Section",
+          "kind": "literal:INTERPRETATION|RECOMMENDATION|LIMITATION",
+          "text": "string[1,2000]",
+          "source_refs": "array:ref:SourceIdentity",
+          "assumptions": "array:string[1,500]"
+        }
+      },
+      "MetricBinding": {
+        "required": [
+          "metric_key",
+          "unit",
+          "period",
+          "value"
+        ],
+        "properties": {
+          "metric_key": "string[1,256]",
+          "unit": "enum:Unit",
+          "period": "enum:TimeBasis",
+          "operator": "literal:EQ|LT|LTE|GT|GTE",
+          "value": "string",
+          "comparison_metric_key": "null|string[,256]"
         }
       }
     }

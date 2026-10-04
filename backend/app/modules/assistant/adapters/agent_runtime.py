@@ -33,10 +33,13 @@ from work_management_ai.agents.orchestrator.contracts import (
     ExactAssignmentResolution,
     OrchestratorInput,
     OrchestratorOutput,
+    OrchestratorTriggerInput,
     PendingFollowup,
 )
 from work_management_ai.agents.orchestrator.harness import OrchestratorHarness
 from work_management_ai.agents.planning.harness import PlanningAgentHarness
+from work_management_ai.agents.reporting.harness import ReportingHarness
+from work_management_ai.agents.reporting.usage import ReportingUsagePort
 from work_management_ai.agents.risk.harness import RiskHarness
 from work_management_ai.agents.work_intelligence.harness import WorkIntelligenceHarness
 from work_management_ai.model_gateway.contracts import (
@@ -81,6 +84,8 @@ from work_management_ai.runtime.skill_registry import SkillRegistry
 from work_management_ai.runtime.tool_registry import ToolRegistry
 
 _SKILL_RESOURCES = (
+    ("work_management_ai.skills.draft_management_report", "skill.yaml"),
+    ("work_management_ai.skills.summarize_verified_project_metrics", "skill.yaml"),
     ("work_management_ai.skills.explain_verified_risk", "skill.yaml"),
     ("work_management_ai.skills.review_evidence_concerns", "skill.yaml"),
     ("work_management_ai.skills.extract_daily_update", "skill.yaml"),
@@ -92,6 +97,8 @@ _SKILL_RESOURCES = (
     ("work_management_ai.skills.analyze_workload", "skill.yaml"),
 )
 _TOOL_RESOURCES = (
+    ("work_management_ai.tools.reporting", "tool.yaml"),
+    ("work_management_ai.tools.reporting", "propose.yaml"),
     ("work_management_ai.tools.automation", "tool.yaml"),
     ("work_management_ai.tools.risk", "tool.yaml"),
     ("work_management_ai.tools.daily_update", "tool.yaml"),
@@ -103,6 +110,7 @@ _TOOL_RESOURCES = (
     ("work_management_ai.tools.assignment.assign_task", "tool.yaml"),
 )
 _AGENT_RESOURCES = (
+    ("work_management_ai.agents.reporting", "agent.yaml"),
     ("work_management_ai.agents.risk", "agent.yaml"),
     ("work_management_ai.agents.daily_update", "agent.yaml"),
     ("work_management_ai.agents.orchestrator", "agent.yaml"),
@@ -113,6 +121,8 @@ _AGENT_RESOURCES = (
 _EVALUATORS = frozenset(
     {
         "orchestrator_plan@1",
+        "reporting_numeric@1",
+        "reporting_grounding@1",
         "risk_grounding@1",
         "daily_update_grounding@1",
         "work_grounding@1",
@@ -345,6 +355,13 @@ class _ScopedOrchestrator:
         with agent_model_scope(value.actor.organization_id, run_id):
             return await self._harness.run_turn(value)
 
+    async def run_trigger(self, value: OrchestratorTriggerInput) -> OrchestratorOutput:
+        with agent_model_scope(
+            value.actor.organization_id,
+            uuid5(NAMESPACE_URL, f"orchestrator:{value.orchestration_run_id}"),
+        ):
+            return await self._harness.run_trigger(value)
+
 
 def build_agent_registry() -> tuple[AgentRegistry, ToolRegistry]:
     """Load and validate every Phase-3 activated runtime resource at startup."""
@@ -429,6 +446,8 @@ def build_execution_engine_factory(
     automation_tool_executor: ToolExecutorPort | None = None,
     daily_usage_store: UsageStore | None = None,
     daily_image_token_bound: int | None = None,
+    reporting_tool_executor: ToolExecutorPort | None = None,
+    reporting_usage: ReportingUsagePort | None = None,
 ) -> Callable[[ExecutionRecorderPort], AgentExecutionEngine]:
     """Compose hub-and-spoke Harnesses without opening a database transaction."""
     agent_actor_resolver = CurrentAgentActorResolver(actor_resolver)
@@ -495,6 +514,19 @@ def build_execution_engine_factory(
                     actor_resolver=agent_actor_resolver,
                 ),
                 usage_store=daily_usage_store,
+            ),
+        }
+
+    if reporting_tool_executor is not None:
+        harnesses = {
+            **harnesses,
+            AgentId.REPORTING: _ScopedAgentHarness(
+                ReportingHarness(
+                    model_gateway=recording_gateway,
+                    tool_executor=reporting_tool_executor,
+                    actor_resolver=agent_actor_resolver,
+                    usage=reporting_usage,
+                )
             ),
         }
 

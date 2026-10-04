@@ -27,7 +27,9 @@ runtime:
   max_tool_calls: 1
   max_handoffs: 6
   max_replans: 2
-  timeout_seconds: 120
+  max_input_tokens: 48000
+  max_output_tokens: 8000
+  timeout_seconds: 180
   checkpoint: durable
   model_policy: structured_reasoning
 

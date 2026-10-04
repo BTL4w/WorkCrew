@@ -23,6 +23,7 @@ from app.modules.work.adapters.database_models import (
 from ..application.ports import ReportSnapshotReadPort
 from ..domain.commands import CreateReportCommand, PublishReportCommand
 from ..domain.events import MetricsCaptured, ReportPublished
+from ..domain.generation import GenerationState
 from ..domain.reports import (
     Report,
     ReportError,
@@ -53,7 +54,13 @@ def report_domain(row: ReportModel) -> Report:
 
 def version_domain(row: ReportVersionModel) -> ReportVersion:
     return ReportVersion.model_validate(
-        {key: getattr(row, key) for key in ReportVersion.model_fields}
+        {
+            **row.payload,
+            **{
+                key: getattr(row, key)
+                for key in ("id", "report_id", "snapshot_id", "origin", "locale", "created_at")
+            },
+        }
     )
 
 
@@ -173,7 +180,20 @@ class SQLReportRepository:
             )
         )
         self.session.add(
-            ReportVersionModel(organization_id=self.org, **version.model_dump(mode="python"))
+            ReportVersionModel(
+                organization_id=self.org,
+                **version.model_dump(
+                    mode="python",
+                    exclude={
+                        "narrative",
+                        "rendered_facts",
+                        "provenance",
+                        "generation_id",
+                        "base_version_id",
+                    },
+                ),
+                payload={},
+            )
         )
         # Parent facts must be flushed before indexed sources/receipts (nondeferrable FKs).
         await self.session.flush()
@@ -249,12 +269,23 @@ class SQLReportRepository:
             )
         )
         await self.session.flush()
-        return ReportResult(
+        result = ReportResult(
             report=report,
             snapshot=snapshot,
             selected_version=version,
-            generation_state="AI_UNAVAILABLE" if command.narrative_enabled else "NOT_REQUESTED",
+            generation_state="NOT_REQUESTED",
+            metrics_version_id=version.id,
         )
+        if command.narrative_enabled:
+            from .generation_repository import enqueue_initial
+
+            generation_id = await enqueue_initial(
+                self.session, actor=self.actor, result=result, key=str(report.id)
+            )
+            result = result.model_copy(
+                update={"generation_state": "QUEUED", "generation_id": generation_id}
+            )
+        return result
 
     async def get(self, report_id: UUID, *, replayed: bool = False) -> ReportResult:
         row = await self.session.scalar(
@@ -298,12 +329,42 @@ class SQLReportRepository:
             )
             for publication in publication_rows
         )
+        from .usage_models import ReportGenerationJobModel
+
+        generation = await self.session.scalar(
+            select(ReportGenerationJobModel)
+            .where(
+                ReportGenerationJobModel.organization_id == self.org,
+                ReportGenerationJobModel.report_id == row.id,
+            )
+            .order_by(
+                ReportGenerationJobModel.created_at.desc(), ReportGenerationJobModel.id.desc()
+            )
+            .limit(1)
+        )
+        metrics_version = await self.session.scalar(
+            select(ReportVersionModel.id)
+            .where(
+                ReportVersionModel.organization_id == self.org,
+                ReportVersionModel.report_id == row.id,
+                ReportVersionModel.origin == "METRICS_ONLY",
+            )
+            .order_by(ReportVersionModel.created_at)
+            .limit(1)
+        )
         return ReportResult(
             publications=publications,
+            generation_id=generation.id if generation else None,
+            metrics_version_id=metrics_version,
             report=report_domain(row),
             snapshot=snapshot,
             selected_version=version_domain(version_row),
-            generation_state="AI_UNAVAILABLE" if row.narrative_requested else "NOT_REQUESTED",
+            generation_state=cast(
+                "GenerationState",
+                generation.state
+                if generation
+                else ("AI_UNAVAILABLE" if row.narrative_requested else "NOT_REQUESTED"),
+            ),
             replayed=replayed,
         )
 
@@ -438,11 +499,18 @@ class SQLReportRepository:
         if row.version != expected_version:
             raise ReportError("STALE_REPORT_VERSION", 412)
         result = await self.get(report_id)
+        metrics_version = await self.session.scalar(
+            select(ReportVersionModel).where(
+                ReportVersionModel.organization_id == self.org,
+                ReportVersionModel.report_id == row.id,
+                ReportVersionModel.id == command.report_version_id,
+            )
+        )
         if (
-            command.report_version_id != result.selected_version.id
+            metrics_version is None
+            or metrics_version.origin != "METRICS_ONLY"
             or command.snapshot_hash != result.snapshot.snapshot_hash
-            or result.selected_version.snapshot_id != result.snapshot.id
-            or result.selected_version.origin != "METRICS_ONLY"
+            or metrics_version.snapshot_id != result.snapshot.id
         ):
             raise ReportError("REPORT_PUBLICATION_MISMATCH", 409)
         # Current Manager scope authorizes all project source facts. Source changes are

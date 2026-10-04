@@ -67,6 +67,10 @@ from app.modules.progress.adapters.daily_update_runtime import (
 from app.modules.progress.adapters.evidence_repository import SqlAlchemyEvidenceTransactionFactory
 from app.modules.progress.adapters.filesystem_storage import FilesystemEvidenceStorage
 from app.modules.progress.application.evidence_service import EvidenceService
+from app.modules.reporting.adapters.generation_repository import GenerationTransactions
+from app.modules.reporting.adapters.narrative_runtime import ReportNarrativeRuntime
+from app.modules.reporting.adapters.outbox_consumer import ReportingOutboxPublisher
+from app.modules.reporting.application.job_service import ReportJobService
 from app.modules.risk.adapters.model_assessment import GatewayRiskAssessment
 from app.modules.risk.adapters.outbox_consumer import RiskOutboxPublisher, RiskWorker
 from app.modules.risk.adapters.repository import RiskTransactions
@@ -126,6 +130,7 @@ async def process_tenant_once(
     title_job_service: _AssistantRunner | None = None,
     risk_job_service: _AssistantRunner | None = None,
     summary_job_service: _AssistantRunner | None = None,
+    reporting_job_service: _AssistantRunner | None = None,
 ) -> bool:
     """Process bounded Task-8 work in fair fixed order."""
     # Separate job filter and task: naming cannot hold up the current answer.
@@ -195,6 +200,16 @@ async def process_tenant_once(
             logger.exception(
                 "Error processing daily summaries for organization %s", organization_id
             )
+    if reporting_job_service is not None:
+        try:
+            processed = (
+                await reporting_job_service.run_once(
+                    worker_id=worker_id, organization_id=organization_id
+                )
+                or processed
+            )
+        except Exception:
+            logger.exception("Error processing report jobs for organization %s", organization_id)
     if title_task is not None:
         try:
             processed = await title_task or processed
@@ -252,9 +267,18 @@ async def _run_worker() -> None:
     )
     outbox_service = OutboxService(
         transaction_factory=planning_transaction_factory,
-        publisher=RiskOutboxPublisher(risk_job_service),
+        publisher=ReportingOutboxPublisher(RiskOutboxPublisher(risk_job_service)),
         organization_scopes=scopes,
         lease_seconds=settings.worker_lease_seconds,
+    )
+    reporting_job_service = ReportJobService(
+        GenerationTransactions(session_factory, settings.reporting_timezone),
+        ReportNarrativeRuntime(
+            sessions=session_factory,
+            actors=actor_resolver,
+            gateway=build_model_gateway(settings),
+            timezone=settings.reporting_timezone,
+        ),
     )
     registry, tool_registry = build_agent_registry()
     planning_runtime = PlanningAIRuntime()
@@ -453,6 +477,7 @@ async def _run_worker() -> None:
                     title_job_service=title_job_service,
                     risk_job_service=risk_job_service,
                     summary_job_service=summary_scheduler,
+                    reporting_job_service=reporting_job_service,
                 )
                 or processed_any
             )

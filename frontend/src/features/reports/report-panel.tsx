@@ -19,7 +19,7 @@ export function ReportPanel({ projectId, organizationId, actorMembershipId }: { 
   const reports = useQuery({ queryKey: [...scope, "list", page], queryFn: () => listReports(projectId, page) });
   const defaults = useQuery({ queryKey: [...scope, "defaults"], queryFn: () => getReportDefaults(projectId), enabled: creating });
   const id = selected || reports.data?.items[0]?.id;
-  const detail = useQuery({ queryKey: [...scope, "detail", id], enabled: Boolean(id), queryFn: () => getReport(id!) });
+  const detail = useQuery({ queryKey: [...scope, "detail", id], enabled: Boolean(id), queryFn: () => getReport(id!), refetchInterval: query => ["QUEUED", "RUNNING"].includes(query.state.data?.generation_state ?? "") ? 2000 : false });
   return <section className={styles.panel} aria-label={t("title")}>
     <div className={styles.header}><div><p className={styles.eyebrow}>{t("eyebrow")}</p><h2 className={styles.title}>{t("title")}</h2><p className={styles.description}>{t("description")}</p></div>
       <button className="primary-button" type="button" onClick={() => setCreating(true)}>{t("create")}</button></div>

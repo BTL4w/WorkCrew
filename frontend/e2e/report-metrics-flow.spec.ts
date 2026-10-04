@@ -30,12 +30,13 @@ for (const locale of ["vi", "en"] as const) {
     const defaults = await (await page.request.get(`/api/v1/reports/defaults?project_id=${project.id}`)).json();
     await expect(zone).toHaveValue(defaults.timezone);
     await zone.fill("Asia/Ho_Chi_Minh");
+    await page.getByRole("checkbox", {name:locale === "vi" ? "Yêu cầu diễn giải bằng AI" : "Request an AI narrative"}).uncheck();
     await page.getByRole("button", { name: locale === "vi" ? "Tạo báo cáo số liệu" : "Generate report", exact: true }).click();
     const detail = page.getByRole("article", { name: locale === "vi" ? "Chi tiết báo cáo" : "Report detail" });
     await expect(detail).toBeVisible();
     await expect(detail.getByText("Asia/Ho_Chi_Minh", { exact: false }).first()).toBeVisible();
     await expect(detail.getByText(locale === "vi" ? "Chưa xác định" : "Unknown", { exact: true }).first()).toBeVisible();
-    await expect(detail.getByText(locale === "vi" ? "Nhận xét AI chưa khả dụng. Bạn vẫn có thể sử dụng số liệu." : "AI commentary unavailable. Your metrics remain available.")).toBeVisible();
+    await expect(detail.getByText(locale === "vi" ? "Chưa yêu cầu diễn giải AI. Số liệu đã sẵn sàng." : "AI narrative was not requested. Metrics are ready.")).toBeVisible();
     const reports = await (await page.request.get(`/api/v1/reports?project_id=${project.id}`)).json();
     const reportId = reports.items[0].id;
     const before = await (await page.request.get(`/api/v1/reports/${reportId}`)).json();
@@ -64,6 +65,7 @@ for (const locale of ["vi", "en"] as const) {
     await page.getByRole("button", {name: locale === "vi" ? "Tạo báo cáo" : "Create report", exact: true}).click();
     await page.getByLabel(locale === "vi" ? "Loại báo cáo" : "Report type", {exact:true}).selectOption("WEEKLY");
     await page.getByLabel(locale === "vi" ? "Ngày báo cáo" : "Reporting date", {exact:true}).fill("2026-09-28");
+    await page.getByRole("checkbox", {name:locale === "vi" ? "Yêu cầu diễn giải bằng AI" : "Request an AI narrative"}).uncheck();
     await page.getByRole("button", {name:locale === "vi" ? "Tạo báo cáo số liệu" : "Generate report", exact:true}).click();
     await expect(detail.getByRole("heading", {name:/2026-09-28/})).toBeVisible();
     const weeklyReports = await (await page.request.get(`/api/v1/reports?project_id=${project.id}`)).json();

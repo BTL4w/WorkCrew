@@ -40,6 +40,11 @@ def test_context_bounds_details_without_changing_authoritative_snapshot():
     payload = model_context(context)
     assert len(payload["snapshot"]["sources"]) == 100
     assert payload["source_details_omitted"] == 1
+    projected = payload["snapshot"]["metrics"]["tasks.status.done_count"]
+    assert "key" not in projected and "source_refs" not in projected
+    assert projected["unit"] == snapshot.metrics["tasks.status.done_count"].unit
+    assert projected["time_basis"] == snapshot.metrics["tasks.status.done_count"].time_basis
+    assert payload["snapshot"]["receipts"] == snapshot.model_dump(mode="json")["receipts"]
     assert snapshot.verified_hash()
     assert len(snapshot.sources) == 101
     assert payload["snapshot"]["snapshot_hash"] == wire["snapshot_hash"]

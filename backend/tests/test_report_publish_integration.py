@@ -198,7 +198,7 @@ async def test_pending_ai_does_not_change_existing_publication(report_harness: R
             headers={"Idempotency-Key": str(uuid4()), "If-Match": '"1"'},
         )
         assert published.status_code == 201, published.text
-        assert published.json()["generation_state"] == "AI_UNAVAILABLE"
+        assert published.json()["generation_state"] == "QUEUED"
         # A later draft pointer change is independent of the immutable publication pointer.
         await h.sql("UPDATE reports SET version=3 WHERE id=:id", {"id": rid})
         current = await client.get(f"/api/v1/reports/{rid}")

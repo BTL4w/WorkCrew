@@ -2,10 +2,11 @@
 
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
+from datetime import datetime
 from typing import cast
-from uuid import uuid4
+from uuid import UUID, uuid4
 
-from sqlalchemy import select, text
+from sqlalchemy import func, select, text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from app.modules.audit.adapters.database_models import AuditEventModel
@@ -170,6 +171,49 @@ class SQLTriggerRepository:
         )
         await self.session.flush()
         return orchestration_domain(row)
+
+    async def start(self, run_id: UUID) -> None:
+        row = await self.session.scalar(
+            select(OrchestrationRunModel)
+            .where(
+                OrchestrationRunModel.organization_id == self.actor.organization_id,
+                OrchestrationRunModel.id == run_id,
+                OrchestrationRunModel.actor_membership_id == self.actor.membership_id,
+                OrchestrationRunModel.trigger_kind != "CHAT_TURN",
+            )
+            .with_for_update()
+        )
+        if row is None:
+            raise TriggerError("RESOURCE_NOT_FOUND")
+        if row.status in ("QUEUED", "RUNNING"):
+            row.status = "RUNNING"
+            row.started_at = row.started_at or cast(
+                datetime, await self.session.scalar(select(func.clock_timestamp()))
+            )
+            row.updated_at = cast(
+                datetime, await self.session.scalar(select(func.clock_timestamp()))
+            )
+
+    async def finish(self, run_id: UUID, *, succeeded: bool, usage: dict[str, int]) -> None:
+        row = await self.session.scalar(
+            select(OrchestrationRunModel)
+            .where(
+                OrchestrationRunModel.organization_id == self.actor.organization_id,
+                OrchestrationRunModel.id == run_id,
+                OrchestrationRunModel.actor_membership_id == self.actor.membership_id,
+                OrchestrationRunModel.trigger_kind != "CHAT_TURN",
+            )
+            .with_for_update()
+        )
+        if row is None:
+            raise TriggerError("RESOURCE_NOT_FOUND")
+        row.status = "AWAITING_HUMAN" if succeeded else "FAILED"
+        row.usage = usage
+        row.stop_reason = "AWAITING_MANAGER_REVIEW" if succeeded else "REPORTING_UNAVAILABLE"
+        row.safe_error_code = None if succeeded else "REPORTING_UNAVAILABLE"
+        at = cast(datetime, await self.session.scalar(select(func.clock_timestamp())))
+        row.completed_at = row.completed_at or at
+        row.updated_at = at
 
     async def reject(self, trigger: ExecutionTrigger, reason: str) -> None:
         self.session.add(

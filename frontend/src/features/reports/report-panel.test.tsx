@@ -25,6 +25,16 @@ it.each(["en", "vi"] as const)("creates and displays captured daily metrics in %
   fireEvent.click(screen.getByRole("button", { name: locale === "en" ? "Generate report" : "Tạo báo cáo số liệu" }));
   await waitFor(() => expect(fetch.mock.calls.some(([, init]) => init?.method === "POST")).toBe(true));
   expect(await screen.findByText(locale === "en" ? "Unknown" : "Chưa xác định")).toBeVisible();
-  expect(screen.getByText(locale === "en" ? "AI commentary unavailable. Your metrics remain available." : "Nhận xét AI chưa khả dụng. Bạn vẫn có thể sử dụng số liệu.")).toBeVisible();
+  expect(screen.getByText(locale === "en" ? "AI narrative is unavailable. Publish metrics or retry explicitly." : "Không có diễn giải AI. Có thể xuất bản số liệu hoặc chủ động thử lại.")).toBeVisible();
   expect(screen.getAllByText("UTC", { exact: false }).length).toBeGreaterThan(0);
+});
+
+it("polls a queued draft and keeps one metrics publication action when the version changes", async () => {
+  let reads=0;
+  const fetch=vi.fn(async(path:string)=>new Response(JSON.stringify(path.includes("/sources?")?{snapshot_hash:result.snapshot.snapshot_hash,items:[],receipts:[],next_cursor:null,total:0}:path.endsWith(`/${id}`)?{...result,report:{...result.report,version:++reads===1?1:2},generation_state:reads===1?"QUEUED":"AWAITING_REVIEW"}:{items:[result.report],page:1,page_size:20,total:1}),{status:200,headers:{"Content-Type":"application/json"}}));
+  vi.stubGlobal("fetch",fetch);
+  render(<QueryClientProvider client={new QueryClient({defaultOptions:{queries:{retry:false}}})}><AppLocaleProvider initialLocale="en"><ReportPanel projectId={id} organizationId={id} actorMembershipId={id}/></AppLocaleProvider></QueryClientProvider>);
+  await screen.findByText("AI draft queued. Metrics are ready to publish.");
+  await waitFor(()=>expect(screen.getByText("AI draft is ready for Manager review.")).toBeVisible(),{timeout:5000});
+  expect(screen.getAllByRole("button",{name:"Publish metrics only"})).toHaveLength(1);
 });

@@ -4,9 +4,11 @@ from datetime import date, datetime
 from typing import Literal
 from uuid import UUID
 
-from pydantic import Field
+from pydantic import Field, JsonValue
 
+from .generation import GenerationState
 from .metrics import AggregateReceipt, ReportContract, SourceRef
+from .narrative import NarrativeDocument
 from .periods import ReportKind
 from .snapshots import ReportMetricSnapshot
 
@@ -40,9 +42,15 @@ class ReportVersion(ReportContract):
     id: UUID
     report_id: UUID
     snapshot_id: UUID
-    origin: Literal["METRICS_ONLY"] = "METRICS_ONLY"
+    origin: Literal["METRICS_ONLY", "AI_PROPOSED"] = "METRICS_ONLY"
     locale: Literal["vi", "en"]
     created_at: datetime
+
+    narrative: NarrativeDocument | None = None
+    rendered_facts: dict[str, str] = Field(default_factory=dict)
+    provenance: dict[str, JsonValue] = Field(default_factory=dict)
+    generation_id: UUID | None = None
+    base_version_id: UUID | None = None
 
 
 class ReportPublication(ReportContract):
@@ -60,7 +68,9 @@ class ReportResult(ReportContract):
     snapshot: ReportMetricSnapshot
     selected_version: ReportVersion
     publications: tuple[ReportPublication, ...] = ()
-    generation_state: Literal["NOT_REQUESTED", "AI_UNAVAILABLE"]
+    generation_state: GenerationState
+    generation_id: UUID | None = None
+    metrics_version_id: UUID | None = None
     replayed: bool = False
 
 

@@ -15,8 +15,14 @@ from app.core.config import Settings
 from app.modules.identity.api.dependencies import ActorDependency, get_authenticated_actor
 from app.modules.identity.application.auth_service import AuthService
 
+from ..domain.commands import GenerateNarrativeCommand
 from ..domain.reports import ReportError
-from .dependencies import ReportServiceDependency, get_report_service
+from .dependencies import (
+    GenerationServiceDependency,
+    ReportServiceDependency,
+    get_generation_service,
+    get_report_service,
+)
 from .schemas import (
     ReportCreateRequest,
     ReportDefaultsResponse,
@@ -32,7 +38,7 @@ class ReportRoute(APIRoute):
         handler = super().get_route_handler()
 
         async def preflight(request: Request) -> Response:
-            if request.method == "POST" and request.url.path.endswith("/publish"):
+            if request.method == "POST" and request.url.path.endswith(("/publish", "/generate")):
                 override = request.app.dependency_overrides.get(get_authenticated_actor)
                 if override is not None:
                     candidate = override()
@@ -47,13 +53,21 @@ class ReportRoute(APIRoute):
                     report_id = UUID(str(request.path_params.get("report_id", "")))
                 except ValueError:
                     report_id = None
-                request.state.mutation_rejection_audit = partial(
-                    get_report_service(request).audit_publish_rejection,
-                    actor=actor,
-                    request_id=str(request.state.request_id),
-                    key=request.headers.get("Idempotency-Key"),
-                    report_id=report_id,
-                )
+                if request.url.path.endswith("/generate"):
+                    request.state.mutation_rejection_audit = partial(
+                        get_generation_service(request).audit_rejection,
+                        actor=actor,
+                        key=request.headers.get("Idempotency-Key"),
+                        report_id=report_id,
+                    )
+                else:
+                    request.state.mutation_rejection_audit = partial(
+                        get_report_service(request).audit_publish_rejection,
+                        actor=actor,
+                        request_id=str(request.state.request_id),
+                        key=request.headers.get("Idempotency-Key"),
+                        report_id=report_id,
+                    )
             return await handler(request)
 
         return preflight
@@ -187,6 +201,42 @@ async def publish_report(
             expected_version=int(match.group(1)),
             idempotency_key=key,
             request_id=request.state.request_id,
+        )
+    except ReportError as exc:
+        _raise(exc)
+    response.headers["Cache-Control"] = "private, no-store"
+    response.headers["ETag"] = f'"{result.report.version}"'
+    if result.replayed:
+        response.headers["Idempotency-Replayed"] = "true"
+    return ReportResponse.model_validate(result.model_dump())
+
+
+@router.post(
+    "/{report_id}/generate", response_model=ReportResponse, status_code=202, responses=_ERRORS
+)
+async def generate_report(
+    report_id: UUID,
+    body: GenerateNarrativeCommand,
+    actor: ActorDependency,
+    service: GenerationServiceDependency,
+    key: IdempotencyHeader,
+    request: Request,
+    response: Response,
+    if_match: Annotated[str | None, Header(alias="If-Match")] = None,
+) -> ReportResponse:
+    if if_match is None:
+        _raise(ReportError("PRECONDITION_REQUIRED", 428))
+    match = re.fullmatch(r'"([1-9][0-9]{0,9})"', if_match)
+    if match is None:
+        _raise(ReportError("INVALID_REQUEST", 400))
+    request.state.mutation_rejection_audit = None
+    try:
+        result = await service.request(
+            actor=actor,
+            report_id=report_id,
+            command=body,
+            expected_version=int(match.group(1)),
+            idempotency_key=key,
         )
     except ReportError as exc:
         _raise(exc)

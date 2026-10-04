@@ -284,6 +284,47 @@ class _Phase2MockModelGateway:
         key = request.invocation_key
         payload = self._payload(request)
         locale = "vi" if ".vi." in key else "en"
+        if key.startswith("reporting."):
+            data = cast(dict[str, Any], payload["UNTRUSTED_CONTEXT"])
+            if key.endswith(".draft"):
+                snapshot = data["snapshot"]
+                metric = snapshot["metrics"]["tasks.status.done_count"]
+                return {
+                    "snapshot_id": snapshot["id"],
+                    "snapshot_hash": snapshot["snapshot_hash"],
+                    "locale": locale,
+                    "blocks": [
+                        {
+                            "id": "done",
+                            "kind": "FACT",
+                            "section": "progress",
+                            "template": "METRIC",
+                            "bindings": [
+                                {
+                                    "metric_key": "tasks.status.done_count",
+                                    "unit": metric["unit"],
+                                    "period": metric["time_basis"],
+                                    "value": metric["value"],
+                                }
+                            ],
+                        }
+                    ],
+                }
+            return {
+                "passed": True,
+                "safe_codes": [],
+                "claim_verdicts": [
+                    {
+                        "block_id": block["id"],
+                        "grounded": True,
+                        "quantities_bound": True,
+                        "no_unsupported_cause_or_forecast": True,
+                        "safe_codes": [],
+                    }
+                    for block in data["narrative"]["blocks"]
+                    if block["kind"] != "FACT"
+                ],
+            }
         if key.startswith("orchestrator.schedule."):
             message = request.messages[-1].content
             project = re.search(r"[0-9a-fA-F]{8}-[0-9a-fA-F-]{27,36}", message)

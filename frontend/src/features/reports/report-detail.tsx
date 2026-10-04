@@ -1,5 +1,6 @@
 import { useLocale, useTranslations } from "next-intl";
 import type { ReportResult } from "./contracts";
+import { NarrativeView } from "./narrative-view";
 import { PublicationHistory } from "./publication-history";
 import { SourceList } from "./source-list";
 import { MetricGrid } from "./metric-grid";
@@ -19,9 +20,9 @@ export function ReportDetail({ data, organizationId, actorMembershipId, onPublis
     <p className={styles.description}>{t("periodBounds", {start:data.snapshot.period.local_start,end:data.snapshot.period.local_end})}</p>
     <p className={styles.description}>{t("observedThrough", {at:format(data.snapshot.period.observed_through)})}</p>
     <p className={styles.description}>{t("utcBounds", {start:data.snapshot.period.start_utc,end:data.snapshot.period.end_utc})}</p>
-    <PublicationHistory key={`${data.report.id}:${data.report.version}`} data={data} onPublished={onPublished} onStale={onStale} />
+    <PublicationHistory key={`publication:${data.report.id}:${data.report.version}`} data={data} onPublished={onPublished} onStale={onStale} />
     <MetricGrid snapshot={data.snapshot} />
     <SourceList key={data.report.id} reportId={data.report.id} organizationId={organizationId} actorMembershipId={actorMembershipId} />
-    <p className={styles.notice}>{t(data.generation_state === "AI_UNAVAILABLE" ? "aiUnavailable" : "manualOnly")}</p>
+    <NarrativeView key={`narrative:${data.report.id}:${data.report.version}`} data={data} onUpdated={onPublished} onStale={onStale} />
   </article>;
 }

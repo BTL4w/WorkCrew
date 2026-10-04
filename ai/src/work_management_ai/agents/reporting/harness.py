@@ -22,6 +22,7 @@ from work_management_ai.agents.reporting.evaluators.grounding import verify_grou
 from work_management_ai.agents.reporting.evaluators.numeric import verify_numeric
 from work_management_ai.agents.reporting.prompts.grounding_v1 import GROUNDING_V1
 from work_management_ai.agents.reporting.prompts.system_v1 import SYSTEM_V1
+from work_management_ai.agents.reporting.usage import ReportingUsagePort, reporting_attempt_scope
 from work_management_ai.agents.reporting.workflows.graph import ReportingGraph, ReportingState
 from work_management_ai.model_gateway.contracts import (
     ModelGateway,
@@ -57,7 +58,9 @@ class ReportingHarness:
         model_gateway: ModelGateway,
         tool_executor: ToolExecutorPort,
         actor_resolver: ActorContextResolverPort,
+        usage: ReportingUsagePort | None = None,
     ):
+        self.usage = usage
         self.gateway, self.tools, self.actors = model_gateway, tool_executor, actor_resolver
         self.manifest = load_yaml_resource(
             "work_management_ai.agents.reporting", "agent.yaml", AgentManifest
@@ -67,7 +70,18 @@ class ReportingHarness:
         state = ReportingState()
         runner = _ReportingRun(self, handoff)
         try:
-            async with asyncio.timeout(min(180, handoff.budget.timeout_seconds)):
+            if self.usage is not None:
+                usage = await self.usage.load()
+                state.attempts, state.tools = usage.attempts, usage.tools
+                state.input_reserved, state.output_reserved = (
+                    usage.input_reserved,
+                    usage.output_reserved,
+                )
+                state.retry_used = usage.retries > 0
+                runner.deadline = monotonic() + min(
+                    180, handoff.budget.timeout_seconds, await self.usage.remaining_seconds()
+                )
+            async with asyncio.timeout(max(0, runner.deadline - monotonic())):
                 await ReportingGraph().run(runner, state, handoff.budget.max_iterations)
             if state.narrative is None or state.proposal_id is None:
                 raise ValueError("REPORTING_PROPOSAL_REQUIRED")
@@ -140,6 +154,8 @@ class _ReportingRun:
         remaining = self.deadline - monotonic()
         if remaining <= 0:
             raise ValueError("REPORTING_DEADLINE")
+        if self.harness.usage is not None:
+            await self.harness.usage.reserve_tool(f"{self.handoff.step_id}:{state.tools + 1}")
         state.tools += 1
         async with asyncio.timeout(min(15, remaining)):
             result = await self.harness.tools.execute(
@@ -175,7 +191,9 @@ class _ReportingRun:
             + len(json.dumps(schema.model_json_schema()).encode())
             + 1024
         )
-        outputs = min(2600, self.handoff.budget.max_output_tokens // 3)
+        outputs = min(
+            3000 if schema is ReportingNarrative else 1000, self.handoff.budget.max_output_tokens
+        )
         if outputs < 128:
             raise ValueError("REPORTING_OUTPUT_BUDGET")
         while True:
@@ -187,23 +205,26 @@ class _ReportingRun:
                 or state.output_reserved + outputs > self.handoff.budget.max_output_tokens
             ):
                 raise ValueError("REPORTING_MODEL_BUDGET")
+            if self.harness.usage is not None:
+                await self.harness.usage.reserve(input_tokens=inputs, output_tokens=outputs)
             state.attempts += 1
             state.input_reserved += inputs
             state.output_reserved += outputs
             try:
-                async with asyncio.timeout(min(60, remaining)):
-                    response = await self.harness.gateway.generate_structured(
-                        StructuredModelRequest(
-                            invocation_key=key,
-                            messages=(
-                                ModelMessage(role="system", content=system),
-                                ModelMessage(role="user", content=content),
-                            ),
-                            output_schema=schema,
-                            timeout_seconds=min(60, remaining),
-                            max_output_tokens=outputs,
+                with reporting_attempt_scope(state.attempts):
+                    async with asyncio.timeout(min(60, remaining)):
+                        response = await self.harness.gateway.generate_structured(
+                            StructuredModelRequest(
+                                invocation_key=key,
+                                messages=(
+                                    ModelMessage(role="system", content=system),
+                                    ModelMessage(role="user", content=content),
+                                ),
+                                output_schema=schema,
+                                timeout_seconds=min(60, remaining),
+                                max_output_tokens=outputs,
+                            )
                         )
-                    )
                 if response.usage and (
                     response.usage.input_tokens > inputs or response.usage.output_tokens > outputs
                 ):
@@ -213,6 +234,8 @@ class _ReportingRun:
             except (ModelTimeoutError, ModelRateLimitError, TimeoutError):
                 if state.retry_used:
                     raise
+                if self.harness.usage is not None:
+                    await self.harness.usage.consume_retry()
                 state.retry_used = True
 
     async def execute_node(self, node: str, state: ReportingState) -> None:
