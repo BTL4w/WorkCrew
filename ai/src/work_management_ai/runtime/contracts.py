@@ -43,8 +43,8 @@ class RiskLevel(StrEnum):
 
 class AgentBudget(_StrictFrozenModel):
     max_model_attempts: int = Field(default=3, ge=0, le=3)
-    max_input_tokens: int = Field(default=24000, ge=0, le=24000)
-    max_output_tokens: int = Field(default=4000, ge=0, le=4000)
+    max_input_tokens: int = Field(default=24000, ge=0, le=48000)
+    max_output_tokens: int = Field(default=4000, ge=0, le=8000)
     max_iterations: int = Field(ge=1, le=16)
     max_tool_calls: int = Field(ge=0, le=32)
     max_handoffs: int = Field(default=0, ge=0, le=16)

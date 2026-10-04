@@ -1,0 +1,17 @@
+schema_version: "1.0"
+name: reporting.propose
+version: "1.0.0"
+owner: reporting-agent
+tenant_scope: actor_membership
+roles: [ADMIN, MANAGER]
+risk_level: PROPOSAL_ONLY
+input_contract: work_management_ai.agents.reporting.contracts.ReportingProposal
+output_contract: work_management_ai.tools.reporting.contracts.ProposalReceipt
+timeout_seconds: 15
+max_attempts: 1
+retry_policy: NONE
+idempotency: REQUIRED
+audit: REQUIRED
+evidence_output: true
+freshness_output: true
+trace_metadata: [tool_id, duration_ms, result_status, evidence_count]

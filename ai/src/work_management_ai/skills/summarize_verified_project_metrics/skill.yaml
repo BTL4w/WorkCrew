@@ -1,0 +1,16 @@
+schema_version: "1.0"
+name: summarize_verified_project_metrics
+version: "1.0.0"
+owner: reporting-agent
+description: Prepare grounded advisory report narrative from immutable verified project metrics
+runnable_by_agents: [reporting]
+triggers: [report_request, summary_job]
+input_contract: work_management_ai.skills.summarize_verified_project_metrics.contracts.SkillInput
+output_contract: work_management_ai.skills.summarize_verified_project_metrics.contracts.SkillOutput
+required_context: [verified_snapshot, authorized_sources, aggregate_receipts, report_locale]
+allowed_tools: [reporting.read@1]
+risk_level: READ_ONLY
+approval: NONE
+evaluation_cases: [grounded_vi@1, grounded_en@1, unsupported_forecast@1, revoked_actor@1]
+evaluators: [reporting_numeric@1, reporting_grounding@1]
+stop_conditions: [invalid_snapshot, access_changed, verifier_rejected, budget_exhausted]

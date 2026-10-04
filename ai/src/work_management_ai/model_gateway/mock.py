@@ -28,8 +28,12 @@ class MockModelGateway:
         fixtures: Mapping[str, object],
         model_ref: str = "mock:planning-v1",
         usage_fixtures: Mapping[str, ModelUsage] | None = None,
+        sequence_fixtures: Mapping[str, tuple[object, ...]] | None = None,
     ) -> None:
         self._fixtures = MappingProxyType(deepcopy(dict(fixtures)))
+        self._sequences = {
+            key: list(deepcopy(values)) for key, values in (sequence_fixtures or {}).items()
+        }
         self._model_ref = model_ref
         self._usage_fixtures = MappingProxyType(dict(usage_fixtures or {}))
 
@@ -40,10 +44,15 @@ class MockModelGateway:
         """Return a typed fixture or a normalized deterministic failure."""
 
         validate_request(request)
-        if request.invocation_key not in self._fixtures:
+        if request.invocation_key in self._sequences:
+            sequence = self._sequences[request.invocation_key]
+            if not sequence:
+                raise ModelUnavailableError("model fixture sequence exhausted")
+            fixture = sequence.pop(0)
+        elif request.invocation_key in self._fixtures:
+            fixture = self._fixtures[request.invocation_key]
+        else:
             raise ModelUnavailableError("model fixture unavailable")
-
-        fixture = self._fixtures[request.invocation_key]
         if isinstance(fixture, Exception):
             raise normalize_model_error(fixture) from fixture
 

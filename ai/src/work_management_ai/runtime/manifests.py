@@ -77,8 +77,8 @@ class AgentPermissionManifest(_ManifestModel):
 
 class AgentRuntimeManifest(_ManifestModel):
     max_model_attempts: int = Field(default=3, ge=0, le=3)
-    max_input_tokens: int = Field(default=24000, ge=0, le=24000)
-    max_output_tokens: int = Field(default=4000, ge=0, le=4000)
+    max_input_tokens: int = Field(default=24000, ge=0, le=48000)
+    max_output_tokens: int = Field(default=4000, ge=0, le=8000)
     workflow: str = Field(min_length=1, max_length=100)
     max_iterations: int = Field(ge=1, le=16)
     max_tool_calls: int = Field(ge=0, le=32)

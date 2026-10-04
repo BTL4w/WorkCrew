@@ -45,7 +45,15 @@ class SafeTraceRecord(BaseModel):
 
     orchestration_run_id: UUID
     agent_run_id: UUID | None = None
-    agent_id: Literal["orchestrator", "work_intelligence", "planning"]
+    agent_id: Literal[
+        "orchestrator",
+        "work_intelligence",
+        "planning",
+        "assignment",
+        "daily_update",
+        "risk",
+        "reporting",
+    ]
     agent_version: _VERSION
     workflow_version: _VERSION
     prompt_version: _VERSION

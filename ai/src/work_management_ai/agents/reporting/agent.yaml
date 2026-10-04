@@ -1,0 +1,37 @@
+schema_version: "1.0"
+agent:
+  id: reporting
+  name: Reporting Agent
+  version: "1.0.0"
+  owner: reporting-agent
+  activation_phase: 5
+capabilities: [reporting.draft]
+contracts:
+  input: work_management_ai.runtime.contracts.AgentHandoff
+  output: work_management_ai.runtime.contracts.AgentResult
+  handoff: work_management_ai.runtime.contracts.AgentHandoff
+permissions:
+  roles: [ADMIN, MANAGER]
+  tenant_scope: actor_membership
+  risk_ceiling: PROPOSAL_ONLY
+runtime:
+  workflow: reporting-narrative.v1
+  max_iterations: 8
+  max_tool_calls: 6
+  max_handoffs: 0
+  max_replans: 0
+  max_model_attempts: 3
+  max_input_tokens: 48000
+  max_output_tokens: 8000
+  timeout_seconds: 180
+  checkpoint: durable
+  model_policy: structured_grounded_narrative
+allowed_skills: [summarize_verified_project_metrics@1, draft_management_report@1]
+allowed_tools: [reporting.read@1, reporting.propose@1]
+approval:
+  produced_writes: ALWAYS
+  can_self_approve: false
+fallback:
+  strategy: METRICS_ONLY
+evaluators: [reporting_numeric@1, reporting_grounding@1]
+stop_conditions: [invalid_handoff, budget_exhausted, access_changed, verifier_rejected, peer_handoff_requested, awaiting_manager_review]
