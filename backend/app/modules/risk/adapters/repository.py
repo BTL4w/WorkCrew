@@ -49,6 +49,7 @@ from app.modules.risk.domain.assessments import (
     weekly_risk,
 )
 from app.modules.risk.domain.notifications import RiskNotification, notification_state
+from app.modules.risk.domain.read_context import ReadObservation, RiskReadContext
 from app.modules.work.adapters.database_models import TaskModel
 from app.modules.work.domain.tasks import TaskStatus
 from app.modules.work.planning.adapters.database_models import ProjectWeekModel, TaskDependencyModel
@@ -76,6 +77,160 @@ class RiskRepository(SqlAlchemyBlockerRepository):
         )
         if not manager:
             raise BlockerError("FORBIDDEN", 403)
+
+    async def read_context(self, task_id: UUID) -> RiskReadContext:
+        # Re-read DB membership; stale AuthenticatedActor.role never grants scope.
+        await super().authenticate()
+        task = await self.permitted_task(task_id)
+        role = await self.session.scalar(
+            text("SELECT role FROM memberships WHERE organization_id=:org AND id=:member"),
+            {"org": self.org, "member": self.actor.membership_id},
+        )
+        manager = role in {"ADMIN", "MANAGER"}
+        result = None
+        if manager:
+            result = await self.current(task_id)
+            inputs = await self.inputs(task_id)
+            facts = inputs.facts
+        else:
+            facts_list = [
+                RiskFact(
+                    id=f"task:{task.id}:v{task.version}",
+                    kind="TASK",
+                    values={
+                        "title": task.title,
+                        "status": str(task.status),
+                        "due_date": task.due_date.isoformat() if task.due_date else None,
+                    },
+                )
+            ]
+            observation = await self.effective_observation(task_id)
+            if observation and observation.owner_membership_id == self.actor.membership_id:
+                facts_list.append(
+                    RiskFact(
+                        id=f"progress:{observation.id}",
+                        kind="PROGRESS",
+                        values={
+                            "reported_percent": str(observation.reported_percent),
+                            "remaining_hours": str(observation.remaining_hours)
+                            if observation.remaining_hours is not None
+                            else None,
+                            "reported_at": observation.reporting_at.isoformat(),
+                        },
+                    )
+                )
+            blockers = (
+                await self.session.scalars(
+                    select(BlockerModel)
+                    .where(
+                        BlockerModel.organization_id == self.org,
+                        BlockerModel.task_id == task_id,
+                        BlockerModel.archived.is_(False),
+                        BlockerModel.status != "RESOLVED",
+                    )
+                    .order_by(BlockerModel.id)
+                    .limit(21)
+                )
+            ).all()
+            if len(blockers) > 20:
+                raise BlockerError("RISK_CONTEXT_LIMIT", 422)
+            for blocker in blockers:
+                facts_list.append(
+                    RiskFact(
+                        id=f"blocker:{blocker.id}:v{blocker.version}",
+                        kind="BLOCKER",
+                        values={
+                            "text": blocker.payload["text"],
+                            "severity": blocker.severity,
+                            "status": blocker.status,
+                        },
+                    )
+                )
+            warnings = (
+                await self.session.scalars(
+                    select(WarningAcknowledgmentModel)
+                    .join(
+                        TaskProgressObservationModel,
+                        (
+                            TaskProgressObservationModel.organization_id
+                            == WarningAcknowledgmentModel.organization_id
+                        )
+                        & (
+                            TaskProgressObservationModel.update_id
+                            == WarningAcknowledgmentModel.update_id
+                        ),
+                    )
+                    .where(
+                        WarningAcknowledgmentModel.organization_id == self.org,
+                        WarningAcknowledgmentModel.owner_membership_id == self.actor.membership_id,
+                        TaskProgressObservationModel.task_id == task_id,
+                    )
+                    .distinct()
+                    .order_by(WarningAcknowledgmentModel.acknowledged_at.desc())
+                    .limit(10)
+                )
+            ).all()
+            for warning in warnings:
+                facts_list.append(
+                    RiskFact(
+                        id=f"warning:{warning.id}",
+                        kind="WARNING",
+                        values={
+                            "scope": "CONFIRMED_REPORT",
+                            "update_id": str(warning.update_id),
+                            "acknowledged_at": warning.acknowledged_at.isoformat(),
+                            "warnings": warning.payload.get("assessment", {}).get("warnings", []),
+                        },
+                    )
+                )
+            facts = tuple(facts_list)
+        judgment = result.judgment if result and result.state == "READY" else None
+        sources = {f.id for f in facts}
+        observations = (
+            tuple(
+                ReadObservation(id=f"observation:{i}", text=o.text, source_ids=o.source_ids)
+                for i, o in enumerate(judgment.observations)
+                if set(o.source_ids).issubset(sources)
+            )
+            if judgment
+            else ()
+        )
+        if not observations:
+            observations = tuple(
+                ReadObservation(
+                    id=f"fact:{fact.id}",
+                    text=json.dumps(fact.values, ensure_ascii=False, sort_keys=True),
+                    source_ids=(fact.id,),
+                )
+                for fact in facts[:10]
+            )
+        state = result.state if result else "UNAVAILABLE"
+        value = RiskReadContext(
+            task_id=task.id,
+            task_version=task.version,
+            risk_assessment_id=result.id if result else None,
+            fingerprint="",
+            state=state,
+            score=str(judgment.score) if judgment and judgment.score is not None else None,
+            band=result.band if judgment and result else None,
+            scope="MANAGER" if manager else "OWN_WORK",
+            permitted_sources=facts,
+            observations=observations,
+            rationale=judgment.rationale if judgment else "",
+            limitations=judgment.limitations
+            if judgment
+            else (
+                (result.limitation or "RISK_UNAVAILABLE",)
+                if result
+                else ("RISK_UNAVAILABLE" if manager else "MANAGER_ASSESSMENT_RESTRICTED",)
+            ),
+            recommendations=judgment.recommendations if judgment else (),
+            affected_week_ids=(task.project_week_id,) if task.project_week_id else (),
+        )
+        fingerprint = hashlib.sha256(
+            json.dumps(value.model_dump(mode="json"), sort_keys=True).encode()
+        ).hexdigest()
+        return value.model_copy(update={"fingerprint": fingerprint})
 
     async def audit(
         self,

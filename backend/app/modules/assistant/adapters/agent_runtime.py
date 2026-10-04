@@ -6,7 +6,7 @@ from collections.abc import Callable, Generator, Mapping
 from contextlib import contextmanager
 from contextvars import ContextVar
 from time import monotonic
-from typing import Literal, Protocol, cast
+from typing import Any, Literal, Protocol, cast
 from uuid import NAMESPACE_URL, UUID, uuid5
 
 from pydantic import BaseModel
@@ -42,6 +42,7 @@ from work_management_ai.agents.orchestrator.contracts import (
 )
 from work_management_ai.agents.orchestrator.harness import OrchestratorHarness
 from work_management_ai.agents.planning.harness import PlanningAgentHarness
+from work_management_ai.agents.risk.harness import RiskHarness
 from work_management_ai.agents.work_intelligence.harness import WorkIntelligenceHarness
 from work_management_ai.model_gateway.contracts import (
     ModelGateway,
@@ -89,6 +90,8 @@ from work_management_ai.runtime.skill_registry import SkillRegistry
 from work_management_ai.runtime.tool_registry import ToolRegistry
 
 _SKILL_RESOURCES = (
+    ("work_management_ai.skills.explain_verified_risk", "skill.yaml"),
+    ("work_management_ai.skills.review_evidence_concerns", "skill.yaml"),
     ("work_management_ai.skills.extract_daily_update", "skill.yaml"),
     ("work_management_ai.skills.compare_daily_update_evidence", "skill.yaml"),
     ("work_management_ai.skills.answer_work_question", "skill.yaml"),
@@ -98,6 +101,7 @@ _SKILL_RESOURCES = (
     ("work_management_ai.skills.analyze_workload", "skill.yaml"),
 )
 _TOOL_RESOURCES = (
+    ("work_management_ai.tools.risk", "tool.yaml"),
     ("work_management_ai.tools.daily_update", "tool.yaml"),
     ("work_management_ai.tools.work.read_my_tasks", "tool.yaml"),
     ("work_management_ai.tools.work.read_resource", "tool.yaml"),
@@ -107,6 +111,7 @@ _TOOL_RESOURCES = (
     ("work_management_ai.tools.assignment.assign_task", "tool.yaml"),
 )
 _AGENT_RESOURCES = (
+    ("work_management_ai.agents.risk", "agent.yaml"),
     ("work_management_ai.agents.daily_update", "agent.yaml"),
     ("work_management_ai.agents.orchestrator", "agent.yaml"),
     ("work_management_ai.agents.work_intelligence", "agent.yaml"),
@@ -116,6 +121,7 @@ _AGENT_RESOURCES = (
 _EVALUATORS = frozenset(
     {
         "orchestrator_plan@1",
+        "risk_grounding@1",
         "daily_update_grounding@1",
         "work_grounding@1",
         "planning_schema@1",
@@ -320,11 +326,13 @@ class _ScopedAgentHarness:
     async def run(self, handoff: AgentHandoff) -> AgentResult:
         run_id = uuid5(NAMESPACE_URL, f"agent-run:{handoff.idempotency_key}")
         with agent_model_scope(handoff.actor.organization_id, run_id):
-            if handoff.target_agent_id is AgentId.DAILY_UPDATE:
+            if handoff.target_agent_id in {AgentId.DAILY_UPDATE, AgentId.RISK}:
                 scope = BudgetScope(
                     organization_id=handoff.actor.organization_id,
                     membership_id=handoff.actor.membership_id,
                     run_id=run_id,
+                    max_model_attempts=handoff.budget.max_model_attempts,
+                    timeout_seconds=handoff.budget.timeout_seconds,
                 )
                 with daily_model_scope(scope):
                     result = await self._harness.run(handoff)
@@ -425,6 +433,7 @@ def build_execution_engine_factory(
     planning_tool_executor: ToolExecutorPort | None = None,
     assignment_tool_executor: ToolExecutorPort | None = None,
     daily_update_tool_executor: ToolExecutorPort | None = None,
+    risk_tool_executor: ToolExecutorPort | None = None,
     daily_usage_store: UsageStore | None = None,
     daily_image_token_bound: int | None = None,
 ) -> Callable[[ExecutionRecorderPort], AgentExecutionEngine]:
@@ -434,11 +443,18 @@ def build_execution_engine_factory(
         gateway=model_gateway,
         transaction_factory=transaction_factory,
     )
+
+    class ScopedReadTools:
+        async def execute(self, request: ToolExecutionRequest) -> ToolExecutionResult:
+            if request.tool_id == "risk.read" and risk_tool_executor is not None:
+                return await risk_tool_executor.execute(request)
+            return await work_tool_executor.execute(request)
+
     harnesses: Mapping[AgentId, AgentHarness] = {
         AgentId.WORK_INTELLIGENCE: _ScopedAgentHarness(
             WorkIntelligenceHarness(
                 model_gateway=recording_gateway,
-                tool_executor=work_tool_executor,
+                tool_executor=ScopedReadTools(),
             )
         ),
         AgentId.PLANNING: _ScopedAgentHarness(
@@ -456,6 +472,21 @@ def build_execution_engine_factory(
             )
         ),
     }
+
+    if risk_tool_executor is not None:
+        harnesses = {
+            **harnesses,
+            AgentId.RISK: _ScopedAgentHarness(
+                RiskHarness(
+                    model_gateway=BudgetedDailyGateway(recording_gateway, daily_usage_store)
+                    if daily_usage_store is not None
+                    else recording_gateway,
+                    tool_executor=risk_tool_executor,
+                    actor_resolver=agent_actor_resolver,
+                ),
+                usage_store=daily_usage_store,
+            ),
+        }
 
     if daily_update_tool_executor is not None and daily_usage_store is not None:
         harnesses = {
@@ -513,10 +544,14 @@ class PostgreSQLExecutionRecorder(ExecutionRecorderPort):
         transaction_factory: AssistantTransactionFactory,
         registry: AgentRegistry,
         job: AssistantJob,
+        block_projector: Any = None,
+        actor: AuthenticatedActor | None = None,
     ) -> None:
         self._transactions = transaction_factory
         self._registry = registry
         self._job = job
+        self._block_projector = block_projector
+        self._actor = actor
 
     async def ensure_orchestrator_run(self) -> UUID:
         run_id = uuid5(NAMESPACE_URL, f"orchestrator:{self._job.turn_id}")
@@ -735,10 +770,13 @@ class PostgreSQLExecutionRecorder(ExecutionRecorderPort):
     ) -> None:
         if conversation_id != self._job.conversation_id or turn_id != self._job.turn_id:
             raise RuntimeError("ASSISTANT_PUBLIC_BLOCK_SCOPE_MISMATCH")
+        projected = tuple(block.model_dump(mode="json") for block in blocks)
+        if self._block_projector is not None and self._actor is not None:
+            projected = tuple(await self._block_projector.project(self._actor, projected))
         async with self._transactions(self._job.organization_id) as transaction:
             await transaction.repository.append_assistant_blocks(
                 job=self._job,
-                blocks=tuple(block.model_dump(mode="json") for block in blocks),
+                blocks=projected,
                 dedupe_key=dedupe_key,
             )
             await transaction.commit()
@@ -755,7 +793,9 @@ class AssistantTurnExecutor:
         engine_factory: Callable[[ExecutionRecorderPort], AgentExecutionEngine],
         assignment_context_resolver: AssignmentContextResolverPort | None = None,
         daily_update_context_resolver: DailyUpdateContextResolver | None = None,
+        block_projector: Any = None,
     ) -> None:
+        self._block_projector = block_projector
         self._transactions = transaction_factory
         self._registry = registry
         self._engine_factory = engine_factory
@@ -888,6 +928,8 @@ class AssistantTurnExecutor:
             transaction_factory=self._transactions,
             registry=self._registry,
             job=job,
+            block_projector=self._block_projector,
+            actor=actor,
         )
         root_run_id = await recorder.ensure_orchestrator_run()
         await recorder.append_public_blocks(

@@ -1,0 +1,17 @@
+schema_version: "1.0"
+name: risk.read
+version: "1.0.0"
+owner: risk-agent
+tenant_scope: actor_membership
+roles: [ADMIN, MANAGER, EMPLOYEE]
+risk_level: READ_ONLY
+input_contract: work_management_ai.tools.risk.contracts.RiskToolInput
+output_contract: work_management_ai.tools.risk.contracts.RiskToolOutput
+timeout_seconds: 15
+max_attempts: 1
+retry_policy: NONE
+idempotency: NOT_APPLICABLE
+audit: REQUIRED
+evidence_output: true
+freshness_output: true
+trace_metadata: [tool_id, duration_ms, result_status, evidence_count]

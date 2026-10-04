@@ -265,6 +265,7 @@ def _phase3_registry() -> AgentRegistry:
         "work_management_ai.skills.analyze_workload",
     )
     tool_packages = (
+        "work_management_ai.tools.risk",
         "work_management_ai.tools.work.read_my_tasks",
         "work_management_ai.tools.work.read_resource",
         "work_management_ai.tools.planning.manage_run",

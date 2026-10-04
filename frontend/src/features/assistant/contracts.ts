@@ -85,6 +85,24 @@ export const dailyUpdateBlockSchema = strict({
  task_id:uuid,task_version:z.number().int().positive(),assessment_id:uuid.nullable().default(null),
  needs_owner_confirmation:z.literal(true),
 });
+export const riskBlockSchema = strict({
+  kind: z.literal("risk"), task_id: uuid, fingerprint: z.string(),
+  content: strict({
+    task_id: uuid, task_version: z.number().int().positive(),
+    risk_assessment_id: uuid.nullable(), version: z.number().int().positive(), fingerprint: z.string(),
+    state: z.enum(["READY", "PENDING", "STALE", "UNAVAILABLE"]),
+    score: z.string().nullable(), band: z.enum(["LOW", "MEDIUM", "HIGH"]).nullable(),
+    scope: z.enum(["MANAGER", "OWN_WORK"]), rationale: z.string(),
+    permitted_sources: z.array(strict({id:z.string(),kind:z.string(),values:z.record(z.string(),z.unknown())})),
+    observations:z.array(strict({id:z.string(),text:z.string(),source_ids:z.array(z.string())})),
+    explanation: strict({
+      observation_explanations:z.array(strict({text:z.string(),observation_ids:z.array(z.string()),source_ids:z.array(z.string()),assertions:z.array(strict({source_id:z.string(),field:z.string(),value:z.union([z.string(),z.number(),z.boolean(),z.null()])}))})),
+      limitations:z.array(z.string()), recommendations:z.array(z.string()), replan_requested:z.boolean(),
+    }),
+    limitations:z.array(z.string()), recommendations:z.array(z.string()),
+    affected_week_ids:z.array(uuid), fallback:z.boolean(),
+  }),
+});
 export const safeErrorBlockSchema = strict({
   kind: z.literal("safe_error"),
   code: z.string(),
@@ -105,6 +123,7 @@ export const assistantBlockSchema = z.discriminatedUnion("kind", [
   teamDecisionResultBlockSchema,
   assignmentResultBlockSchema,
   dailyUpdateBlockSchema,
+  riskBlockSchema,
   safeErrorBlockSchema,
 ]);
 

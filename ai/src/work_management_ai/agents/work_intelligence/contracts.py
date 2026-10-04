@@ -15,6 +15,9 @@ class _StrictFrozenModel(BaseModel):
 
 
 class WorkQuestionKind(StrEnum):
+    PROGRESS = "PROGRESS"
+    EVIDENCE = "EVIDENCE"
+    RISK = "RISK"
     MY_TASKS = "MY_TASKS"
     NEXT_TASK = "NEXT_TASK"
     TASK_DETAIL = "TASK_DETAIL"
@@ -32,7 +35,7 @@ class WorkIntelligenceInput(_StrictFrozenModel):
 
 class EvidenceItem(_StrictFrozenModel):
     evidence_id: str = Field(min_length=1, max_length=200)
-    resource_type: Literal["PROJECT", "TASK", "DEPENDENCY", "ACCEPTANCE_CRITERION"]
+    resource_type: Literal["PROJECT", "TASK", "DEPENDENCY", "ACCEPTANCE_CRITERION", "RISK_CONTEXT"]
     resource_id: UUID
     resource_version: int | None = Field(default=None, ge=1)
     fields: dict[str, JsonValue]
@@ -68,7 +71,7 @@ class WorkIntelligenceOutput(_StrictFrozenModel):
 class WorkStepPlan(_StrictFrozenModel):
     question_kind: WorkQuestionKind
     skill_reference: Literal["answer_work_question@1"]
-    tool_id: Literal["work.read_my_tasks", "work.read_resource"] | None
+    tool_id: Literal["work.read_my_tasks", "work.read_resource", "risk.read"] | None
     tool_input: dict[str, JsonValue]
     requested_handoff: RequestedHandoff | None
 

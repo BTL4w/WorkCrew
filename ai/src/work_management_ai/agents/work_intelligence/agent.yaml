@@ -28,7 +28,7 @@ runtime:
   checkpoint: durable
   model_policy: structured_grounded_answer
 allowed_skills: [answer_work_question@1]
-allowed_tools: [work.read_my_tasks@1, work.read_resource@1]
+allowed_tools: [work.read_my_tasks@1, work.read_resource@1, risk.read@1]
 approval:
   produced_writes: NEVER
   can_self_approve: false

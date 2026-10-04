@@ -9,6 +9,7 @@ from uuid import UUID
 from pydantic import BaseModel, ConfigDict, Field, TypeAdapter
 
 from app.modules.assistant.domain.models import AssistantConversation, AssistantMessage
+from work_management_ai.agents.risk.contracts import RiskCardContent
 
 # ---------------------------------------------------------------------------
 # Request schemas
@@ -160,6 +161,14 @@ class DailyUpdateBlock(BaseModel):
     needs_owner_confirmation: Literal[True] = True
 
 
+class RiskBlock(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    kind: Literal["risk"] = "risk"
+    task_id: UUID
+    fingerprint: str
+    content: RiskCardContent
+
+
 class SafeErrorBlock(BaseModel):
     model_config = ConfigDict(extra="forbid")
     kind: Literal["safe_error"] = "safe_error"
@@ -181,6 +190,7 @@ ContentBlock = Annotated[
     | TeamDecisionResultBlock
     | AssignmentResultBlock
     | DailyUpdateBlock
+    | RiskBlock
     | SafeErrorBlock,
     Field(discriminator="kind"),
 ]

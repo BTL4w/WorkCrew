@@ -9,6 +9,7 @@ from __future__ import annotations
 import asyncio
 import json
 from collections.abc import AsyncGenerator
+from dataclasses import replace
 from typing import Any, cast
 from uuid import UUID
 
@@ -71,7 +72,9 @@ class AssistantEventService:
         *,
         transaction_factory: Any,
         heartbeat_seconds: float = 15.0,
+        block_projector: Any = None,
     ) -> None:
+        self.block_projector = block_projector
         self._transactions = transaction_factory
         self._heartbeat_seconds = heartbeat_seconds
 
@@ -105,6 +108,13 @@ class AssistantEventService:
                 after_sequence=after_sequence,
             )
             await txn.commit()
+        if self.block_projector is not None:
+            events = [
+                replace(
+                    e, public_payload=await self.block_projector.project(actor, e.public_payload)
+                )
+                for e in events
+            ]
         is_archived = snapshot.conversation.status is ConversationStatus.ARCHIVED
         return is_archived, sorted(events, key=lambda event: event.sequence)
 

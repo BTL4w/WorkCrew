@@ -360,6 +360,39 @@ class _Phase2MockModelGateway:
             )
 
         planning_available = any(is_planning_entry(item) for item in catalog)
+        if any(
+            signal in message
+            for signal in ("risk", "rủi ro", "blocker", "bằng chứng", "progress", "tiến độ")
+        ):
+            import re
+
+            references = re.findall(
+                r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}", message
+            )
+            quoted = re.findall(r'["“]([^"”]+)["”]', message)
+            reference = references[0] if references else quoted[0] if quoted else ""
+            if reference:
+                return {
+                    "objectives": [message],
+                    "steps": [
+                        {
+                            "step_id": "risk",
+                            "target_agent_id": "risk",
+                            "target_agent_version": "1.0.0",
+                            "capability": "risk.explain",
+                            "objective": message,
+                            "typed_input": {
+                                "task_reference": reference,
+                                "locale": locale,
+                                "question": message,
+                            },
+                            "depends_on": [],
+                            "mode": "READ_ONLY",
+                        }
+                    ],
+                    "unavailable_capabilities": [],
+                    "response_language": locale,
+                }
 
         def is_assignment_entry(item: object) -> bool:
             if not isinstance(item, dict):

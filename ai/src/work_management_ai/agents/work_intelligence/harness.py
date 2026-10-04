@@ -1,11 +1,13 @@
 """Guarded read-only Work Intelligence Agent Harness."""
 
+from datetime import UTC, datetime
 from typing import cast
 from uuid import NAMESPACE_URL, uuid5
 
 from pydantic import BaseModel, ValidationError
 
 from work_management_ai.agents.work_intelligence.contracts import (
+    EvidenceItem,
     GroundedAnswerDraft,
     ReadToolEnvelope,
     WorkIntelligenceInput,
@@ -48,6 +50,7 @@ from work_management_ai.runtime.manifests import (
 
 _AGENT_PACKAGE = "work_management_ai.agents.work_intelligence"
 _TOOL_PACKAGES = {
+    "risk.read": "work_management_ai.tools.risk",
     "work.read_my_tasks": "work_management_ai.tools.work.read_my_tasks",
     "work.read_resource": "work_management_ai.tools.work.read_resource",
 }
@@ -200,7 +203,34 @@ class WorkIntelligenceHarness:
         if result.status != "SUCCEEDED":
             return self._failure("WORK_TOOL_FAILED")
         try:
-            envelope = ReadToolEnvelope.model_validate(result.typed_output)
+            if plan.tool_id == "risk.read":
+                from work_management_ai.agents.risk.contracts import RiskExplanationInput
+
+                context = RiskExplanationInput.model_validate(result.typed_output)
+                envelope = ReadToolEnvelope(
+                    resolution="UNIQUE",
+                    evidence=(
+                        EvidenceItem(
+                            evidence_id=f"RISK_CONTEXT:{context.task_id}:{context.fingerprint}",
+                            resource_type="RISK_CONTEXT",
+                            resource_id=context.task_id,
+                            resource_version=context.task_version,
+                            observed_at=datetime.now(UTC),
+                            fields={
+                                "score": context.score,
+                                "state": context.state,
+                                "scope": context.scope,
+                                "rationale": context.rationale,
+                                "limitations": list(context.limitations),
+                                "facts": [
+                                    f.model_dump(mode="json") for f in context.permitted_sources
+                                ],
+                            },
+                        ),
+                    ),
+                )
+            else:
+                envelope = ReadToolEnvelope.model_validate(result.typed_output)
         except ValidationError:
             return self._failure("WORK_TOOL_OUTPUT_INVALID")
         evidence = envelope.evidence
@@ -274,6 +304,29 @@ class WorkIntelligenceHarness:
             verify_grounded_answer(output)
         except GroundingError:
             return self._failure("WORK_GROUNDING_FAILED")
+        if plan.tool_id == "risk.read":
+            if state["tool_calls_used"] >= state["handoff"].budget.max_tool_calls:
+                return self._failure("WORK_TOOL_BUDGET_EXHAUSTED")
+            context = state["evidence"][0]
+            recheck = await self._tool_executor.execute(
+                ToolExecutionRequest(
+                    agent_run_id=uuid5(
+                        NAMESPACE_URL, f"agent-run:{state['handoff'].idempotency_key}"
+                    ),
+                    tool_id="risk.read",
+                    tool_version="1.0.0",
+                    call_id=f"{state['handoff'].step_id}:revalidate",
+                    actor=state["handoff"].actor,
+                    typed_input={
+                        "task_reference": str(context.resource_id),
+                        "expected_fingerprint": context.evidence_id.rsplit(":", 1)[1],
+                    },
+                    idempotency_key=f"{state['handoff'].idempotency_key}:revalidate",
+                )
+            )
+            state["tool_calls_used"] += 1
+            if recheck.status != "SUCCEEDED":
+                return self._failure("WORK_CONTEXT_CHANGED")
         return {"route": "execute", "stop_reason": "COMPLETED"}
 
     async def manual_read_fallback(self, state: WorkIntelligenceState) -> dict[str, object]:

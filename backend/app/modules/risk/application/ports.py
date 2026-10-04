@@ -15,6 +15,7 @@ from app.modules.risk.domain.assessments import (
     WeeklyRisk,
 )
 from app.modules.risk.domain.notifications import RiskNotification
+from app.modules.risk.domain.read_context import RiskReadContext
 
 
 @dataclass(frozen=True)
@@ -31,6 +32,7 @@ class RiskAssessmentPort(Protocol):
 
 
 class RiskRepositoryPort(Protocol):
+    async def read_context(self, task_id: UUID) -> RiskReadContext: ...
     async def authenticate(self) -> None: ...
     async def authorize(self, task_id: UUID) -> None: ...
     async def weekly(self, week_id: UUID) -> WeeklyRisk: ...

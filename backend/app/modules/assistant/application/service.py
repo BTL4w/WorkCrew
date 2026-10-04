@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+from dataclasses import replace
 from typing import Any, Literal, Protocol
 from uuid import UUID, uuid4
 
@@ -143,10 +144,12 @@ class AssistantService:
         transaction_factory: Any,
         planning_snapshot: PlanningSnapshotPort,
         team_recommendation_snapshot: TeamRecommendationSnapshotPort | None = None,
+        block_projector: Any = None,
         orchestrator_version: str,
         orchestrator_fingerprint: str,
     ) -> None:
         self._transactions = transaction_factory
+        self.block_projector = block_projector
         self._planning_snapshot = planning_snapshot
         self._team_recommendation_snapshot = team_recommendation_snapshot
         self._orchestrator_version = orchestrator_version
@@ -244,6 +247,19 @@ class AssistantService:
             await txn.commit()
         if snapshot is None:
             raise ResourceNotFoundError()
+        if self.block_projector is not None:
+            messages = tuple(
+                [
+                    replace(
+                        m,
+                        content_blocks=tuple(
+                            await self.block_projector.project(actor, m.content_blocks)
+                        ),
+                    )
+                    for m in snapshot.messages
+                ]
+            )
+            snapshot = replace(snapshot, messages=messages)
         return snapshot
 
     # ------------------------------------------------------------------

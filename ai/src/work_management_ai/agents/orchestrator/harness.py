@@ -46,8 +46,10 @@ from work_management_ai.runtime.contracts import (
     DailyUpdateResponseBlock,
     JsonValue,
     PlanningRunResponseBlock,
+    PublicEvidenceReference,
     QuestionResponseBlock,
     ResponseBlock,
+    RiskResponseBlock,
     SafeErrorResponseBlock,
     TeamRecommendationResponseBlock,
     TextResponseBlock,
@@ -505,6 +507,12 @@ class OrchestratorHarness:
         step: ExecutionStep, value: OrchestratorInput
     ) -> dict[str, JsonValue]:
         """Reconstruct mutation contracts from trusted turn/card context."""
+        if step.target_agent_id is AgentId.RISK:
+            return {
+                "task_reference": step.typed_input.get("task_reference", ""),
+                "locale": value.locale,
+                "question": value.message,
+            }
         if step.target_agent_id is AgentId.DAILY_UPDATE:
             daily = value.active_context.daily_update
             if daily is None:
@@ -611,6 +619,10 @@ class OrchestratorHarness:
             for result in results
         ):
             return {**updates, "route": "human_gate"}
+        # Task 11 records a typed replan request; Task 12 owns its execution.
+        # Risk results remain read-only and render without model synthesis.
+        if any(result.agent_id is AgentId.RISK for result in results):
+            return {**updates, "route": "next"}
         requested = tuple(
             result.requested_handoff for result in results if result.requested_handoff is not None
         )
@@ -636,6 +648,50 @@ class OrchestratorHarness:
         plan = state["plan"]
         if plan is None:
             return self._failure("EXECUTION_PLAN_MISSING")
+        # Preserve scoped Work answers in evidence blocks so replay can redact them.
+        for result in state["results"]:
+            raw_evidence = result.typed_output.get("evidence", [])
+            has_risk_context = isinstance(raw_evidence, list) and any(
+                isinstance(item, dict) and item.get("resource_type") == "RISK_CONTEXT"
+                for item in raw_evidence
+            )
+            if result.agent_id is AgentId.WORK_INTELLIGENCE and has_risk_context:
+                from work_management_ai.agents.work_intelligence.contracts import (
+                    WorkIntelligenceOutput,
+                )
+
+                answer = WorkIntelligenceOutput.model_validate(result.typed_output)
+                if any(e.resource_type == "RISK_CONTEXT" for e in answer.evidence):
+                    summary = "\n".join(c.text for c in answer.claims)
+                    if summary:
+                        return {
+                            "blocks": (
+                                WorkEvidenceResponseBlock(
+                                    summary=summary,
+                                    evidence=tuple(
+                                        PublicEvidenceReference(
+                                            evidence_id=e.evidence_id,
+                                            resource_type=e.resource_type,
+                                            resource_id=e.resource_id,
+                                            version=e.resource_version,
+                                        )
+                                        for e in answer.evidence
+                                    ),
+                                ),
+                            ),
+                            "route": "execute",
+                        }
+        risk_blocks = tuple(
+            RiskResponseBlock(
+                task_id=UUID(str(r.typed_output["task_id"])),
+                fingerprint=str(r.typed_output["fingerprint"]),
+                content=r.typed_output,
+            )
+            for r in state["results"]
+            if r.agent_id is AgentId.RISK and r.status is AgentRunStatus.COMPLETED
+        )
+        if risk_blocks:
+            return {"blocks": risk_blocks, "route": "execute"}
         daily_blocks = self._daily_update_blocks(state["results"])
         if daily_blocks:
             return {"blocks": daily_blocks, "route": "execute"}

@@ -320,6 +320,18 @@ async def _run_worker() -> None:
             actors=actor_resolver, updates=daily_updates, assessments=daily_assessments
         ),
     )
+    from app.modules.assistant.adapters.risk_tools import RiskBlockProjector, RiskToolAdapter
+    from app.modules.risk.application.read_service import RiskReadService
+
+    risk_tools = RecordingToolExecutor(
+        transaction_factory=assistant_transaction_factory,
+        tool_registry=tool_registry,
+        backend=RiskToolAdapter(
+            actors=actor_resolver,
+            tasks=task_service,
+            reads=RiskReadService(RiskTransactions(session_factory, settings.reporting_timezone)),
+        ),
+    )
     turn_executor = AssistantTurnExecutor(
         transaction_factory=assistant_transaction_factory,
         registry=registry,
@@ -332,8 +344,12 @@ async def _run_worker() -> None:
             planning_tool_executor=planning_tool_executor,
             assignment_tool_executor=assignment_tool_executor,
             daily_update_tool_executor=daily_tools,
+            risk_tool_executor=risk_tools,
             daily_usage_store=daily_usage,
             daily_image_token_bound=image_token_bound(settings),
+        ),
+        block_projector=RiskBlockProjector(
+            RiskReadService(RiskTransactions(session_factory, settings.reporting_timezone))
         ),
         daily_update_context_resolver=DailyUpdateContextResolver(
             tasks=task_service, updates=daily_updates

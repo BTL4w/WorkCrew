@@ -21,6 +21,7 @@ class AgentId(StrEnum):
     PLANNING = "planning"
     ASSIGNMENT = "assignment"
     DAILY_UPDATE = "daily_update"
+    RISK = "risk"
 
 
 class AgentRunStatus(StrEnum):
@@ -236,6 +237,13 @@ class DailyUpdateResponseBlock(_StrictFrozenModel):
     needs_owner_confirmation: Literal[True] = True
 
 
+class RiskResponseBlock(_StrictFrozenModel):
+    kind: Literal["risk"] = "risk"
+    task_id: UUID
+    fingerprint: str
+    content: dict[str, JsonValue]
+
+
 class SafeErrorResponseBlock(_StrictFrozenModel):
     kind: Literal["safe_error"] = "safe_error"
     code: str = Field(min_length=1, max_length=100)
@@ -260,6 +268,7 @@ type ResponseBlock = Annotated[
     | TeamDecisionResultResponseBlock
     | AssignmentResultResponseBlock
     | DailyUpdateResponseBlock
+    | RiskResponseBlock
     | SafeErrorResponseBlock,
     Field(discriminator="kind"),
 ]

@@ -104,6 +104,7 @@ _SKILLS = (
     ("work_management_ai.skills.revise_project_plan", "skill.yaml"),
 )
 _TOOLS = (
+    ("work_management_ai.tools.risk", "tool.yaml"),
     ("work_management_ai.tools.work.read_my_tasks", "tool.yaml"),
     ("work_management_ai.tools.work.read_resource", "tool.yaml"),
     ("work_management_ai.tools.planning.manage_run", "tool.yaml"),

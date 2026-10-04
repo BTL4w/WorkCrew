@@ -4,7 +4,7 @@ version: "1.0.0"
 owner: work-intelligence
 description: Answer bilingual questions about permitted Projects, assigned Tasks, dependencies and acceptance criteria.
 runnable_by_agents: [work_intelligence]
-allowed_tools: [work.read_my_tasks@1, work.read_resource@1]
+allowed_tools: [work.read_my_tasks@1, work.read_resource@1, risk.read@1]
 risk_level: READ_ONLY
 input_contract: work_management_ai.skills.answer_work_question.contracts.AnswerWorkQuestionInput
 output_contract: work_management_ai.skills.answer_work_question.contracts.AnswerWorkQuestionOutput

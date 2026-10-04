@@ -195,7 +195,7 @@ def test_manifest_is_read_only_and_allows_all_roles() -> None:
     assert manifest.permissions.roles == ("ADMIN", "MANAGER", "EMPLOYEE")
     assert manifest.permissions.risk_ceiling.value == "READ_ONLY"
     assert manifest.approval.produced_writes == "NEVER"
-    assert manifest.allowed_tools == ("work.read_my_tasks@1", "work.read_resource@1")
+    assert manifest.allowed_tools == ("work.read_my_tasks@1", "work.read_resource@1", "risk.read@1")
 
 
 @pytest.mark.asyncio

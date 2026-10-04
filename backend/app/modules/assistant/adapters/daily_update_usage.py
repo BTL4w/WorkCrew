@@ -31,7 +31,9 @@ class SqlAlchemyDailyUsageStore:
                 ),
                 {"org": scope.organization_id, "member": scope.membership_id, "id": scope.run_id},
             )
-            deadline = value or (scope.started_at + timedelta(seconds=180))
+            deadline = value or (
+                scope.started_at + timedelta(seconds=min(180, scope.timeout_seconds))
+            )
             return max(0.0, (deadline - datetime.now(UTC)).total_seconds())
 
     async def run_attempts(self, scope: BudgetScope) -> int:
@@ -75,7 +77,7 @@ class SqlAlchemyDailyUsageStore:
                 0,
                 input_tokens,
                 output_tokens,
-                3,
+                min(3, scope.max_model_attempts),
                 24000,
                 4000,
                 now,
@@ -123,7 +125,7 @@ class SqlAlchemyDailyUsageStore:
             "max_inputs": max_inputs,
             "max_outputs": max_outputs,
             "now": now,
-            "deadline": scope.started_at + timedelta(seconds=180),
+            "deadline": scope.started_at + timedelta(seconds=min(180, scope.timeout_seconds)),
         }
         await session.execute(
             text(

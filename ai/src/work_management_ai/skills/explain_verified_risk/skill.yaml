@@ -1,0 +1,15 @@
+schema_version: "1.0"
+name: explain_verified_risk
+version: "1.0.0"
+owner: risk-agent
+description: Explain authorized persisted observations
+runnable_by_agents: [risk, work_intelligence]
+triggers: [risk_question, evidence_concern]
+input_contract: work_management_ai.skills.explain_verified_risk.contracts.SkillInput
+output_contract: work_management_ai.skills.explain_verified_risk.contracts.SkillOutput
+required_context: [permitted_sources, source_versions]
+allowed_tools: [risk.read@1]
+risk_level: READ_ONLY
+approval: NONE
+evaluation_cases: [grounded_vi@1, grounded_en@1, revoked_actor@1, stale_source@1]
+evaluators: [risk_grounding@1]

@@ -1,0 +1,37 @@
+schema_version: "1.0"
+agent:
+  id: risk
+  name: Risk Agent
+  version: "1.0.0"
+  owner: risk-agent
+  activation_phase: 4
+capabilities: [risk.explain]
+contracts:
+  input: work_management_ai.runtime.contracts.AgentHandoff
+  output: work_management_ai.runtime.contracts.AgentResult
+  handoff: work_management_ai.runtime.contracts.AgentHandoff
+permissions:
+  roles: [ADMIN, MANAGER, EMPLOYEE]
+  tenant_scope: actor_membership
+  risk_ceiling: READ_ONLY
+runtime:
+  workflow: risk-explanation.v1
+  max_iterations: 4
+  max_tool_calls: 4
+  max_handoffs: 0
+  max_replans: 0
+  max_model_attempts: 1
+  max_input_tokens: 24000
+  max_output_tokens: 4000
+  timeout_seconds: 90
+  checkpoint: durable
+  model_policy: structured_grounded_explanation
+allowed_skills: [explain_verified_risk@1, review_evidence_concerns@1]
+allowed_tools: [risk.read@1]
+approval:
+  produced_writes: NEVER
+  can_self_approve: false
+fallback:
+  strategy: STORED_RATIONALE_AND_FACTS
+evaluators: [risk_grounding@1]
+stop_conditions: [invalid_handoff, budget_exhausted, access_changed, peer_handoff_requested]

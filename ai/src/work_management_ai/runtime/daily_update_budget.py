@@ -19,6 +19,8 @@ class BudgetScope:
     membership_id: UUID
     run_id: UUID
     evidence_versions: tuple[tuple[UUID, int], ...] = ()
+    max_model_attempts: int = 3
+    timeout_seconds: int = 180
     started_at: datetime = field(default_factory=lambda: datetime.now(UTC))
 
 
@@ -52,7 +54,9 @@ class MemoryUsageStore:
     async def remaining_seconds(self, scope: BudgetScope) -> float:
         key = (scope.organization_id, scope.membership_id, scope.run_id)
         start = self.starts.setdefault(key, scope.started_at)
-        return max(0.0, 180 - (datetime.now(UTC) - start).total_seconds())
+        return max(
+            0.0, min(180, scope.timeout_seconds) - (datetime.now(UTC) - start).total_seconds()
+        )
 
     async def run_attempts(self, scope: BudgetScope) -> int:
         return self.counts.get(
@@ -65,7 +69,10 @@ class MemoryUsageStore:
         if await self.remaining_seconds(scope) <= 0:
             raise UsageLimitExceeded("DAILY_UPDATE_MODEL_BUDGET_EXHAUSTED")
         keys = [
-            ((scope.organization_id, scope.membership_id, f"run:{scope.run_id}"), (3, 24000, 4000))
+            (
+                (scope.organization_id, scope.membership_id, f"run:{scope.run_id}"),
+                (min(3, scope.max_model_attempts), 24000, 4000),
+            )
         ]
         keys += [
             (

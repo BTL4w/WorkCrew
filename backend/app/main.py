@@ -269,12 +269,23 @@ def create_app(
     app.state.weekly_progress_service = WeeklyProgressService(
         SqlAlchemyProgressTransactionFactory(create_session_factory(database_engine))
     )
+    from app.modules.assistant.adapters.risk_tools import RiskBlockProjector
     from app.modules.progress.adapters.blocker_repository import SqlAlchemyBlockerTransactions
     from app.modules.risk.adapters.model_assessment import GatewayRiskAssessment
     from app.modules.risk.adapters.repository import RiskTransactions
     from app.modules.risk.api.routes import router as risk_router
+    from app.modules.risk.application.read_service import RiskReadService
     from app.modules.risk.application.risk_service import RiskService
 
+    risk_projector = RiskBlockProjector(
+        RiskReadService(
+            RiskTransactions(
+                create_session_factory(database_engine), resolved_settings.reporting_timezone
+            )
+        )
+    )
+    resolved_assistant_service.block_projector = risk_projector
+    resolved_assistant_event_service.block_projector = risk_projector
     app.state.risk_service = RiskService(
         RiskTransactions(
             create_session_factory(database_engine), resolved_settings.reporting_timezone
