@@ -6,7 +6,7 @@ from uuid import UUID
 
 from pydantic import Field
 
-from .metrics import ReportContract
+from .metrics import AggregateReceipt, ReportContract, SourceRef
 from .periods import ReportKind
 from .snapshots import ReportMetricSnapshot
 
@@ -63,3 +63,16 @@ class ReportPage(ReportContract):
 class ReportDefaults(ReportContract):
     timezone: str
     period_start: date
+
+
+class ReportSourceItem(ReportContract):
+    source: SourceRef
+    freshness: Literal["CURRENT", "UPDATED", "UNAVAILABLE"]
+
+
+class ReportSourcePage(ReportContract):
+    snapshot_hash: str
+    items: tuple[ReportSourceItem, ...]
+    receipts: tuple[AggregateReceipt, ...]
+    next_cursor: str | None
+    total: int

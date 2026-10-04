@@ -1,5 +1,6 @@
 """Transactional report creation, reads and current-authority replay."""
 
+from datetime import timedelta
 from uuid import UUID, uuid4
 from zoneinfo import ZoneInfo
 
@@ -13,6 +14,7 @@ from ..domain.reports import (
     ReportError,
     ReportPage,
     ReportResult,
+    ReportSourcePage,
 )
 from ..domain.snapshots import canonical_hash
 from .ports import ReportTransactionFactory
@@ -42,8 +44,6 @@ class ReportService:
                         replay = await repo.replay(idempotency_key, fingerprint)
                         if replay is not None:
                             return await repo.get(replay, replayed=True)
-                        if command.kind is not ReportKind.DAILY:
-                            raise ReportError("REPORT_KIND_UNAVAILABLE", 422)
                         at = await repo.captured_at()
                         timezone = (
                             command.timezone
@@ -52,6 +52,8 @@ class ReportService:
                         )
                         try:
                             start = command.period_start or at.astimezone(ZoneInfo(timezone)).date()
+                            if command.period_start is None and command.kind is ReportKind.WEEKLY:
+                                start -= timedelta(days=start.weekday())
                             period = normalize_period(command.kind, start, timezone, at)
                         except (ValueError, KeyError) as exc:
                             raise ReportError("VALIDATION_FAILED", 422) from exc
@@ -101,3 +103,17 @@ class ReportService:
             return ReportDefaults(
                 timezone=timezone, period_start=at.astimezone(ZoneInfo(timezone)).date()
             )
+
+    async def sources(
+        self,
+        *,
+        actor: AuthenticatedActor,
+        report_id: UUID,
+        cursor: str | None = None,
+        page_size: int = 20,
+    ) -> ReportSourcePage:
+        if not 1 <= page_size <= 100:
+            raise ReportError("VALIDATION_FAILED", 422)
+        async with self.transactions(actor) as repo:
+            await repo.authenticate()
+            return await repo.sources(report_id, cursor, page_size)

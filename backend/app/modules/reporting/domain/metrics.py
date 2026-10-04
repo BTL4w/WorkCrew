@@ -3,10 +3,18 @@
 from datetime import datetime
 from decimal import Decimal
 from enum import StrEnum
-from typing import Literal, Self
+from typing import Any, Literal, Self
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    JsonValue,
+    SerializerFunctionWrapHandler,
+    model_serializer,
+    model_validator,
+)
 
 CATALOG_VERSION = "report-metrics.v1"
 QUERY_VERSION = "report-sql.v1"
@@ -30,6 +38,17 @@ class SourceRef(ReportContract):
     version: int = Field(ge=1)
     fingerprint: str | None = None
     observed_at: datetime
+    label: str | None = None
+    facts: dict[str, JsonValue] = Field(default_factory=dict)
+
+    @model_serializer(mode="wrap")
+    def preserve_captured_wire(self, handler: SerializerFunctionWrapHandler):
+        payload: dict[str, Any] = handler(self)
+        # Earlier immutable snapshots lack these additive fields; keep their original hash.
+        for field in ("label", "facts"):
+            if field not in self.model_fields_set:
+                payload.pop(field, None)
+        return payload
 
 
 class MetricValue(ReportContract):

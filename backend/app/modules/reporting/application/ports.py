@@ -8,7 +8,7 @@ from uuid import UUID
 from app.modules.identity.domain.auth import AuthenticatedActor
 
 from ..domain.commands import CaptureReportCommand, CreateReportCommand
-from ..domain.reports import ReportPage, ReportResult
+from ..domain.reports import ReportPage, ReportResult, ReportSourcePage
 from ..domain.snapshots import ReportMetricSnapshot
 
 
@@ -35,6 +35,9 @@ class ReportRepository(Protocol):
     ) -> ReportResult: ...
     async def get(self, report_id: UUID, *, replayed: bool = False) -> ReportResult: ...
     async def list(self, project_id: UUID, page: int, page_size: int) -> ReportPage: ...
+    async def sources(
+        self, report_id: UUID, cursor: str | None, page_size: int
+    ) -> ReportSourcePage: ...
     async def audit_rejection(
         self, request_id: str, key: str | None, code: str, project_id: UUID | None
     ) -> None: ...

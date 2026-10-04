@@ -7,19 +7,21 @@ export const reportSchema = z.object({
   selected_version_id: z.uuid(), created_by_membership_id: z.uuid(), narrative_requested: z.boolean(),
   created_at: z.string().datetime({ offset: true }),
 });
+const capturedSourceSchema = z.object({ resource_type: z.string(), resource_id: z.uuid(), version: z.number().int().positive(), fingerprint: z.string().nullable(), observed_at: z.string(), label: z.string().nullable().optional(), facts: z.record(z.string(), z.json()).optional() });
 export const metricSchema = z.object({
   key: z.string(), value: z.string().nullable(), unit: z.enum(["COUNT", "HOURS", "FRACTION", "PERCENT", "SCORE", "DAYS"]),
   state: z.enum(["KNOWN", "PARTIAL", "UNKNOWN", "STALE", "NOT_APPLICABLE"]),
   time_basis: z.enum(["AT_CAPTURE", "IN_PERIOD", "DECLARED_REPORTING_DATE"]), policy_version: z.string(),
-  source_refs: z.array(z.object({ resource_type: z.string(), resource_id: z.uuid(), version: z.number().int().positive(), fingerprint: z.string().nullable(), observed_at: z.string() })),
+  source_refs: z.array(capturedSourceSchema),
   limitations: z.array(z.string()),
 });
+export const reportSourcesSchema = z.object({ snapshot_hash: z.string(), items: z.array(z.object({ source: capturedSourceSchema, freshness: z.enum(["CURRENT", "UPDATED", "UNAVAILABLE"]) })), receipts: z.array(z.object({ id: z.uuid(), project_id: z.uuid(), query_version: z.string(), catalog_version: z.string(), metric_keys: z.array(z.string()), row_count: z.number().int(), captured_at: z.string(), isolation: z.literal("repeatable read"), scope_hash: z.string() })), next_cursor: z.string().nullable(), total: z.number().int() });
 const periodSchema = z.object({ kind: reportKindSchema, local_start: z.string(), local_end: z.string(), timezone: z.string(), start_utc: z.string(), end_utc: z.string(), observed_through: z.string(), partial_period: z.boolean() });
 export const snapshotSchema = z.object({
   id: z.uuid(), organization_id: z.uuid(), project_id: z.uuid(), report_id: z.uuid(),
   captured_at: z.string(), snapshot_hash: z.string().regex(/^[a-f0-9]{64}$/), catalog_version: z.string(), query_version: z.string(),
   period: periodSchema, metrics: z.record(z.string(), metricSchema),
-  sources: z.array(z.object({ resource_type: z.string(), resource_id: z.uuid(), version: z.number().int(), fingerprint: z.string().nullable(), observed_at: z.string() })),
+  sources: z.array(capturedSourceSchema),
   receipts: z.array(z.object({ id: z.uuid(), project_id: z.uuid(), query_version: z.string(), catalog_version: z.string(), metric_keys: z.array(z.string()), row_count: z.number().int(), captured_at: z.string(), isolation: z.literal("repeatable read"), scope_hash: z.string() })),
   limitations: z.array(z.string()),
 });

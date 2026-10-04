@@ -41,6 +41,6 @@ class ReportTransactions:
             )
             # A waiter may hold a pre-lock REPEATABLE READ snapshot. Retry after rollback
             # so the new transaction can see the first request's committed replay record.
-            if code in {"40001", "40P01"} or replay_collision:
+            if code in {"40001", "40P01", "57014"} or replay_collision:
                 raise ReportCaptureConflict from exc
             raise

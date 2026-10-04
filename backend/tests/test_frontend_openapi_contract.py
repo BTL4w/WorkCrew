@@ -301,6 +301,7 @@ def test_reporting_openapi_matches_frontend_manifest() -> None:
         "/api/v1/reports",
         "/api/v1/reports/defaults",
         "/api/v1/reports/{report_id}",
+        "/api/v1/reports/{report_id}/sources",
     }
     for route, methods in manifest["paths"].items():
         assert set(schema["paths"][route]) == set(methods)

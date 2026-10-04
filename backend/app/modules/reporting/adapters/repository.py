@@ -1,6 +1,9 @@
 """Reports, source inventories, audit and replay share one authorized SQL transaction."""
 
+import base64
+import json
 from datetime import datetime, timedelta
+from typing import cast
 from uuid import UUID, uuid4
 
 from sqlalchemy import func, select, text
@@ -20,7 +23,15 @@ from app.modules.work.adapters.database_models import (
 from ..application.ports import ReportSnapshotReadPort
 from ..domain.commands import CreateReportCommand
 from ..domain.events import MetricsCaptured
-from ..domain.reports import Report, ReportError, ReportPage, ReportResult, ReportVersion
+from ..domain.reports import (
+    Report,
+    ReportError,
+    ReportPage,
+    ReportResult,
+    ReportSourceItem,
+    ReportSourcePage,
+    ReportVersion,
+)
 from ..domain.snapshots import ReportMetricSnapshot
 from .database_models import (
     ReportModel,
@@ -30,6 +41,7 @@ from .database_models import (
     ReportVersionModel,
 )
 from .snapshot_reader import SQLReportSnapshotReader
+from .source_reader import source_freshness
 
 
 def report_domain(row: ReportModel) -> Report:
@@ -46,7 +58,9 @@ class SQLReportRepository:
     def __init__(self, session: AsyncSession, actor: AuthenticatedActor, default_timezone: str):
         self.session, self.actor, self.org = session, actor, actor.organization_id
         self.default_timezone = default_timezone
-        self.snapshot_reader: ReportSnapshotReadPort = SQLReportSnapshotReader(session, self.org)
+        self.snapshot_reader: ReportSnapshotReadPort = SQLReportSnapshotReader(
+            session, actor, default_timezone
+        )
 
     async def authenticate(self) -> None:
         active = await self.session.scalar(
@@ -161,6 +175,8 @@ class SQLReportRepository:
         # Parent facts must be flushed before indexed sources/receipts (nondeferrable FKs).
         await self.session.flush()
         for source in snapshot.sources:
+            if source.resource_type != "TASK":
+                continue
             self.session.add(
                 ReportSourceModel(
                     id=uuid4(),
@@ -291,6 +307,54 @@ class SQLReportRepository:
             page=page,
             page_size=page_size,
             total=count or 0,
+        )
+
+    async def sources(
+        self, report_id: UUID, cursor: str | None, page_size: int
+    ) -> ReportSourcePage:
+        result = await self.get(report_id)
+        snapshot = result.snapshot
+        offset = 0
+        if cursor:
+            try:
+                decoded: object = json.loads(base64.urlsafe_b64decode(cursor).decode())
+                if not isinstance(decoded, list):
+                    raise ValueError("invalid cursor shape")
+                binding = cast(list[object], decoded)
+                if (
+                    len(binding) != 2
+                    or binding[0] != snapshot.snapshot_hash
+                    or type(binding[1]) is not int
+                    or not 0 <= binding[1] <= len(snapshot.sources)
+                ):
+                    raise ValueError("invalid cursor binding")
+                offset = binding[1]
+            except (ValueError, UnicodeError, TypeError) as exc:
+                raise ReportError("VALIDATION_FAILED", 422) from exc
+        refs = snapshot.sources[offset : offset + page_size]
+        items = tuple(
+            [
+                ReportSourceItem(
+                    source=source,
+                    freshness=await source_freshness(self.session, self.actor, source),
+                )
+                for source in refs
+            ]
+        )
+        next_offset = offset + len(items)
+        next_cursor = (
+            base64.urlsafe_b64encode(
+                json.dumps([snapshot.snapshot_hash, next_offset], separators=(",", ":")).encode()
+            ).decode()
+            if next_offset < len(snapshot.sources)
+            else None
+        )
+        return ReportSourcePage(
+            snapshot_hash=snapshot.snapshot_hash,
+            items=items,
+            receipts=snapshot.receipts,
+            next_cursor=next_cursor,
+            total=len(snapshot.sources),
         )
 
     async def audit_rejection(

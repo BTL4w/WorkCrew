@@ -879,6 +879,9 @@
       ],
       "/api/v1/reports/{report_id}": [
         "get"
+      ],
+      "/api/v1/reports/{report_id}/sources": [
+        "get"
       ]
     },
     "schemas": {
@@ -1060,7 +1063,9 @@
           "resource_id": "string:uuid",
           "version": "integer",
           "fingerprint": "null|string",
-          "observed_at": "string:date-time"
+          "observed_at": "string:date-time",
+          "label": "null|string",
+          "facts": "object"
         }
       },
       "AggregateReceipt": {
@@ -1082,6 +1087,32 @@
           "captured_at": "string:date-time",
           "isolation": "literal:repeatable read",
           "scope_hash": "string"
+        }
+      },
+      "ReportSourceItem": {
+        "required": [
+          "source",
+          "freshness"
+        ],
+        "properties": {
+          "source": "ref:SourceRef",
+          "freshness": "literal:CURRENT|UPDATED|UNAVAILABLE"
+        }
+      },
+      "ReportSourcesResponse": {
+        "required": [
+          "snapshot_hash",
+          "items",
+          "receipts",
+          "next_cursor",
+          "total"
+        ],
+        "properties": {
+          "snapshot_hash": "string",
+          "items": "array:ref:ReportSourceItem",
+          "receipts": "array:ref:AggregateReceipt",
+          "next_cursor": "null|string",
+          "total": "integer"
         }
       }
     }

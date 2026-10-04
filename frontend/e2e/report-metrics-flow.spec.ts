@@ -33,8 +33,8 @@ for (const locale of ["vi", "en"] as const) {
     await page.getByRole("button", { name: locale === "vi" ? "Tạo báo cáo số liệu" : "Generate report", exact: true }).click();
     const detail = page.getByRole("article", { name: locale === "vi" ? "Chi tiết báo cáo" : "Report detail" });
     await expect(detail).toBeVisible();
-    await expect(detail.getByText("Asia/Ho_Chi_Minh", { exact: false })).toBeVisible();
-    await expect(detail.getByText(locale === "vi" ? "Chưa xác định" : "Unknown", { exact: true })).toBeVisible();
+    await expect(detail.getByText("Asia/Ho_Chi_Minh", { exact: false }).first()).toBeVisible();
+    await expect(detail.getByText(locale === "vi" ? "Chưa xác định" : "Unknown", { exact: true }).first()).toBeVisible();
     await expect(detail.getByText(locale === "vi" ? "Nhận xét AI chưa khả dụng. Bạn vẫn có thể sử dụng số liệu." : "AI commentary unavailable. Your metrics remain available.")).toBeVisible();
     const reports = await (await page.request.get(`/api/v1/reports?project_id=${project.id}`)).json();
     const reportId = reports.items[0].id;
@@ -44,6 +44,20 @@ for (const locale of ["vi", "en"] as const) {
     expect(edited.status()).toBe(200);
     const after = await (await page.request.get(`/api/v1/reports/${reportId}`)).json();
     expect(after.snapshot).toEqual(before.snapshot);
+    const sourceBefore = await (await page.request.get(`/api/v1/reports/${reportId}/sources`)).json();
+    expect(sourceBefore.items.find((item: {source:{resource_id:string}}) => item.source.resource_id === task.id).freshness).toBe("UPDATED");
+    await page.getByRole("button", {name: locale === "vi" ? "Tạo báo cáo" : "Create report", exact: true}).click();
+    await page.getByLabel(locale === "vi" ? "Loại báo cáo" : "Report type", {exact:true}).selectOption("WEEKLY");
+    await page.getByLabel(locale === "vi" ? "Ngày báo cáo" : "Reporting date", {exact:true}).fill("2026-09-28");
+    await page.getByRole("button", {name:locale === "vi" ? "Tạo báo cáo số liệu" : "Generate report", exact:true}).click();
+    await expect(detail.getByRole("heading", {name:/2026-09-28/})).toBeVisible();
+    const weeklyReports = await (await page.request.get(`/api/v1/reports?project_id=${project.id}`)).json();
+    const weekly = await (await page.request.get(`/api/v1/reports/${weeklyReports.items[0].id}`)).json();
+    expect(weekly.report.kind).toBe("WEEKLY");
+    expect(weekly.snapshot.metrics["tasks.status.total_count"].value).toBe("1");
+    expect(weekly.snapshot.period.local_end).toBe("2026-10-05");
+    expect(weekly.snapshot.metrics[`weekly.${week.id}.current.total_effort_hours`].value).toBe("4");
+    await expect(detail.getByText(locale === "vi" ? "Kế hoạch và thực tế từng tuần" : "Weekly planned versus actual", {exact:true})).toBeVisible();
     for (const width of [360, 1280]) {
       await page.setViewportSize({ width, height: 900 });
       await expect(detail).toBeVisible();

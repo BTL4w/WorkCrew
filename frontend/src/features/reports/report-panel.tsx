@@ -28,10 +28,10 @@ export function ReportPanel({ projectId, organizationId, actorMembershipId }: { 
       setSelected(data.report.id); setCreating(false);
       void client.invalidateQueries({ queryKey: [...scope, "list"] });
     }} /> : <p role="status">{t("loading")}</p>)}
-    {reports.isError || detail.isError ? <p className="error-message" role="alert">{t("error")} <button className="text-button" type="button" onClick={() => { void reports.refetch(); void detail.refetch(); }}>{t("retry")}</button></p> : detail.data ? <ReportDetail data={detail.data} /> : reports.isPending || (id && detail.isPending) ? <p role="status">{t("loading")}</p> : <p className={styles.empty}>{t("empty")}</p>}
+    {reports.isError || detail.isError ? <p className="error-message" role="alert">{t("error")} <button className="text-button" type="button" onClick={() => { void reports.refetch(); void detail.refetch(); }}>{t("retry")}</button></p> : detail.data ? <ReportDetail data={detail.data} organizationId={organizationId} actorMembershipId={actorMembershipId} /> : reports.isPending || (id && detail.isPending) ? <p role="status">{t("loading")}</p> : <p className={styles.empty}>{t("empty")}</p>}
     {Boolean(reports.data?.items.length) && <div className={styles.history} aria-label={t("history")}>
       <h3 className="font-semibold">{t("history")}</h3>{reports.data?.items.map(report => <button className={styles.historyItem} key={report.id} type="button" aria-pressed={id === report.id} onClick={() => setSelected(report.id)}>
-        <span>{t("daily")} · {new Intl.DateTimeFormat(locale, { dateStyle: "medium", timeStyle: "short" }).format(new Date(report.created_at))}</span><span>{t("version", { version: report.version })}</span></button>)}
+        <span>{t(report.kind === "WEEKLY" ? "weekly" : "daily")} · {new Intl.DateTimeFormat(locale, { dateStyle: "medium", timeStyle: "short" }).format(new Date(report.created_at))}</span><span>{t("version", { version: report.version })}</span></button>)}
       <div className={styles.actions}><button className="secondary-button" disabled={page === 1} onClick={() => setPage(page - 1)}>{t("previous")}</button><button className="secondary-button" disabled={page * (reports.data?.page_size ?? 20) >= (reports.data?.total ?? 0)} onClick={() => setPage(page + 1)}>{t("next")}</button></div>
     </div>}
   </section>;

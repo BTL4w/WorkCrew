@@ -1,5 +1,5 @@
 import { requestJson } from "@/shared/api/client";
-import { reportDefaultsSchema, reportPageSchema, reportResultSchema, type ReportInput } from "./contracts";
+import { reportSourcesSchema, reportDefaultsSchema, reportPageSchema, reportResultSchema, type ReportInput } from "./contracts";
 
 export function listReports(projectId: string, page = 1) {
   return requestJson(`/api/v1/reports?project_id=${encodeURIComponent(projectId)}&page=${page}`, { schema: reportPageSchema });
@@ -15,4 +15,10 @@ export function createReport(body: ReportInput, key: string) {
 
 export function getReportDefaults(projectId: string) {
   return requestJson(`/api/v1/reports/defaults?project_id=${encodeURIComponent(projectId)}`, { schema: reportDefaultsSchema });
+}
+
+export function getReportSources(id: string, cursor?: string) {
+  const query = new URLSearchParams({ page_size: "20" });
+  if (cursor) query.set("cursor", cursor);
+  return requestJson(`/api/v1/reports/${encodeURIComponent(id)}/sources?${query}`, { schema: reportSourcesSchema });
 }

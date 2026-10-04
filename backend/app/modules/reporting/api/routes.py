@@ -10,7 +10,13 @@ from app.modules.identity.api.dependencies import ActorDependency
 
 from ..domain.reports import ReportError
 from .dependencies import ReportServiceDependency
-from .schemas import ReportCreateRequest, ReportDefaultsResponse, ReportPageResponse, ReportResponse
+from .schemas import (
+    ReportCreateRequest,
+    ReportDefaultsResponse,
+    ReportPageResponse,
+    ReportResponse,
+    ReportSourcesResponse,
+)
 
 router = APIRouter(prefix="/reports", tags=["reports"])
 IdempotencyHeader = Annotated[str, Header(alias="Idempotency-Key", min_length=16, max_length=128)]
@@ -92,3 +98,22 @@ async def get_report(
         _raise(exc)
     response.headers["ETag"] = f'"{result.report.version}"'
     return ReportResponse.model_validate(result.model_dump())
+
+
+@router.get("/{report_id}/sources", response_model=ReportSourcesResponse, responses=_ERRORS)
+async def get_report_sources(
+    report_id: UUID,
+    actor: ActorDependency,
+    service: ReportServiceDependency,
+    response: Response,
+    cursor: Annotated[str | None, Query(max_length=512)] = None,
+    page_size: Annotated[int, Query(ge=1, le=100)] = 20,
+) -> ReportSourcesResponse:
+    response.headers["Cache-Control"] = "private, no-store"
+    try:
+        result = await service.sources(
+            actor=actor, report_id=report_id, cursor=cursor, page_size=page_size
+        )
+    except ReportError as exc:
+        _raise(exc)
+    return ReportSourcesResponse.model_validate(result.model_dump())

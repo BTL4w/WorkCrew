@@ -20,3 +20,20 @@
 .historyItem:hover, .historyItem[aria-pressed="true"] { background: #f8fafc; border-color: #94a3b8; }
 .empty { border: 1px dashed #cbd5e1; border-radius: 1rem; padding: 2rem; text-align: center; color: #64748b; }
 @media (max-width: 560px) { .header { flex-direction: column; } .formGrid { grid-template-columns: 1fr; } .form, .detail { padding: 1rem; } .metrics { grid-template-columns: 1fr 1fr; } }
+
+.sources { border-top: 1px solid #e2e8f0; padding-top: 1rem; margin: 1rem 0; }
+.sourceRows { list-style: none; padding: 0; margin: 1rem 0; display: grid; gap: .5rem; }
+.sourceRow { border: 1px solid #e2e8f0; border-radius: .75rem; padding: .8rem; display: flex; flex-wrap: wrap; justify-content: space-between; gap: .5rem; font-size: .85rem; }
+.sourceId { font-size: .7rem; color: #64748b; overflow-wrap: anywhere; margin-top: .3rem; }
+
+.catalog { display: grid; gap: 1.2rem; margin: 1.5rem 0; }
+.groupTitle { color: #334155; font-size: 1rem; font-weight: 600; }
+.metric { min-width: 0; overflow-wrap: anywhere; }
+.description { overflow-wrap: anywhere; }
+.sourceRow > div { min-width: 0; overflow-wrap: anywhere; }
+
+.sourceFacts { width: 100%; color: #475569; font-size: .8rem; }
+.sourceFacts summary { cursor: pointer; padding-top: .3rem; }
+.sourceFacts dl { display: grid; gap: .5rem; margin: .7rem 0 .1rem; }
+.sourceFacts dl > div { display: flex; justify-content: space-between; gap: 1rem; }
+.sourceFacts dd { overflow-wrap: anywhere; text-align: right; min-width: 0; }
