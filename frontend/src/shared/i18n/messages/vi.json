@@ -953,6 +953,21 @@
     "sourceDetails": "Chi tiết đã chụp",
     "yes": "Có",
     "no": "Không",
-    "declaredReportingDate": "Theo ngày khai báo trong kỳ"
+    "declaredReportingDate": "Theo ngày khai báo trong kỳ",
+    "publications": "Lịch sử xuất bản",
+    "publicationExplanation": "Xuất bản giữ nguyên số liệu đã chụp. Bản nháp và thay đổi nguồn sau đó không thay thế bản này.",
+    "publishMetrics": "Xuất bản chỉ số liệu",
+    "publishing": "Đang xuất bản…",
+    "unpublished": "Báo cáo này chưa được xuất bản.",
+    "publishedAt": "Xuất bản lúc {at}",
+    "currentPublication": "Bản xuất bản hiện tại",
+    "publishedBy": "Thành viên xuất bản: {id}",
+    "viewPublication": "Xem bản đã xuất bản",
+    "publishedMetrics": "Số liệu đã xuất bản",
+    "publishedVersion": "Phiên bản báo cáo: {id}",
+    "closePublication": "Đóng bản đã xuất bản",
+    "snapshotReceipt": "Biên nhận số liệu",
+    "publishError": "Chưa xác nhận được việc xuất bản. Thử lại để kiểm tra cùng yêu cầu.",
+    "publishStale": "Báo cáo đã thay đổi. Xem lại phiên bản mới trước khi xuất bản."
   }
 }

@@ -51,6 +51,18 @@ class ReportModel(Base):
             initially="DEFERRED",
             use_alter=True,
         ),
+        ForeignKeyConstraint(
+            ["organization_id", "id", "current_publication_id"],
+            [
+                "report_publications.organization_id",
+                "report_publications.report_id",
+                "report_publications.id",
+            ],
+            name="fk_reports_owned_publication",
+            deferrable=True,
+            initially="DEFERRED",
+            use_alter=True,
+        ),
         CheckConstraint("kind IN ('DAILY','WEEKLY')", name="kind"),
         CheckConstraint("locale IN ('vi','en')", name="locale"),
         CheckConstraint("version >= 1", name="version"),
@@ -64,6 +76,7 @@ class ReportModel(Base):
     version: Mapped[int] = mapped_column(Integer)
     snapshot_id: Mapped[UUID]
     selected_version_id: Mapped[UUID]
+    current_publication_id: Mapped[UUID | None]
     created_by_membership_id: Mapped[UUID]
     narrative_requested: Mapped[bool] = mapped_column(Boolean)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
@@ -156,3 +169,78 @@ class ReportReceiptModel(Base):
     organization_id: Mapped[UUID]
     snapshot_id: Mapped[UUID]
     payload: Mapped[dict[str, Any]] = mapped_column(JSONB)
+
+
+class ReportReviewDecisionModel(Base):
+    __tablename__ = "report_review_decisions"
+    __table_args__ = (
+        UniqueConstraint("organization_id", "id"),
+        UniqueConstraint(
+            "organization_id",
+            "report_id",
+            "report_version_id",
+            "snapshot_hash",
+            "actor_membership_id",
+            "id",
+        ),
+        ForeignKeyConstraint(
+            ["organization_id", "report_id", "report_version_id"],
+            ["report_versions.organization_id", "report_versions.report_id", "report_versions.id"],
+        ),
+        ForeignKeyConstraint(
+            ["organization_id", "actor_membership_id"],
+            ["memberships.organization_id", "memberships.id"],
+        ),
+        CheckConstraint("kind='METRICS_ONLY_PUBLISHED'", name="kind"),
+        CheckConstraint("length(snapshot_hash)=64", name="hash"),
+        CheckConstraint("expected_report_version>=1", name="expected_version"),
+        Index("ix_report_decisions_timeline", "organization_id", "report_id", "decided_at", "id"),
+    )
+    id: Mapped[UUID] = mapped_column(primary_key=True)
+    organization_id: Mapped[UUID]
+    report_id: Mapped[UUID]
+    report_version_id: Mapped[UUID]
+    snapshot_hash: Mapped[str] = mapped_column(String(64))
+    actor_membership_id: Mapped[UUID]
+    expected_report_version: Mapped[int]
+    kind: Mapped[str] = mapped_column(String(32))
+    decided_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+
+class ReportPublicationModel(Base):
+    __tablename__ = "report_publications"
+    __table_args__ = (
+        UniqueConstraint("organization_id", "id"),
+        UniqueConstraint("organization_id", "report_id", "id"),
+        UniqueConstraint("organization_id", "decision_id"),
+        ForeignKeyConstraint(
+            [
+                "organization_id",
+                "report_id",
+                "report_version_id",
+                "snapshot_hash",
+                "publisher_membership_id",
+                "decision_id",
+            ],
+            [
+                "report_review_decisions.organization_id",
+                "report_review_decisions.report_id",
+                "report_review_decisions.report_version_id",
+                "report_review_decisions.snapshot_hash",
+                "report_review_decisions.actor_membership_id",
+                "report_review_decisions.id",
+            ],
+        ),
+        CheckConstraint("length(snapshot_hash)=64", name="hash"),
+        Index(
+            "ix_report_publications_timeline", "organization_id", "report_id", "published_at", "id"
+        ),
+    )
+    id: Mapped[UUID] = mapped_column(primary_key=True)
+    organization_id: Mapped[UUID]
+    report_id: Mapped[UUID]
+    report_version_id: Mapped[UUID]
+    snapshot_hash: Mapped[str] = mapped_column(String(64))
+    publisher_membership_id: Mapped[UUID]
+    decision_id: Mapped[UUID]
+    published_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))

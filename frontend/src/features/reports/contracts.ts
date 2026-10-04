@@ -4,6 +4,7 @@ export const reportKindSchema = z.enum(["DAILY", "WEEKLY"]);
 export const reportSchema = z.object({
   id: z.uuid(), organization_id: z.uuid(), project_id: z.uuid(), kind: reportKindSchema,
   locale: z.enum(["vi", "en"]), version: z.number().int().positive(), snapshot_id: z.uuid(),
+  current_publication_id: z.uuid().nullable().default(null),
   selected_version_id: z.uuid(), created_by_membership_id: z.uuid(), narrative_requested: z.boolean(),
   created_at: z.string().datetime({ offset: true }),
 });
@@ -25,10 +26,11 @@ export const snapshotSchema = z.object({
   receipts: z.array(z.object({ id: z.uuid(), project_id: z.uuid(), query_version: z.string(), catalog_version: z.string(), metric_keys: z.array(z.string()), row_count: z.number().int(), captured_at: z.string(), isolation: z.literal("repeatable read"), scope_hash: z.string() })),
   limitations: z.array(z.string()),
 });
+export const publicationSchema = z.object({ id: z.uuid(), report_id: z.uuid(), report_version_id: z.uuid(), snapshot_hash: z.string().regex(/^[a-f0-9]{64}$/), publisher_membership_id: z.uuid(), decision_id: z.uuid(), published_at: z.string().datetime({ offset: true }) });
 export const reportResultSchema = z.object({
   report: reportSchema, snapshot: snapshotSchema,
   selected_version: z.object({ id: z.uuid(), report_id: z.uuid(), snapshot_id: z.uuid(), origin: z.literal("METRICS_ONLY"), locale: z.enum(["vi", "en"]), created_at: z.string() }),
-  publications: z.array(z.never()), generation_state: z.enum(["NOT_REQUESTED", "AI_UNAVAILABLE"]), replayed: z.boolean(),
+  publications: z.array(publicationSchema), generation_state: z.enum(["NOT_REQUESTED", "AI_UNAVAILABLE"]), replayed: z.boolean(),
 });
 export const reportPageSchema = z.object({ items: z.array(reportSchema), page: z.number().int(), page_size: z.number().int(), total: z.number().int() });
 export type Report = z.infer<typeof reportSchema>;
@@ -37,3 +39,5 @@ export type Metric = z.infer<typeof metricSchema>;
 export type ReportInput = { project_id: string; kind: "DAILY" | "WEEKLY"; period_start?: string; timezone?: string; locale: "vi" | "en"; narrative_enabled: boolean };
 
 export const reportDefaultsSchema = z.object({ timezone: z.string(), period_start: z.string() });
+
+export type PublishReportInput = { mode: "METRICS_ONLY"; report_version_id: string; snapshot_hash: string };

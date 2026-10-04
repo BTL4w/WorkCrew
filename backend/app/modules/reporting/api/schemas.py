@@ -1,6 +1,6 @@
 """Typed HTTP contracts for Project report snapshots."""
 
-from ..domain.commands import CreateReportCommand
+from ..domain.commands import CreateReportCommand, PublishReportCommand
 from ..domain.reports import ReportDefaults, ReportPage, ReportResult, ReportSourcePage
 
 
@@ -21,4 +21,8 @@ class ReportDefaultsResponse(ReportDefaults):
 
 
 class ReportSourcesResponse(ReportSourcePage):
+    pass
+
+
+class ReportPublishRequest(PublishReportCommand):
     pass

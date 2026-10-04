@@ -21,12 +21,13 @@ from app.modules.work.adapters.database_models import (
 )
 
 from ..application.ports import ReportSnapshotReadPort
-from ..domain.commands import CreateReportCommand
-from ..domain.events import MetricsCaptured
+from ..domain.commands import CreateReportCommand, PublishReportCommand
+from ..domain.events import MetricsCaptured, ReportPublished
 from ..domain.reports import (
     Report,
     ReportError,
     ReportPage,
+    ReportPublication,
     ReportResult,
     ReportSourceItem,
     ReportSourcePage,
@@ -35,7 +36,9 @@ from ..domain.reports import (
 from ..domain.snapshots import ReportMetricSnapshot
 from .database_models import (
     ReportModel,
+    ReportPublicationModel,
     ReportReceiptModel,
+    ReportReviewDecisionModel,
     ReportSnapshotModel,
     ReportSourceModel,
     ReportVersionModel,
@@ -281,7 +284,22 @@ class SQLReportRepository:
         snapshot = ReportMetricSnapshot.model_validate(snapshot_row.payload)
         if not snapshot.verified_hash() or snapshot.snapshot_hash != snapshot_row.snapshot_hash:
             raise ReportError("REPORT_CAPTURE_FAILED", 409)
+        publication_rows = await self.session.scalars(
+            select(ReportPublicationModel)
+            .where(
+                ReportPublicationModel.organization_id == self.org,
+                ReportPublicationModel.report_id == row.id,
+            )
+            .order_by(ReportPublicationModel.published_at.desc(), ReportPublicationModel.id)
+        )
+        publications = tuple(
+            ReportPublication.model_validate(
+                {key: getattr(publication, key) for key in ReportPublication.model_fields}
+            )
+            for publication in publication_rows
+        )
         return ReportResult(
+            publications=publications,
             report=report_domain(row),
             snapshot=snapshot,
             selected_version=version_domain(version_row),
@@ -369,6 +387,173 @@ class SQLReportRepository:
                 outcome=AuditOutcome.REJECTED,
                 resource_type="project",
                 resource_id=project_id,
+                request_id=request_id,
+                idempotency_key=key,
+                before_data={},
+                after_data={},
+                reason_data={"reason_code": code},
+            )
+        )
+        await self.session.flush()
+
+    async def publish(
+        self,
+        report_id: UUID,
+        command: PublishReportCommand,
+        expected_version: int,
+        key: str,
+        fingerprint: str,
+        request_id: str,
+    ) -> ReportResult:
+        # Lock before reading the resource; retry a stale RR snapshot on serialization failure.
+        await self.session.execute(
+            text("SELECT pg_advisory_xact_lock(hashtextextended(:key,0))"),
+            {"key": f"{self.org}:report.publish:{self.actor.membership_id}:{key}"},
+        )
+        row = await self.session.scalar(
+            select(ReportModel)
+            .where(
+                ReportModel.organization_id == self.org,
+                ReportModel.id == report_id,
+            )
+            .with_for_update()
+        )
+        if row is None:
+            raise ReportError("RESOURCE_NOT_FOUND", 404)
+        await self.authorize_project(row.project_id)
+        replay = await self.session.scalar(
+            select(IdempotencyRecordModel).where(
+                IdempotencyRecordModel.organization_id == self.org,
+                IdempotencyRecordModel.actor_membership_id == self.actor.membership_id,
+                IdempotencyRecordModel.operation == "report.publish",
+                IdempotencyRecordModel.idempotency_key == key,
+            )
+        )
+        if replay is not None:
+            if replay.request_fingerprint != fingerprint or replay.response_body is None:
+                raise ReportError("IDEMPOTENCY_KEY_REUSED", 409)
+            return ReportResult.model_validate(replay.response_body).model_copy(
+                update={"replayed": True}
+            )
+        if row.version != expected_version:
+            raise ReportError("STALE_REPORT_VERSION", 412)
+        result = await self.get(report_id)
+        if (
+            command.report_version_id != result.selected_version.id
+            or command.snapshot_hash != result.snapshot.snapshot_hash
+            or result.selected_version.snapshot_id != result.snapshot.id
+            or result.selected_version.origin != "METRICS_ONLY"
+        ):
+            raise ReportError("REPORT_PUBLICATION_MISMATCH", 409)
+        # Current Manager scope authorizes all project source facts. Source changes are
+        # freshness information, never a reason to rewrite the verified historical snapshot.
+        at = await self.captured_at()
+        decision_id = uuid4()
+        self.session.add(
+            ReportReviewDecisionModel(
+                id=decision_id,
+                organization_id=self.org,
+                report_id=report_id,
+                report_version_id=command.report_version_id,
+                snapshot_hash=command.snapshot_hash,
+                actor_membership_id=self.actor.membership_id,
+                expected_report_version=expected_version,
+                kind="METRICS_ONLY_PUBLISHED",
+                decided_at=at,
+            )
+        )
+        await self.session.flush()
+        publication = ReportPublication(
+            id=uuid4(),
+            report_id=report_id,
+            report_version_id=command.report_version_id,
+            snapshot_hash=command.snapshot_hash,
+            publisher_membership_id=self.actor.membership_id,
+            decision_id=decision_id,
+            published_at=at,
+        )
+        self.session.add(
+            ReportPublicationModel(
+                organization_id=self.org, **publication.model_dump(mode="python")
+            )
+        )
+        row.current_publication_id = publication.id
+        row.version += 1
+        await self.session.flush()
+        published = await self.get(report_id)
+        self.session.add(
+            IdempotencyRecordModel(
+                id=uuid4(),
+                organization_id=self.org,
+                actor_membership_id=self.actor.membership_id,
+                operation="report.publish",
+                idempotency_key=key,
+                request_fingerprint=fingerprint,
+                state=IdempotencyState.COMPLETED,
+                response_status=201,
+                response_body=published.model_dump(mode="json"),
+                expires_at=at + timedelta(days=7),
+            )
+        )
+        self.session.add(
+            AuditEventModel(
+                id=uuid4(),
+                organization_id=self.org,
+                actor_membership_id=self.actor.membership_id,
+                action="report.published",
+                outcome=AuditOutcome.SUCCEEDED,
+                resource_type="report",
+                resource_id=report_id,
+                request_id=request_id,
+                idempotency_key=key,
+                before_data={
+                    "version": expected_version,
+                    "current_publication_id": str(result.report.current_publication_id)
+                    if result.report.current_publication_id
+                    else None,
+                },
+                after_data={
+                    "version": row.version,
+                    "publication_id": str(publication.id),
+                    "report_version_id": str(command.report_version_id),
+                    "snapshot_hash": command.snapshot_hash,
+                },
+                reason_data={},
+            )
+        )
+        self.session.add(
+            OutboxEventModel(
+                id=uuid4(),
+                organization_id=self.org,
+                event_id=uuid4(),
+                event_type="report.published.v1",
+                aggregate_type="report",
+                aggregate_id=report_id,
+                payload=ReportPublished(
+                    report_id=report_id,
+                    publication_id=publication.id,
+                    report_version_id=command.report_version_id,
+                    snapshot_hash=command.snapshot_hash,
+                    actor_membership_id=self.actor.membership_id,
+                ).model_dump(mode="json"),
+                status="PENDING",
+            )
+        )
+        await self.session.flush()
+        return published
+
+    async def audit_publish_rejection(
+        self, request_id: str, key: str | None, code: str, report_id: UUID | None
+    ) -> None:
+        self.session.add(
+            AuditEventModel(
+                id=uuid4(),
+                organization_id=self.org,
+                actor_membership_id=self.actor.membership_id,
+                action="report.published",
+                outcome=AuditOutcome.REJECTED,
+                resource_type="report",
+                resource_id=report_id,
                 request_id=request_id,
                 idempotency_key=key,
                 before_data={},

@@ -4,6 +4,8 @@ from datetime import date, datetime
 from typing import Literal
 from uuid import UUID
 
+from pydantic import Field
+
 from .metrics import ReportContract
 from .periods import ReportKind, ReportPeriod
 
@@ -23,3 +25,9 @@ class CaptureReportCommand(ReportContract):
     project_id: UUID
     period: ReportPeriod
     captured_at: datetime
+
+
+class PublishReportCommand(ReportContract):
+    mode: Literal["METRICS_ONLY"]
+    report_version_id: UUID
+    snapshot_hash: str = Field(pattern=r"^[a-f0-9]{64}$")

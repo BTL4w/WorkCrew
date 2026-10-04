@@ -39,11 +39,26 @@ for (const locale of ["vi", "en"] as const) {
     const reports = await (await page.request.get(`/api/v1/reports?project_id=${project.id}`)).json();
     const reportId = reports.items[0].id;
     const before = await (await page.request.get(`/api/v1/reports/${reportId}`)).json();
+    await detail.getByRole("button", {name: locale === "vi" ? "Xuất bản chỉ số liệu" : "Publish metrics only", exact:true}).click();
+    await expect(detail.getByText(locale === "vi" ? "Bản xuất bản hiện tại" : "Current publication", {exact:true})).toBeVisible();
+    const published = await (await page.request.get(`/api/v1/reports/${reportId}`)).json();
+    expect(published.report.version).toBe(before.report.version + 1);
+    expect(published.publications).toHaveLength(1);
+    expect(published.publications[0].snapshot_hash).toBe(before.snapshot.snapshot_hash);
+    expect(published.publications[0].report_version_id).toBe(before.selected_version.id);
+    await detail.getByRole("button", {name:locale === "vi" ? "Xem bản đã xuất bản" : "View published version"}).click();
+    const release = detail.getByRole("region", {name:locale === "vi" ? "Số liệu đã xuất bản" : "Published metrics", exact:true});
+    await expect(release).toBeVisible();
+    await release.getByText(locale === "vi" ? "Biên nhận số liệu" : "Metric snapshot receipt", {exact:true}).click();
+    await expect(release.getByText(before.snapshot.snapshot_hash, {exact:true})).toBeVisible();
+    await release.getByRole("button", {name:locale === "vi" ? "Đóng bản đã xuất bản" : "Close published version"}).click();
     const task = await taskResponse.json();
     const edited = await page.request.patch(`/api/v1/tasks/${task.id}`, { data: { due_date: "2026-10-01" }, headers: { ...headers(), "If-Match": `"${task.version}"` } });
     expect(edited.status()).toBe(200);
     const after = await (await page.request.get(`/api/v1/reports/${reportId}`)).json();
     expect(after.snapshot).toEqual(before.snapshot);
+    expect(after.publications).toEqual(published.publications);
+    expect(after.report.current_publication_id).toBe(published.report.current_publication_id);
     const sourceBefore = await (await page.request.get(`/api/v1/reports/${reportId}/sources`)).json();
     expect(sourceBefore.items.find((item: {source:{resource_id:string}}) => item.source.resource_id === task.id).freshness).toBe("UPDATED");
     await page.getByRole("button", {name: locale === "vi" ? "Tạo báo cáo" : "Create report", exact: true}).click();
@@ -58,6 +73,9 @@ for (const locale of ["vi", "en"] as const) {
     expect(weekly.snapshot.period.local_end).toBe("2026-10-05");
     expect(weekly.snapshot.metrics[`weekly.${week.id}.current.total_effort_hours`].value).toBe("4");
     await expect(detail.getByText(locale === "vi" ? "Kế hoạch và thực tế từng tuần" : "Weekly planned versus actual", {exact:true})).toBeVisible();
+    await detail.getByRole("button", {name:locale === "vi" ? "Xuất bản chỉ số liệu" : "Publish metrics only", exact:true}).click();
+    await expect(detail.getByText(locale === "vi" ? "Bản xuất bản hiện tại" : "Current publication", {exact:true})).toBeVisible();
+    await detail.getByRole("button", {name:locale === "vi" ? "Xem bản đã xuất bản" : "View published version"}).click();
     for (const width of [360, 1280]) {
       await page.setViewportSize({ width, height: 900 });
       await expect(detail).toBeVisible();
@@ -68,5 +86,6 @@ for (const locale of ["vi", "en"] as const) {
     await page.getByRole("button", { name, exact: false }).click();
     await page.getByRole("tab", { name: locale === "vi" ? "Báo cáo" : "Reports", exact: true }).click();
     await expect(page.getByRole("article", { name: locale === "vi" ? "Chi tiết báo cáo" : "Report detail" })).toBeVisible();
+    await expect(page.getByText(locale === "vi" ? "Bản xuất bản hiện tại" : "Current publication", {exact:true})).toBeVisible();
   });
 }

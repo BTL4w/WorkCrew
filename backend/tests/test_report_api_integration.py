@@ -155,6 +155,8 @@ async def report_harness() -> AsyncGenerator[ReportHarness]:
                 "daily_update_drafts",
                 "report_snapshot_sources",
                 "report_snapshot_receipts",
+                "report_publications",
+                "report_review_decisions",
                 "report_versions",
                 "report_metric_snapshots",
                 "reports",

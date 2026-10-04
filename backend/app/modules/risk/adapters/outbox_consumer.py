@@ -13,7 +13,7 @@ from app.modules.identity.domain.auth import AuthenticatedActor
 from app.modules.organization.domain.roles import MembershipRole
 from app.modules.planning_runs.domain.models import OutboxEvent
 from app.modules.progress.domain.blockers import BlockerError
-from app.modules.reporting.domain.events import MetricsCaptured
+from app.modules.reporting.domain.events import MetricsCaptured, ReportPublished
 from app.modules.risk.adapters.repository import RiskRepository, input_hash
 from app.modules.risk.application.notification_service import NotificationService
 from app.modules.risk.application.risk_service import RiskService
@@ -78,6 +78,10 @@ class RiskOutboxPublisher:
             if event.aggregate_type != "report" or captured_report.report_id != event.aggregate_id:
                 raise ValueError("Invalid report event aggregate")
             # Fact-only acknowledgement; narrative generation has a separate bounded job.
+        elif event.event_type == "report.published.v1":
+            published_report = ReportPublished.model_validate(event.payload)
+            if event.aggregate_type != "report" or published_report.report_id != event.aggregate_id:
+                raise ValueError("Invalid report publication aggregate")
         elif event.event_type in {"risk.review_recorded.v1", "risk.notification_read.v1"}:
             UUID(str(event.aggregate_id))
         else:

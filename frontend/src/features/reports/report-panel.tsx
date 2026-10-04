@@ -28,7 +28,10 @@ export function ReportPanel({ projectId, organizationId, actorMembershipId }: { 
       setSelected(data.report.id); setCreating(false);
       void client.invalidateQueries({ queryKey: [...scope, "list"] });
     }} /> : <p role="status">{t("loading")}</p>)}
-    {reports.isError || detail.isError ? <p className="error-message" role="alert">{t("error")} <button className="text-button" type="button" onClick={() => { void reports.refetch(); void detail.refetch(); }}>{t("retry")}</button></p> : detail.data ? <ReportDetail data={detail.data} organizationId={organizationId} actorMembershipId={actorMembershipId} /> : reports.isPending || (id && detail.isPending) ? <p role="status">{t("loading")}</p> : <p className={styles.empty}>{t("empty")}</p>}
+    {reports.isError || detail.isError ? <p className="error-message" role="alert">{t("error")} <button className="text-button" type="button" onClick={() => { void reports.refetch(); void detail.refetch(); }}>{t("retry")}</button></p> : detail.data ? <ReportDetail data={detail.data} organizationId={organizationId} actorMembershipId={actorMembershipId} onPublished={data => {
+      client.setQueryData([...scope, "detail", data.report.id], data);
+      void client.invalidateQueries({queryKey: [...scope, "list"]});
+    }} onStale={() => { void detail.refetch(); }} /> : reports.isPending || (id && detail.isPending) ? <p role="status">{t("loading")}</p> : <p className={styles.empty}>{t("empty")}</p>}
     {Boolean(reports.data?.items.length) && <div className={styles.history} aria-label={t("history")}>
       <h3 className="font-semibold">{t("history")}</h3>{reports.data?.items.map(report => <button className={styles.historyItem} key={report.id} type="button" aria-pressed={id === report.id} onClick={() => setSelected(report.id)}>
         <span>{t(report.kind === "WEEKLY" ? "weekly" : "daily")} · {new Intl.DateTimeFormat(locale, { dateStyle: "medium", timeStyle: "short" }).format(new Date(report.created_at))}</span><span>{t("version", { version: report.version })}</span></button>)}

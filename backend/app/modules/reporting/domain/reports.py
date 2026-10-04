@@ -30,6 +30,7 @@ class Report(ReportContract):
     version: int = Field(ge=1)
     snapshot_id: UUID
     selected_version_id: UUID
+    current_publication_id: UUID | None = None
     created_by_membership_id: UUID
     narrative_requested: bool
     created_at: datetime
@@ -44,11 +45,21 @@ class ReportVersion(ReportContract):
     created_at: datetime
 
 
+class ReportPublication(ReportContract):
+    id: UUID
+    report_id: UUID
+    report_version_id: UUID
+    snapshot_hash: str = Field(pattern=r"^[a-f0-9]{64}$")
+    publisher_membership_id: UUID
+    decision_id: UUID
+    published_at: datetime
+
+
 class ReportResult(ReportContract):
     report: Report
     snapshot: ReportMetricSnapshot
     selected_version: ReportVersion
-    publications: tuple[()] = ()
+    publications: tuple[ReportPublication, ...] = ()
     generation_state: Literal["NOT_REQUESTED", "AI_UNAVAILABLE"]
     replayed: bool = False
 

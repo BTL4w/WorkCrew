@@ -953,6 +953,21 @@
     "sourceDetails": "Captured details",
     "yes": "Yes",
     "no": "No",
-    "declaredReportingDate": "By declared reporting date in period"
+    "declaredReportingDate": "By declared reporting date in period",
+    "publications": "Publication history",
+    "publicationExplanation": "Publishing keeps this exact metric capture. Later drafts and source changes cannot replace it.",
+    "publishMetrics": "Publish metrics only",
+    "publishing": "Publishing…",
+    "unpublished": "This report has not been published.",
+    "publishedAt": "Published {at}",
+    "currentPublication": "Current publication",
+    "publishedBy": "Published by member {id}",
+    "viewPublication": "View published version",
+    "publishedMetrics": "Published metrics",
+    "publishedVersion": "Report version: {id}",
+    "closePublication": "Close published version",
+    "snapshotReceipt": "Metric snapshot receipt",
+    "publishError": "Publication could not be confirmed. Retry to check the same request.",
+    "publishStale": "This report changed. Review the refreshed version before publishing."
   }
 }

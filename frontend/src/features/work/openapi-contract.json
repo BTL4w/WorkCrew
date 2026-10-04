@@ -882,6 +882,9 @@
       ],
       "/api/v1/reports/{report_id}/sources": [
         "get"
+      ],
+      "/api/v1/reports/{report_id}/publish": [
+        "post"
       ]
     },
     "schemas": {
@@ -919,7 +922,7 @@
           "report": "ref:Report",
           "snapshot": "ref:ReportMetricSnapshot",
           "selected_version": "ref:ReportVersion",
-          "publications": "array:never",
+          "publications": "array:ref:ReportPublication",
           "generation_state": "literal:NOT_REQUESTED|AI_UNAVAILABLE",
           "replayed": "boolean"
         }
@@ -961,6 +964,7 @@
           "version": "integer",
           "snapshot_id": "string:uuid",
           "selected_version_id": "string:uuid",
+          "current_publication_id": "null|string:uuid",
           "created_by_membership_id": "string:uuid",
           "narrative_requested": "boolean",
           "created_at": "string:date-time"
@@ -1113,6 +1117,38 @@
           "receipts": "array:ref:AggregateReceipt",
           "next_cursor": "null|string",
           "total": "integer"
+        }
+      },
+      "ReportPublication": {
+        "required": [
+          "id",
+          "report_id",
+          "report_version_id",
+          "snapshot_hash",
+          "publisher_membership_id",
+          "decision_id",
+          "published_at"
+        ],
+        "properties": {
+          "id": "string:uuid",
+          "report_id": "string:uuid",
+          "report_version_id": "string:uuid",
+          "snapshot_hash": "string",
+          "publisher_membership_id": "string:uuid",
+          "decision_id": "string:uuid",
+          "published_at": "string:date-time"
+        }
+      },
+      "ReportPublishRequest": {
+        "required": [
+          "mode",
+          "report_version_id",
+          "snapshot_hash"
+        ],
+        "properties": {
+          "mode": "literal:METRICS_ONLY",
+          "report_version_id": "string:uuid",
+          "snapshot_hash": "string"
         }
       }
     }

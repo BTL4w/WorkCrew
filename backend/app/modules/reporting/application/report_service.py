@@ -6,7 +6,7 @@ from zoneinfo import ZoneInfo
 
 from app.modules.identity.domain.auth import AuthenticatedActor
 
-from ..domain.commands import CaptureReportCommand, CreateReportCommand
+from ..domain.commands import CaptureReportCommand, CreateReportCommand, PublishReportCommand
 from ..domain.periods import ReportKind, normalize_period
 from ..domain.reports import (
     ReportCaptureConflict,
@@ -117,3 +117,60 @@ class ReportService:
         async with self.transactions(actor) as repo:
             await repo.authenticate()
             return await repo.sources(report_id, cursor, page_size)
+
+    async def publish_metrics(
+        self,
+        *,
+        actor: AuthenticatedActor,
+        report_id: UUID,
+        command: PublishReportCommand,
+        expected_version: int,
+        idempotency_key: str,
+        request_id: str | None = None,
+    ) -> ReportResult:
+        request_id = request_id or str(uuid4())
+        fingerprint = canonical_hash(
+            {
+                "report_id": str(report_id),
+                "expected_version": expected_version,
+                "command": command.model_dump(mode="json"),
+            }
+        )
+        try:
+            for attempt in range(3):
+                try:
+                    async with self.transactions(actor) as repo:
+                        await repo.authenticate()
+                        return await repo.publish(
+                            report_id,
+                            command,
+                            expected_version,
+                            idempotency_key,
+                            fingerprint,
+                            request_id,
+                        )
+                except ReportCaptureConflict:
+                    if attempt == 2:
+                        raise ReportError("REPORT_PUBLICATION_RETRY", 409) from None
+            raise ReportError("REPORT_PUBLICATION_RETRY", 409)
+        except ReportError as exc:
+            await self.audit_publish_rejection(
+                actor=actor,
+                request_id=request_id,
+                key=idempotency_key,
+                reason_code=exc.code,
+                report_id=report_id,
+            )
+            raise
+
+    async def audit_publish_rejection(
+        self,
+        *,
+        actor: AuthenticatedActor,
+        request_id: str,
+        key: str | None,
+        reason_code: str,
+        report_id: UUID | None,
+    ) -> None:
+        async with self.transactions(actor) as repo:
+            await repo.audit_publish_rejection(request_id, key, reason_code, report_id)
