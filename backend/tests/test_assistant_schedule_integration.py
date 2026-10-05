@@ -1,5 +1,6 @@
 """Orchestrator-owned schedule preparation never bypasses Manager confirmation."""
 
+import os
 from typing import Literal
 from uuid import UUID, uuid4
 
@@ -25,6 +26,10 @@ from work_management_ai.runtime.contracts import (
 from work_management_ai.runtime.policy_guard import PolicyGuard
 
 __all__ = ["harness"]
+pytestmark = [
+    pytest.mark.integration,
+    pytest.mark.skipif(os.getenv("RUN_POSTGRES_INTEGRATION") != "1", reason="requires PostgreSQL"),
+]
 
 
 @pytest.mark.asyncio
