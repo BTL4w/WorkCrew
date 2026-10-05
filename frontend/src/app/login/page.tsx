@@ -81,7 +81,7 @@ export default function LoginPage() {
           <p className="text-sm font-semibold tracking-[0.22em] text-blue-300 uppercase">
             {t("product")}
           </p>
-          <h1 className="mt-8 max-w-xl text-5xl leading-tight font-semibold">{t("heroTitle")}</h1>
+          <h1 className="hero-title mt-8 max-w-xl text-5xl leading-tight font-semibold">{t("heroTitle")}</h1>
           <p className="mt-6 max-w-lg text-lg leading-8 text-slate-300">{t("heroDescription")}</p>
         </div>
         <p className="max-w-md text-sm leading-6 text-slate-400">{t("localOnly")}</p>
@@ -92,7 +92,7 @@ export default function LoginPage() {
           <p className="text-sm font-semibold tracking-wide text-[var(--accent)] uppercase">
             {t("eyebrow")}
           </p>
-          <h2 className="mt-3 text-3xl font-semibold">{t("title")}</h2>
+          <h2 className="section-title mt-3 text-3xl font-semibold">{t("title")}</h2>
           <p className="mt-3 leading-7 text-slate-600">{t("description")}</p>
 
           {reason === "SESSION_EXPIRED" ? (

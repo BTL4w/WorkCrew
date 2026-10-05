@@ -1,5 +1,58 @@
 @import "tailwindcss";
 
+@font-face {
+  font-family: "Inter";
+  src: url("/fonts/inter/InterVariable.woff2") format("woff2");
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Inter";
+  src: url("/fonts/inter/InterVariable-Italic.woff2") format("woff2");
+  font-weight: 100 900;
+  font-style: italic;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Geist";
+  src: url("/fonts/geist/Geist[wght].ttf") format("truetype");
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Geist";
+  src: url("/fonts/geist/Geist-Italic[wght].ttf") format("truetype");
+  font-weight: 100 900;
+  font-style: italic;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Instrument Serif";
+  src: url("/fonts/instrumentserif/InstrumentSerif-Regular.ttf") format("truetype");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Instrument Serif";
+  src: url("/fonts/instrumentserif/InstrumentSerif-Italic.ttf") format("truetype");
+  font-weight: 400;
+  font-style: italic;
+  font-display: swap;
+}
+
+@theme inline {
+  --font-sans: "Inter", "Geist", sans-serif;
+  --font-serif: "Instrument Serif", Georgia, serif;
+}
+
 :root {
   --background: #f7f8fc;
   --foreground: #151925;
@@ -17,10 +70,27 @@ body {
   margin: 0;
   background: var(--background);
   color: var(--foreground);
-  font-family: Inter, "SF Pro Display", "SF Pro Text", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-family: "Inter", "Geist", sans-serif;
   -webkit-font-smoothing: antialiased;
 }
 button, input, textarea, select { font: inherit; }
+
+/* Editorial accents, including the existing UI title selectors. */
+.hero-title,
+.sidebar-brand,
+.section-title,
+.card-title,
+.assistant-brand-name,
+.assistant-header h1,
+.assistant-empty h2,
+.page-title,
+.resource-card h3,
+.resource-card h4,
+.ai-card h3,
+.ai-card h4 {
+  font-family: "Instrument Serif", Georgia, serif;
+}
+
 button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-visible {
   outline: 3px solid rgb(91 91 214 / 22%);
   outline-offset: 2px;
@@ -276,7 +346,7 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
   overflow: hidden;
   background: #f7f7f8;
   color: #18181b;
-  font-family: Inter, "SF Pro Text", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-family: "Inter", "Geist", sans-serif;
 }
 .assistant-shell.is-sidebar-collapsed { grid-template-columns: 72px minmax(0, 1fr); }
 .assistant-conversations {
