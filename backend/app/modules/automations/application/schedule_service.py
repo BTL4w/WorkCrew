@@ -99,6 +99,16 @@ class ScheduleService:
                     raise ScheduleError("RECIPIENT_AMBIGUOUS_OR_NOT_FOUND", 422)
                 selected.append(matches[0])
             value = ScheduleCommand(
+                narrative_mode=command.narrative_mode
+                if command.narrative_mode is not None
+                else current.narrative_mode
+                if current
+                else "NONE",
+                narrative_locale=command.narrative_locale
+                if command.narrative_locale is not None
+                else current.narrative_locale
+                if current
+                else "vi",
                 project_id=project_id,
                 recipients=tuple(selected),
                 timezone=command.timezone
@@ -148,11 +158,23 @@ class ScheduleService:
                 current = await repo.current(command.project_id)
                 if (current.version if current else 0) != expected_version:
                     raise ScheduleError("STALE_SCHEDULE")
+                effective_command = command
+                if current:
+                    effective_command = command.model_copy(
+                        update={
+                            field: getattr(current, field)
+                            for field in ("narrative_mode", "narrative_locale")
+                            if field not in command.model_fields_set
+                        }
+                    )
                 allowed = {r.membership_id for r in await repo.recipients(command.project_id)}
-                if not set(command.recipients) <= allowed:
+                if not set(effective_command.recipients) <= allowed:
                     raise ScheduleError("INVALID_RECIPIENT", 422)
                 fingerprint = digest(
-                    {"command": command.model_dump(mode="json"), "version": expected_version}
+                    {
+                        "command": effective_command.model_dump(mode="json"),
+                        "version": expected_version,
+                    }
                 )
                 replay = await repo.replay("schedule.preview", key, fingerprint)
                 if replay:
@@ -161,7 +183,7 @@ class ScheduleService:
                 effective = (await repo.window(current, now)).ends_at if current else now
                 draft = ScheduleDraft(
                     id=uuid4(),
-                    command=command,
+                    command=effective_command,
                     expected_version=expected_version,
                     expires_at=now + timedelta(minutes=15),
                     effective_at=effective,
@@ -207,6 +229,7 @@ class ScheduleService:
                 if current and effective != draft.effective_at:
                     raise ScheduleError("STALE_WINDOW")
                 result = DailySummarySchedule(
+                    creator_membership_id=actor.membership_id,
                     id=current.id if current else uuid4(),
                     version=expected_version + 1,
                     paused=current.paused if current else False,

@@ -288,7 +288,12 @@ class _Phase2MockModelGateway:
             data = cast(dict[str, Any], payload["UNTRUSTED_CONTEXT"])
             if key.endswith(".draft"):
                 snapshot = data["snapshot"]
-                metric = snapshot["metrics"]["tasks.status.done_count"]
+                metric_key = (
+                    "included_tasks.status.done_count"
+                    if "included_tasks.status.done_count" in snapshot["metrics"]
+                    else "tasks.status.done_count"
+                )
+                metric = snapshot["metrics"][metric_key]
                 return {
                     "snapshot_id": snapshot["id"],
                     "snapshot_hash": snapshot["snapshot_hash"],
@@ -301,7 +306,7 @@ class _Phase2MockModelGateway:
                             "template": "METRIC",
                             "bindings": [
                                 {
-                                    "metric_key": "tasks.status.done_count",
+                                    "metric_key": metric_key,
                                     "unit": metric["unit"],
                                     "period": metric["time_basis"],
                                     "value": metric["value"],
@@ -351,6 +356,17 @@ class _Phase2MockModelGateway:
                 else None,
                 "send_when_complete": None,
                 "partial_at_cutoff": None,
+                "narrative_mode": (
+                    "NONE"
+                    if any(
+                        x in lowered
+                        for x in ("disable narrative", "tắt narrative", "tắt diễn giải")
+                    )
+                    else "DRAFT_FOR_MANAGER"
+                )
+                if any(x in lowered for x in ("narrative", "diễn giải"))
+                else None,
+                "narrative_locale": None,
             }
         if key.startswith("risk.") and key.endswith(".explain"):
             context = cast(dict[str, Any], payload["context"])

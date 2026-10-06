@@ -3,7 +3,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { useLocale, useTranslations } from "next-intl";
 import { getDeliveries } from "./api";
-import type { SummarySnapshot } from "./contracts";
+import type { SummarySnapshot, SummaryReportLink } from "./contracts";
 
 export function DailySummaryView({organizationId, membershipId, projectId}: {
   organizationId:string; membershipId:string; projectId?:string;
@@ -15,11 +15,11 @@ export function DailySummaryView({organizationId, membershipId, projectId}: {
   const cards = query.data.filter(delivery=>!projectId || delivery.snapshot.project_id===projectId);
   return <section className="mt-6 space-y-4" aria-label={t("title")}>
     <h3 className="text-lg font-semibold">{t("title")}</h3>
-    {cards.length===0 ? <p className="text-sm text-slate-600">{t("empty")}</p> : cards.map(delivery=><SummaryCard key={delivery.id} snapshot={delivery.snapshot}/>)}
+    {cards.length===0 ? <p className="text-sm text-slate-600">{t("empty")}</p> : cards.map(delivery=><SummaryCard key={delivery.id} snapshot={delivery.snapshot} reportLink={delivery.report_link}/>)}
   </section>;
 }
 
-export function SummaryCard({snapshot}: {snapshot:SummarySnapshot}) {
+export function SummaryCard({snapshot,reportLink}: {snapshot:SummarySnapshot;reportLink?:SummaryReportLink|null}) {
   const t=useTranslations("summaries"), locale=useLocale();
   const time=(value:string)=>new Intl.DateTimeFormat(locale,{dateStyle:"medium",timeStyle:"short",timeZone:snapshot.window.timezone}).format(new Date(value));
   return <article className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
@@ -45,6 +45,7 @@ export function SummaryCard({snapshot}: {snapshot:SummarySnapshot}) {
         {source.kind==="EVIDENCE"&&source.href&&/^\/api\/v1\/evidence\//.test(source.href)?<a className="text-blue-700 underline" href={source.href}>{t("original",{version:source.version})}</a>:<p>{t(`kind${source.kind}`)} · {source.text || source.state || t("reference")} · v{source.version}</p>}
         {source.kind!=="EVIDENCE"?<div className="mt-1 text-xs text-slate-500"><p>{t("sourceTask",{task:snapshot.tasks.find(task=>task.id===source.task_id)?.title??source.task_id})}</p><p className="break-all">{t("sourceReference",{id:source.id})}</p></div>:null}
         {source.created_at?<p className="text-xs text-slate-500">{time(source.created_at)}</p>:null}</li>)}</ul></details>:null}
+    {snapshot.scope === "PROJECT" && reportLink ? <aside className="mt-4 rounded-xl bg-blue-50 p-4 text-sm"><p>{t(reportLink.publication_id ? "narrativePublished" : `narrative${reportLink.generation_state}`)}</p><a className="secondary-button mt-3" href={`/?project=${snapshot.project_id}&report=${reportLink.report_id}${reportLink.publication_id ? `&version=${reportLink.report_version_id}` : ""}`}>{t("openReport")}</a><p className="mt-2">{t("narrativeSeparate")}</p></aside> : null}
     {snapshot.unknown_inputs.length>0?<p className="mt-4 text-sm text-amber-800">{t("unknownInputs")}</p>:null}
   </article>;
 }

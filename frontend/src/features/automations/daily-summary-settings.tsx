@@ -1,6 +1,6 @@
 "use client";
 import { useQuery } from "@tanstack/react-query";
-import { useRef, useState, type FormEvent } from "react";
+import { useId, useRef, useState, type FormEvent } from "react";
 import { useTranslations, useLocale } from "next-intl";
 import { isDefinitiveMutationRejection } from "@/shared/api/client";
 import {
@@ -69,6 +69,7 @@ function ScheduleEditor({
 }) {
   const t = useTranslations("automations"),
     locale = useLocale();
+  const narrativeHintId = useId();
   const [command, setCommand] = useState<ScheduleCommand>(
     commandSchema.parse(initialDraft?.command ?? view.schedule ?? {
       project_id: projectId,
@@ -247,6 +248,7 @@ function ScheduleEditor({
                 {t(draft.command.partial_at_cutoff ? "enabled" : "disabled")}
               </dd>
             </div>
+            <div><dt>{t("narrative")}</dt><dd>{t(draft.command.narrative_mode === "DRAFT_FOR_MANAGER" ? "enabled" : "disabled")}</dd></div>
             <div>
               <dt>{t("effective")}</dt>
               <dd>{instant(draft.effective_at)}</dd>
@@ -388,6 +390,14 @@ function ScheduleEditor({
             />
             {t("partial")}
           </label>
+          <div className="grid gap-2 text-sm">
+            <label className="flex gap-2"><input type="checkbox" aria-describedby={narrativeHintId}
+              checked={command.narrative_mode === "DRAFT_FOR_MANAGER"}
+              onChange={event => setCommand(current => ({...current,
+                narrative_mode: event.target.checked ? "DRAFT_FOR_MANAGER" : "NONE",
+                narrative_locale: locale === "vi" ? "vi" : "en"}))}/>{t("narrative")}</label>
+            <p id={narrativeHintId} className="text-slate-600">{t("narrativeHint")}</p>
+          </div>
           <div>
             <button
               className="primary-button"

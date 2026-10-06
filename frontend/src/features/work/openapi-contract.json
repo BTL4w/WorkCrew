@@ -2349,6 +2349,10 @@
           "created_at"
         ],
         "properties": {
+          "origin": "literal:ON_DEMAND|DAILY_SUMMARY",
+          "summary_id": "null|string:uuid",
+          "summary_hash": "null|string",
+          "workflow_version": "null|string",
           "id": "string:uuid",
           "organization_id": "string:uuid",
           "project_id": "string:uuid",

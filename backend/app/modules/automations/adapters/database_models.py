@@ -4,7 +4,16 @@ from datetime import datetime
 from typing import Any
 from uuid import UUID
 
-from sqlalchemy import Boolean, DateTime, ForeignKeyConstraint, Index, Integer, UniqueConstraint
+from sqlalchemy import (
+    Boolean,
+    CheckConstraint,
+    DateTime,
+    ForeignKeyConstraint,
+    Index,
+    Integer,
+    String,
+    UniqueConstraint,
+)
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -34,6 +43,15 @@ class ScheduleVersionModel(Base):
             ["organization_id", "schedule_id"],
             ["automation_schedules.organization_id", "automation_schedules.id"],
         ),
+        ForeignKeyConstraint(
+            ["organization_id", "creator_membership_id"],
+            ["memberships.organization_id", "memberships.id"],
+            name="fk_schedule_version_creator",
+        ),
+        CheckConstraint("narrative_mode IN ('NONE','DRAFT_FOR_MANAGER')", name="narrative_mode"),
+        CheckConstraint(
+            "narrative_mode='NONE' OR creator_membership_id IS NOT NULL", name="narrative_creator"
+        ),
         Index(
             "ix_schedule_version_effective",
             "organization_id",
@@ -42,6 +60,8 @@ class ScheduleVersionModel(Base):
             "version",
         ),
     )
+    narrative_mode: Mapped[str] = mapped_column(String(32), server_default="NONE", default="NONE")
+    creator_membership_id: Mapped[UUID | None]
     organization_id: Mapped[UUID] = mapped_column(primary_key=True)
     schedule_id: Mapped[UUID] = mapped_column(primary_key=True)
     version: Mapped[int] = mapped_column(primary_key=True)

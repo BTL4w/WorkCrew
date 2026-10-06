@@ -298,3 +298,59 @@ def test_vietnamese_zero_task_claim_still_requires_binding():
     assert not verify_numeric(
         ReportingSnapshot.model_validate(wire), ReportingNarrative.model_validate(doc)
     ).passed
+
+
+def test_included_summary_partial_binding_keeps_its_sample_meaning():
+    import hashlib
+    import json
+
+    def canonical_hash(value: object) -> str:
+        return hashlib.sha256(
+            json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=True).encode()
+        ).hexdigest()
+
+    wire = snapshot_wire()
+    doc = narrative_wire(wire)
+    metric = wire["metrics"].pop("tasks.status.done_count")
+    metric.update(
+        key="included_tasks.status.done_count",
+        state="PARTIAL",
+        limitations=["INCLUDED_SUMMARY_ITEMS_ONLY"],
+    )
+    wire["metrics"][metric["key"]] = metric
+    wire["query_version"] = "daily-summary-conversion.v1"
+    wire["snapshot_hash"] = canonical_hash({k: v for k, v in wire.items() if k != "snapshot_hash"})
+    doc["snapshot_hash"] = wire["snapshot_hash"]
+    doc["blocks"] = [
+        {
+            "id": "included",
+            "kind": "FACT",
+            "section": "progress",
+            "template": "METRIC",
+            "bindings": [
+                {
+                    "metric_key": metric["key"],
+                    "value": metric["value"],
+                    "unit": metric["unit"],
+                    "period": metric["time_basis"],
+                }
+            ],
+        }
+    ]
+    assert verify_numeric(
+        ReportingSnapshot.model_validate(wire), ReportingNarrative.model_validate(doc)
+    ).passed
+    bad_doc = narrative_wire(wire)
+    bad_doc["snapshot_hash"] = wire["snapshot_hash"]
+    bad_doc["blocks"] = doc["blocks"]
+    from typing import Any, cast
+
+    cast(dict[str, Any], bad_doc["blocks"][0])["bindings"][0]["metric_key"] = (
+        "tasks.status.total_count"
+    )
+    wire["metrics"]["tasks.status.total_count"]["state"] = "PARTIAL"
+    wire["snapshot_hash"] = canonical_hash({k: v for k, v in wire.items() if k != "snapshot_hash"})
+    doc["snapshot_hash"] = wire["snapshot_hash"]
+    assert not verify_numeric(
+        ReportingSnapshot.model_validate(wire), ReportingNarrative.model_validate(doc)
+    ).passed

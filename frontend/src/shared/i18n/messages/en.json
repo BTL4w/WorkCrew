@@ -1,5 +1,14 @@
 {
   "summaries": {
+    "narrativePublished": "Narrative published by a Manager",
+    "narrativeQUEUED": "AI draft queued",
+    "narrativeRUNNING": "Creating AI draft",
+    "narrativeAWAITING_REVIEW": "AI draft awaiting Manager review",
+    "narrativeAI_UNAVAILABLE": "AI unavailable; digest delivered",
+    "narrativeFAILED": "Draft failed; digest delivered",
+    "narrativeNOT_REQUESTED": "Narrative not requested",
+    "openReport": "Open report",
+    "narrativeSeparate": "The report uses the committed digest and is reviewed separately.",
     "sourceTask": "Task: {task}",
     "sourceReference": "Reference: {id}",
     "scopeChanged": "Assignments or reporting scope changed after this window opened.",
@@ -35,6 +44,8 @@
     "confirm": "Confirm change"
   },
   "automations": {
+    "narrative": "Create an AI narrative draft",
+    "narrativeHint": "Uses the committed digest; a Manager reviews and publishes separately. The digest is delivered even when AI is unavailable.",
     "removeUnavailableRecipient": "Remove recipient who no longer has access",
     "title": "Daily summary schedule",
     "eyebrow": "PROJECT SETTINGS",
@@ -846,6 +857,7 @@
   }
 },
   "reports": {
+    "includedScopeNotice": "Included digest items only; these are not Project totals. Create a fresh report for a full capture.",
   "openCurrentDraft": "Open current draft",
   "referencedVersion": "Referenced immutable version: {version}",
     "sourcesTitle": "Metric sources",
@@ -889,6 +901,20 @@
     "previous": "Previous",
     "next": "Next",
     "metrics": {
+      "includedTotal": "Included tasks",
+      "includedDone": "Included tasks in DONE",
+      "includedTodo": "Included tasks in TO_DO",
+      "includedInProgress": "Included tasks in progress",
+      "includedObservations": "Included observations",
+      "includedMean": "Mean progress in sample",
+      "includedBlockers": "Included blockers",
+      "includedRisk": "Included risk assessments",
+      "includedReviews": "Included reviews",
+      "includedEvidence": "Included evidence",
+      "expectedReporters": "Expected reporters",
+      "reportedMembers": "Reported members",
+      "missingReporters": "Missing reporters",
+
       "total": "Total tasks",
       "todo": "To do",
       "inProgress": "In progress",
@@ -952,6 +978,11 @@
     "observedThrough": "Observed through {at}",
     "utcBounds": "UTC interval: {start} → {end}",
     "groups": {
+      "included_tasks": "Included tasks",
+      "included_progress": "Included progress",
+      "included_sources": "Included sources",
+      "reporting": "Reporter counts",
+
       "status": "Task status",
       "activity": "Period activity",
       "deadline": "Deadlines",

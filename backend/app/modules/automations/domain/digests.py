@@ -62,13 +62,27 @@ class DailySummarySnapshot(Contract):
     unknown_inputs: tuple[str, ...] = ()
 
 
+class SummaryReportLink(Contract):
+    report_id: UUID
+    report_version_id: UUID
+    snapshot_hash: str
+    generation_state: Literal[
+        "NOT_REQUESTED", "QUEUED", "RUNNING", "AWAITING_REVIEW", "AI_UNAVAILABLE", "FAILED"
+    ]
+    publication_id: UUID | None = None
+
+
 class SummaryDelivery(Contract):
     id: UUID
     snapshot: DailySummarySnapshot
+    report_link: SummaryReportLink | None = None
 
 
 class SummaryCaptured(Contract):
     summary_id: UUID
+    creator_membership_id: UUID | None = None
+    narrative_mode: Literal["NONE", "DRAFT_FOR_MANAGER"] = "NONE"
+    narrative_locale: Literal["vi", "en"] = "vi"
 
 
 class SummaryDelivered(Contract):

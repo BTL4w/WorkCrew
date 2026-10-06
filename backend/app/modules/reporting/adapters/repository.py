@@ -297,6 +297,14 @@ class SQLReportRepository:
 
         if version.narrative is None:
             return version.narrative_access_state == "AVAILABLE"
+        if snapshot.query_version == "daily-summary-conversion.v1":
+            for ref in snapshot.sources:
+                if (
+                    ref.resource_type == "DAILY_SUMMARY"
+                    and await source_reader.source_freshness(self.session, self.actor, ref)
+                    == "UNAVAILABLE"
+                ):
+                    return False
         refs = {
             (ref.resource_type, ref.resource_id, ref.version, ref.fingerprint)
             for block in version.narrative.blocks

@@ -131,6 +131,8 @@ class ScheduleRepository(SqlAlchemyDailyUpdateRepository):
         return DailySummarySchedule.model_validate(
             {
                 **config.payload,
+                "narrative_mode": config.narrative_mode,
+                "creator_membership_id": config.creator_membership_id,
                 "id": row.id,
                 "project_id": row.project_id,
                 "version": version,
@@ -167,9 +169,20 @@ class ScheduleRepository(SqlAlchemyDailyUpdateRepository):
                 schedule_id=row.id,
                 version=schedule.version,
                 effective_at=schedule.effective_at,
+                narrative_mode=schedule.narrative_mode,
+                creator_membership_id=schedule.creator_membership_id,
                 payload=schedule.model_dump(
                     mode="json",
-                    exclude={"id", "project_id", "version", "paused", "recipients", "effective_at"},
+                    exclude={
+                        "id",
+                        "project_id",
+                        "version",
+                        "paused",
+                        "recipients",
+                        "effective_at",
+                        "creator_membership_id",
+                        "narrative_mode",
+                    },
                 ),
             )
         )

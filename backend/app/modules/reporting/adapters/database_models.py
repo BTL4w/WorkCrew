@@ -64,11 +64,35 @@ class ReportModel(Base):
             initially="DEFERRED",
             use_alter=True,
         ),
+        ForeignKeyConstraint(
+            ["organization_id", "summary_id"],
+            ["daily_summary_snapshots.organization_id", "daily_summary_snapshots.id"],
+            name="fk_reports_summary",
+        ),
+        UniqueConstraint(
+            "organization_id",
+            "summary_id",
+            "locale",
+            "workflow_version",
+            name="uq_reports_summary_workflow",
+        ),
+        CheckConstraint("origin IN ('ON_DEMAND','DAILY_SUMMARY')", name="origin"),
+        CheckConstraint(
+            "(origin='ON_DEMAND' AND summary_id IS NULL AND summary_hash IS NULL "
+            "AND workflow_version IS NULL) OR (origin='DAILY_SUMMARY' AND summary_id IS NOT NULL "
+            "AND summary_hash IS NOT NULL AND summary_hash ~ '^[a-f0-9]{64}$' "
+            "AND workflow_version IS NOT NULL)",
+            name="summary_provenance",
+        ),
         CheckConstraint("kind IN ('DAILY','WEEKLY')", name="kind"),
         CheckConstraint("locale IN ('vi','en')", name="locale"),
         CheckConstraint("version >= 1", name="version"),
         Index("ix_reports_project_timeline", "organization_id", "project_id", "created_at", "id"),
     )
+    origin: Mapped[str] = mapped_column(String(32), server_default="ON_DEMAND", default="ON_DEMAND")
+    summary_id: Mapped[UUID | None]
+    summary_hash: Mapped[str | None] = mapped_column(String(64))
+    workflow_version: Mapped[str | None] = mapped_column(String(64))
     id: Mapped[UUID] = mapped_column(primary_key=True)
     organization_id: Mapped[UUID]
     project_id: Mapped[UUID]

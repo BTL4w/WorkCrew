@@ -21,6 +21,7 @@ from work_management_ai.agents.reporting.contracts import (
 from work_management_ai.agents.reporting.evaluators.grounding import verify_grounding
 from work_management_ai.agents.reporting.evaluators.numeric import verify_numeric
 from work_management_ai.agents.reporting.prompts.grounding_v1 import GROUNDING_V1
+from work_management_ai.agents.reporting.prompts.summary_v1 import SUMMARY_V1
 from work_management_ai.agents.reporting.prompts.system_v1 import SYSTEM_V1
 from work_management_ai.agents.reporting.usage import ReportingUsagePort, reporting_attempt_scope
 from work_management_ai.agents.reporting.workflows.graph import ReportingGraph, ReportingState
@@ -434,7 +435,13 @@ class _ReportingRun:
             state.narrative = await self.model(
                 state,
                 key=f"reporting.{value.locale}.draft",
-                system=SYSTEM_V1 + self.instructions,
+                system=SYSTEM_V1
+                + self.instructions
+                + (
+                    SUMMARY_V1
+                    if context.snapshot.query_version == "daily-summary-conversion.v1"
+                    else ""
+                ),
                 payload=model_context(context),
                 schema=ReportingNarrative,
             )
@@ -484,6 +491,9 @@ class _ReportingRun:
                 request=value,
                 narrative=narrative,
                 semantic_verdict=state.semantic,
+                prompt_version="reporting.summary.v1"
+                if context.snapshot.query_version == "daily-summary-conversion.v1"
+                else "reporting.system.v1",
                 manifest_fingerprint=canonical_manifest_fingerprint(self.harness.manifest),
                 skill_versions=tuple(
                     f"{r.split('@')[0]}@1.0.0" for r in self.harness.manifest.allowed_skills

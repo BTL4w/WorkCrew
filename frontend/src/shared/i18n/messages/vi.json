@@ -1,5 +1,14 @@
 {
   "summaries": {
+    "narrativePublished": "Diễn giải đã được Manager công bố",
+    "narrativeQUEUED": "Đang chờ tạo bản nháp AI",
+    "narrativeRUNNING": "Đang tạo bản nháp AI",
+    "narrativeAWAITING_REVIEW": "Bản nháp AI chờ Manager xem và duyệt",
+    "narrativeAI_UNAVAILABLE": "AI không khả dụng; bản tổng hợp đã được gửi",
+    "narrativeFAILED": "Tạo bản nháp thất bại; bản tổng hợp đã được gửi",
+    "narrativeNOT_REQUESTED": "Chưa yêu cầu diễn giải",
+    "openReport": "Mở report",
+    "narrativeSeparate": "Report dùng bản tổng hợp đã chốt và được duyệt riêng.",
     "sourceTask": "Công việc: {task}",
     "sourceReference": "Tham chiếu: {id}",
     "scopeChanged": "Phân công hoặc phạm vi báo cáo đã thay đổi sau khi kỳ này bắt đầu.",
@@ -35,6 +44,8 @@
     "confirm": "Xác nhận thay đổi"
   },
   "automations": {
+    "narrative": "Tạo bản nháp diễn giải AI",
+    "narrativeHint": "Từ bản tổng hợp đã chốt; Manager xem và duyệt riêng. Tổng hợp vẫn được gửi khi AI không khả dụng.",
     "removeUnavailableRecipient": "Loại bỏ người nhận không còn quyền",
     "title": "Lịch tổng hợp hằng ngày",
     "eyebrow": "CẤU HÌNH DỰ ÁN",
@@ -846,6 +857,7 @@
   }
 },
   "reports": {
+    "includedScopeNotice": "Chỉ các mục được đưa vào tổng hợp; không phải tổng toàn Project. Mở report mới để chụp đầy đủ.",
   "openCurrentDraft": "Mở bản nháp hiện tại",
   "referencedVersion": "Phiên bản bất biến được tham chiếu: {version}",
     "sourcesTitle": "Nguồn số liệu",
@@ -889,6 +901,20 @@
     "previous": "Trước",
     "next": "Tiếp",
     "metrics": {
+      "includedTotal": "Task được đưa vào",
+      "includedDone": "Task DONE trong mẫu",
+      "includedTodo": "Task TO_DO trong mẫu",
+      "includedInProgress": "Task đang làm trong mẫu",
+      "includedObservations": "Quan sát trong mẫu",
+      "includedMean": "Tiến độ trung bình trong mẫu",
+      "includedBlockers": "Blocker trong mẫu",
+      "includedRisk": "Đánh giá rủi ro trong mẫu",
+      "includedReviews": "Review trong mẫu",
+      "includedEvidence": "Bằng chứng trong mẫu",
+      "expectedReporters": "Người cần báo cáo",
+      "reportedMembers": "Người đã báo cáo",
+      "missingReporters": "Người chưa báo cáo",
+
       "total": "Tổng số Task",
       "todo": "Chưa bắt đầu",
       "inProgress": "Đang thực hiện",
@@ -952,6 +978,11 @@
     "observedThrough": "Số liệu được quan sát đến {at}",
     "utcBounds": "Khoảng UTC: {start} → {end}",
     "groups": {
+      "included_tasks": "Task trong tổng hợp",
+      "included_progress": "Tiến độ trong tổng hợp",
+      "included_sources": "Nguồn trong tổng hợp",
+      "reporting": "Người báo cáo",
+
       "status": "Trạng thái công việc",
       "activity": "Hoạt động trong kỳ",
       "deadline": "Hạn hoàn thành",

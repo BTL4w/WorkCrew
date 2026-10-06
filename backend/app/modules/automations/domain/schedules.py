@@ -19,6 +19,8 @@ class Contract(BaseModel):
 
 
 class ScheduleCommand(Contract):
+    narrative_mode: Literal["NONE", "DRAFT_FOR_MANAGER"] = "NONE"
+    narrative_locale: Literal["vi", "en"] = "vi"
     project_id: UUID
     timezone: str = Field(min_length=1, max_length=64)
     weekdays: tuple[int, ...] = Field(min_length=1, max_length=7)
@@ -43,6 +45,7 @@ class ScheduleCommand(Contract):
 
 
 class DailySummarySchedule(ScheduleCommand):
+    creator_membership_id: UUID | None = None
     id: UUID
     version: int = Field(ge=1)
     paused: bool
@@ -97,6 +100,8 @@ class ScheduleChanged(Contract):
 
 
 class ChatScheduleCommand(Contract):
+    narrative_mode: Literal["NONE", "DRAFT_FOR_MANAGER"] | None = None
+    narrative_locale: Literal["vi", "en"] | None = None
     project_reference: str = Field(min_length=1, max_length=200)
     operation: Literal["CONFIGURE", "PAUSE", "RESUME"]
     timezone: str | None = None

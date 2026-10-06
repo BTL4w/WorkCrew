@@ -101,13 +101,19 @@ class SQLTriggerRepository:
         summary_id = trigger.summary_id if isinstance(trigger, SummaryJobTrigger) else None
         if summary_id is not None:
             summary = await self.session.scalar(
-                select(SummarySnapshotModel.id).where(
+                select(SummarySnapshotModel).where(
                     SummarySnapshotModel.organization_id == org,
                     SummarySnapshotModel.id == summary_id,
                     SummarySnapshotModel.project_id == report.project_id,
                 )
             )
-            if summary is None:
+            if summary is None or (
+                report.origin == "DAILY_SUMMARY"
+                and (
+                    report.summary_id != summary_id
+                    or report.summary_hash != canonical_hash(summary.payload)
+                )
+            ):
                 raise TriggerError("REPORT_TRIGGER_SUMMARY_MISMATCH")
         identity = canonical_hash(trigger.model_dump(mode="json"))
         existing = await self.session.scalar(

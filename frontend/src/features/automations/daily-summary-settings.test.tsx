@@ -87,11 +87,30 @@ it("edits a saved schedule using only editable fields and removes unavailable re
   fireEvent.change(screen.getByLabelText("Giờ chốt báo cáo"), {target: {value: "18:00"}});
   fireEvent.click(screen.getByRole("button", {name: "Xem trước lịch"}));
   await screen.findByRole("heading", {name: "Xác nhận lịch tổng hợp"});
-  expect(Object.keys(submitted!).sort()).toEqual(Object.keys(command).sort());
+  expect(Object.keys(submitted!).sort()).toEqual(Object.keys({...command,narrative_mode:"NONE",narrative_locale:"vi"}).sort());
   fireEvent.click(screen.getByRole("button", {name: "Quay lại chỉnh sửa"}));
   fireEvent.click(screen.getByRole("button", {name: "Loại bỏ người nhận không còn quyền"}));
   fireEvent.click(screen.getByRole("button", {name: "Xem trước lịch"}));
   await screen.findByRole("heading", {name: "Xác nhận lịch tổng hợp"});
   expect(submitted?.recipients).toEqual([manager]);
+  vi.unstubAllGlobals();
+});
+
+
+it.each(["vi","en"] as const)("previews optional narrative with a human gate (%s)", async locale => {
+  let submitted:Record<string,unknown>|undefined;
+  const id="11111111-1111-4111-8111-111111111111";
+  vi.stubGlobal("fetch",vi.fn(async(input:RequestInfo|URL,init?:RequestInit)=>{
+    const preview=String(input).endsWith("/preview");
+    if(preview) submitted=JSON.parse(String(init?.body)).command;
+    return new Response(JSON.stringify(preview?{id,command:submitted,expected_version:0,effective_at:"2026-10-07T00:00:00Z",expires_at:"2026-10-07T00:15:00Z"}:{schedule:null,window:null,recipients:[{membership_id:id,name:"Manager"}]}),{headers:{"Content-Type":"application/json"}});
+  }));
+  renderWithAppProviders(<DailySummarySettings projectId={id} organizationId="org" membershipId="m"/>,locale);
+  const toggle=await screen.findByRole("checkbox",{name:locale==="vi"?"Tạo bản nháp diễn giải AI":"Create an AI narrative draft"});
+  expect(toggle).not.toBeChecked();
+  fireEvent.click(toggle);fireEvent.click(screen.getByLabelText("Manager"));
+  fireEvent.click(screen.getByRole("button",{name:locale==="vi"?"Xem trước lịch":"Preview schedule"}));
+  await screen.findByRole("heading",{name:locale==="vi"?"Xác nhận lịch tổng hợp":"Confirm daily summary schedule"});
+  expect(submitted?.narrative_mode).toBe("DRAFT_FOR_MANAGER");expect(submitted?.narrative_locale).toBe(locale);
   vi.unstubAllGlobals();
 });

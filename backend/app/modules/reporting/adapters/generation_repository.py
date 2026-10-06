@@ -250,6 +250,11 @@ class SQLGenerationRepository:
         reports = await self.authenticate()
         row = await self.job(scope)
         result = await reports.get(request.report_id)
+        if result.report.origin == "DAILY_SUMMARY":
+            from .summary_repository import authorize_summary
+
+            assert result.report.summary_id is not None
+            await authorize_summary(self.session, reports.actor, result.report.summary_id)
         if (
             row.report_id != request.report_id
             or row.base_version_id != request.base_version_id
@@ -281,6 +286,12 @@ class SQLGenerationRepository:
         )
         if label is None:
             raise ReportError("RESOURCE_NOT_FOUND", 404)
+        if result.report.origin == "DAILY_SUMMARY":
+            label = next(
+                s.label for s in result.snapshot.sources if s.resource_type == "DAILY_SUMMARY"
+            )
+            if label is None:
+                raise ReportError("REPORT_SOURCE_UNAVAILABLE")
         return ReportingContext(
             snapshot=to_reporting_snapshot(result.snapshot),
             base_version_id=row.base_version_id,

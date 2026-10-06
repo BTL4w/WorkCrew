@@ -5,8 +5,7 @@ import messages from "@/shared/i18n/messages/en.json";
 import { SummaryCard } from "./daily-summary-view";
 import type { SummarySnapshot } from "./contracts";
 
-it("shows partial coverage, missing reporters, immutable source time and original evidence links", () => {
-  const snapshot: SummarySnapshot = {
+const snapshot: SummarySnapshot = {
     id:"summary", schedule_id:"schedule", project_id:"project", project_name:"Supplier preparation",
     window:{id:"window",schedule_id:"schedule",applied_version:1,local_date:"2026-10-04",timezone:"UTC",
       starts_at:"2026-10-04T00:00:00Z",cutoff_at:"2026-10-04T17:00:00Z",ends_at:"2026-10-05T00:00:00Z",
@@ -18,6 +17,7 @@ it("shows partial coverage, missing reporters, immutable source time and origina
       text:null,state:null,created_at:null,evidence_id:"evidence",evidence_version:1,
       href:"/api/v1/evidence/evidence/versions/1/content"}, {id:"risk-reference",task_id:"task",version:1,kind:"RISK",text:null,state:"READY",created_at:"2026-10-04T16:30:00Z",evidence_id:null,evidence_version:null,href:null}],
   };
+it("shows partial coverage, missing reporters, immutable source time and original evidence links", () => {
   render(<NextIntlClientProvider locale="en" messages={messages}><SummaryCard snapshot={snapshot}/></NextIntlClientProvider>);
   expect(screen.getByText("0/1 reporters" )).toBeInTheDocument();
   expect(screen.getByText("Reference: risk-reference")).toBeInTheDocument();
@@ -26,4 +26,14 @@ it("shows partial coverage, missing reporters, immutable source time and origina
   expect(screen.getByText("Lan")).toBeInTheDocument();
   expect(screen.getByRole("link",{name:"Original evidence · v1"})).toHaveAttribute("href",snapshot.sources[0].href);
   expect(screen.getByText("Some inputs are unavailable or outside this snapshot.")).toBeInTheDocument();
+});
+
+
+it("shows a separate review link and suppresses it for OWN_WORK", () => {
+  const link={report_id:"report",report_version_id:"version",snapshot_hash:"a".repeat(64),generation_state:"AWAITING_REVIEW" as const,publication_id:null};
+  const view=render(<NextIntlClientProvider locale="en" messages={messages}><SummaryCard snapshot={snapshot} reportLink={link}/></NextIntlClientProvider>);
+  expect(screen.getByRole("link",{name:"Open report"})).toHaveAttribute("href",`/?project=${snapshot.project_id}&report=report`);
+  expect(screen.getByText("AI draft awaiting Manager review")).toBeVisible();
+  view.rerender(<NextIntlClientProvider locale="en" messages={messages}><SummaryCard snapshot={{...snapshot,scope:"OWN_WORK"}} reportLink={link}/></NextIntlClientProvider>);
+  expect(screen.queryByRole("link",{name:"Open report"})).not.toBeInTheDocument();
 });

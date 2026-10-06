@@ -104,7 +104,7 @@ class ReportingSnapshot(Contract):
     period: ReportingPeriod
     captured_at: datetime
     catalog_version: Literal["report-metrics.v1"] = "report-metrics.v1"
-    query_version: Literal["report-sql.v1"] = "report-sql.v1"
+    query_version: Literal["report-sql.v1", "daily-summary-conversion.v1"] = "report-sql.v1"
     snapshot_hash: str = Field(pattern=r"^[a-f0-9]{64}$")
     metrics: dict[str, ReportingMetric]
     sources: tuple[ReportingSource, ...] = ()
@@ -238,9 +238,9 @@ class ReportingProposal(Contract):
     semantic_verdict: SemanticVerdict
     agent_version: Literal["1.0.0"] = "1.0.0"
     workflow_version: Literal["reporting-narrative.v1"] = "reporting-narrative.v1"
-    prompt_version: Literal["reporting.system.v1"] = "reporting.system.v1"
+    prompt_version: Literal["reporting.system.v1", "reporting.summary.v1"] = "reporting.system.v1"
     grounding_prompt_version: Literal["reporting.grounding.v1"] = "reporting.grounding.v1"
-    numeric_verifier_version: Literal["1.0.0"] = "1.0.0"
+    numeric_verifier_version: Literal["1.1.0"] = "1.1.0"
     semantic_verifier_version: Literal["1.0.0"] = "1.0.0"
     manifest_fingerprint: str = Field(pattern=r"^[a-f0-9]{64}$")
     skill_versions: tuple[str, ...]

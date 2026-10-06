@@ -16,6 +16,34 @@ from work_management_ai.agents.reporting.evaluators.numeric import verify_numeri
 from .snapshots import ReportMetricSnapshot
 
 _LABELS = {
+    "included_tasks.status.total_count": ("Task được đưa vào tổng hợp", "Tasks included in digest"),
+    "included_tasks.status.done_count": (
+        "Task DONE được đưa vào tổng hợp",
+        "Included tasks in DONE",
+    ),
+    "included_tasks.status.to_do_count": (
+        "Task TO_DO được đưa vào tổng hợp",
+        "Included tasks in TO_DO",
+    ),
+    "included_tasks.status.in_progress_count": (
+        "Task IN_PROGRESS được đưa vào tổng hợp",
+        "Included tasks in IN_PROGRESS",
+    ),
+    "included_progress.observation_count": (
+        "Quan sát tiến độ được đưa vào",
+        "Included progress observations",
+    ),
+    "included_progress.mean_percent": (
+        "Tiến độ trung bình trong mẫu",
+        "Mean progress in included sample",
+    ),
+    "included_sources.blocker_count": ("Blocker được đưa vào", "Included blockers"),
+    "included_sources.risk_count": ("Đánh giá rủi ro được đưa vào", "Included risk assessments"),
+    "included_sources.review_count": ("Review được đưa vào", "Included reviews"),
+    "included_sources.evidence_count": ("Bằng chứng được đưa vào", "Included evidence"),
+    "reporting.expected_reporters_count": ("Người cần báo cáo", "Expected reporters"),
+    "reporting.reported_reporters_count": ("Người đã báo cáo", "Reported members"),
+    "reporting.missing_reporters_count": ("Người chưa báo cáo", "Missing reporters"),
     "tasks.status.done_count": ("Task ở DONE", "Tasks in DONE"),
     "tasks.status.total_count": ("Tổng số Task", "Total Tasks"),
     "tasks.deadline.overdue_count": ("Task quá hạn", "Overdue Tasks"),
@@ -61,4 +89,10 @@ def render_fact(
         "DECLARED_REPORTING_DATE": ("theo ngày báo cáo gốc", "by declared reporting date"),
     }
     time_label = basis[binding.period][0 if locale == "vi" else 1]
+    if binding.metric_key.startswith("included_"):
+        time_label += (
+            "; chỉ các mục trong tổng hợp, không phải toàn Project"
+            if locale == "vi"
+            else "; included digest items only, not Project totals"
+        )
     return f"{label}: {metric.value} {metric.unit} {comparison} {binding.value} ({time_label})."

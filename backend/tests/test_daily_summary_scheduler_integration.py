@@ -4,6 +4,7 @@ import asyncio
 import os
 from dataclasses import replace
 from datetime import UTC, datetime, timedelta
+from typing import Literal
 from uuid import uuid4
 
 import pytest
@@ -28,7 +29,13 @@ pytestmark = [
 ]
 
 
-async def setup(case: Case, *, extra_recipient: bool = False, send_when_complete: bool = True):
+async def setup(
+    case: Case,
+    *,
+    extra_recipient: bool = False,
+    send_when_complete: bool = True,
+    narrative_mode: Literal["NONE", "DRAFT_FOR_MANAGER"] = "NONE",
+):
     engine = create_database_engine(Settings(environment="test"))
     sessions = create_session_factory(engine)
     async with engine.begin() as conn:
@@ -78,6 +85,7 @@ async def setup(case: Case, *, extra_recipient: bool = False, send_when_complete
             weekdays=(1, 2, 3, 4, 5, 6, 7),
             cutoff="00:00",
             send_when_complete=send_when_complete,
+            narrative_mode=narrative_mode,
             recipients=tuple(recipients),
         ),
         0,

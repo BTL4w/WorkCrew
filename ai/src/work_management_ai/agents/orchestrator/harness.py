@@ -207,7 +207,16 @@ class OrchestratorHarness:
                 idempotency_key=f"schedule:{value.turn_id}",
                 agent_run_id=uuid5(NAMESPACE_URL, f"orchestrator:{value.turn_id}"),
                 actor=value.actor,
-                typed_input=cast(dict[str, JsonValue], response.parsed.model_dump(mode="json")),
+                typed_input=cast(
+                    dict[str, JsonValue],
+                    response.parsed.model_copy(
+                        update={
+                            "narrative_locale": value.locale
+                            if response.parsed.narrative_mode == "DRAFT_FOR_MANAGER"
+                            else None
+                        }
+                    ).model_dump(mode="json"),
+                ),
             )
             result = await asyncio.wait_for(self._automation_tools.execute(request), timeout=15)
             if result.status != "SUCCEEDED":

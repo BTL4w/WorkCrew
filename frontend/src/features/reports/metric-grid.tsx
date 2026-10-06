@@ -3,6 +3,12 @@ import type { Metric, ReportResult } from "./contracts";
 import styles from "./reports.module.css";
 
 const labels: Record<string, string> = {
+  "included_tasks.status.total_count":"includedTotal", "included_tasks.status.done_count":"includedDone",
+  "included_tasks.status.to_do_count":"includedTodo", "included_tasks.status.in_progress_count":"includedInProgress",
+  "included_progress.observation_count":"includedObservations", "included_progress.mean_percent":"includedMean",
+  "included_sources.blocker_count":"includedBlockers", "included_sources.risk_count":"includedRisk",
+  "included_sources.review_count":"includedReviews", "included_sources.evidence_count":"includedEvidence",
+  "reporting.expected_reporters_count":"expectedReporters", "reporting.reported_reporters_count":"reportedMembers", "reporting.missing_reporters_count":"missingReporters",
   "tasks.status.total_count": "total", "tasks.status.to_do_count": "todo",
   "tasks.status.in_progress_count": "inProgress", "tasks.status.done_count": "done",
   "tasks.deadline.unknown_count": "noDeadline", "tasks.deadline.overdue_count": "overdue",
@@ -56,6 +62,7 @@ export function MetricGrid({ snapshot }: { snapshot: ReportResult["snapshot"] })
   };
   return <div className={styles.catalog}>{Object.entries(groups).map(([group, metrics]) => <section key={group}>
     <div className={styles.header}><h4 className={styles.groupTitle}>{t(`groups.${group}`)}</h4><span className={styles.description}>{t(group === "work_logs" ? "declaredReportingDate" : group === "activity" ? "inPeriod" : "atCapture")}</span></div>
+    {group.startsWith("included_") && <p className={styles.description}>{t("includedScopeNotice")}</p>}
     {group === "risk" && <p className={styles.description}>{t("riskExplanation")}</p>}
     {group === "workload" && <p className={styles.description}>{t("workloadExplanation")}</p>}
     <dl className={styles.metrics}>{metrics?.map(metric => <div className={styles.metric} key={metric.key}>

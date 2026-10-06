@@ -20,8 +20,8 @@ class Publisher(Protocol):
 
 
 class ReportingOutboxPublisher:
-    def __init__(self, delegate: Publisher):
-        self.delegate = delegate
+    def __init__(self, delegate: Publisher, summaries: Publisher | None = None):
+        self.delegate, self.summaries = delegate, summaries
 
     async def publish(self, event: OutboxEvent) -> None:
         if event.event_type == "report.generation.requested.v1":
@@ -33,4 +33,6 @@ class ReportingOutboxPublisher:
             ):
                 raise ValueError("INVALID_REPORT_GENERATION_EVENT")
         else:
+            if event.event_type == "automation.summary.captured.v1" and self.summaries is not None:
+                await self.summaries.publish(event)
             await self.delegate.publish(event)

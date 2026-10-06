@@ -43,6 +43,8 @@ class ScheduleIntent(_StrictFrozenModel):
     recipient_references: tuple[str, ...] | None = Field(default=None, min_length=1, max_length=100)
     send_when_complete: bool | None = None
     partial_at_cutoff: bool | None = None
+    narrative_mode: Literal["NONE", "DRAFT_FOR_MANAGER"] | None = None
+    narrative_locale: Literal["vi", "en"] | None = None
 
 
 class StepMode(StrEnum):

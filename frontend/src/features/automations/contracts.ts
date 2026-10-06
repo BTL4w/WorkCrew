@@ -1,5 +1,7 @@
 import { z } from "zod";
 export const commandSchema = z.object({
+  narrative_mode: z.enum(["NONE", "DRAFT_FOR_MANAGER"]).default("NONE"),
+  narrative_locale: z.enum(["vi", "en"]).default("vi"),
   project_id: z.uuid(),
   timezone: z.string(),
   weekdays: z.array(z.number().int()),
@@ -9,6 +11,7 @@ export const commandSchema = z.object({
   recipients: z.array(z.uuid()),
 });
 export const scheduleSchema = commandSchema.extend({
+  creator_membership_id: z.uuid().nullable().default(null),
   id: z.uuid(),
   version: z.number().int(),
   paused: z.boolean(),
@@ -60,5 +63,7 @@ export const summarySnapshotSchema = z.object({
     evidence_id:z.uuid().nullable(),evidence_version:z.number().int().nullable(),href:z.string().nullable()})),
   unknown_inputs:z.array(z.string()),
 });
-export const deliveriesSchema = z.array(z.object({id:z.uuid(),snapshot:summarySnapshotSchema}));
+export const summaryReportLinkSchema = z.object({ report_id:z.uuid(), report_version_id:z.uuid(), snapshot_hash:z.string(), generation_state:z.enum(["NOT_REQUESTED","QUEUED","RUNNING","AWAITING_REVIEW","AI_UNAVAILABLE","FAILED"]), publication_id:z.uuid().nullable() });
+export type SummaryReportLink = z.infer<typeof summaryReportLinkSchema>;
+export const deliveriesSchema = z.array(z.object({id:z.uuid(),snapshot:summarySnapshotSchema,report_link:summaryReportLinkSchema.nullable().default(null)}));
 export type SummarySnapshot = z.infer<typeof summarySnapshotSchema>;

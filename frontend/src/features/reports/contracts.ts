@@ -4,6 +4,8 @@ export const reportKindSchema = z.enum(["DAILY", "WEEKLY"]);
 export const reportSchema = z.object({
   id: z.uuid(), organization_id: z.uuid(), project_id: z.uuid(), kind: reportKindSchema,
   locale: z.enum(["vi", "en"]), version: z.number().int().positive(), snapshot_id: z.uuid(),
+  origin: z.enum(["ON_DEMAND", "DAILY_SUMMARY"]).default("ON_DEMAND"),
+  summary_id: z.uuid().nullable().default(null), summary_hash: z.string().nullable().default(null), workflow_version: z.string().nullable().default(null),
   current_publication_id: z.uuid().nullable().default(null),
   selected_version_id: z.uuid(), created_by_membership_id: z.uuid(), narrative_requested: z.boolean(),
   created_at: z.string().datetime({ offset: true }),

@@ -29,6 +29,7 @@ from ..domain.digests import (
     SummaryCaptured,
     SummaryDelivered,
     SummaryDelivery,
+    SummaryReportLink,
     SummarySource,
     SummaryTask,
 )
@@ -354,7 +355,12 @@ class DigestRepository(ScheduleRepository):
                 event_type="automation.summary.captured.v1",
                 aggregate_type="daily_summary",
                 aggregate_id=snapshot.id,
-                payload=SummaryCaptured(summary_id=snapshot.id).model_dump(mode="json"),
+                payload=SummaryCaptured(
+                    summary_id=snapshot.id,
+                    creator_membership_id=applied.creator_membership_id,
+                    narrative_mode=applied.narrative_mode,
+                    narrative_locale=applied.narrative_locale,
+                ).model_dump(mode="json"),
             )
         )
         await self.record_audit("summary.captured", str(snapshot.id), snapshot.id)
@@ -589,9 +595,56 @@ class DigestRepository(ScheduleRepository):
                 r.membership_id for r in await self.recipients(snapshot.project_id)
             }:
                 continue
+            report_link = None
+            if member.role in ("MANAGER", "ADMIN"):
+                from app.modules.reporting.adapters.database_models import ReportModel
+                from app.modules.reporting.adapters.repository import SQLReportRepository
+                from app.modules.reporting.domain.reports import ReportError
+
+                reports = SQLReportRepository(self.session, self.actor, snapshot.window.timezone)
+                report_id = await self.session.scalar(
+                    select(ReportModel.id).where(
+                        ReportModel.organization_id == self.org,
+                        ReportModel.summary_id == snapshot.id,
+                        ReportModel.locale
+                        == (
+                            await self.applied(
+                                await self.by_id(snapshot.schedule_id),
+                                snapshot.window.applied_version,
+                            )
+                        ).narrative_locale,
+                        ReportModel.workflow_version == "reporting-narrative.v1",
+                    )
+                )
+                if report_id:
+                    try:
+                        await reports.authenticate()
+                        report = await reports.get(report_id)
+                        if report.narrative_access_state == "AVAILABLE":
+                            publication = next(
+                                (
+                                    p
+                                    for p in report.publications
+                                    if p.id == report.report.current_publication_id
+                                ),
+                                None,
+                            )
+                            report_link = SummaryReportLink(
+                                report_id=report_id,
+                                report_version_id=publication.report_version_id
+                                if publication
+                                else report.selected_version.id,
+                                snapshot_hash=report.snapshot.snapshot_hash,
+                                generation_state=report.generation_state,
+                                publication_id=publication.id if publication else None,
+                            )
+                    except ReportError:
+                        pass
             result.append(
                 SummaryDelivery(
-                    id=row.id, snapshot=await self.project(snapshot, member.id, member.role)
+                    id=row.id,
+                    snapshot=await self.project(snapshot, member.id, member.role),
+                    report_link=report_link,
                 )
             )
         return tuple(result)

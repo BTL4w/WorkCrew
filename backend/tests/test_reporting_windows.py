@@ -60,7 +60,9 @@ def test_nonexistent_cutoff_uses_next_valid_instant():
     ],
 )
 def test_invalid_settings_are_rejected(values: dict[str, object]):
-    valid = schedule().model_dump(exclude={"id", "version", "paused", "effective_at"})
+    valid = schedule().model_dump(
+        exclude={"id", "version", "paused", "effective_at", "creator_membership_id"}
+    )
     ScheduleCommand.model_validate(valid)
     with pytest.raises(ValueError):
         ScheduleCommand.model_validate({**valid, **values})

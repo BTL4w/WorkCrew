@@ -4,7 +4,7 @@ from datetime import date, datetime
 from typing import Literal
 from uuid import UUID
 
-from pydantic import Field, JsonValue
+from pydantic import Field, JsonValue, model_validator
 
 from .generation import GenerationState
 from .metrics import AggregateReceipt, ReportContract, SourceRef
@@ -24,6 +24,10 @@ class ReportCaptureConflict(Exception):
 
 
 class Report(ReportContract):
+    origin: Literal["ON_DEMAND", "DAILY_SUMMARY"] = "ON_DEMAND"
+    summary_id: UUID | None = None
+    summary_hash: str | None = Field(default=None, pattern=r"^[a-f0-9]{64}$")
+    workflow_version: str | None = None
     id: UUID
     organization_id: UUID
     project_id: UUID
@@ -36,6 +40,15 @@ class Report(ReportContract):
     created_by_membership_id: UUID
     narrative_requested: bool
     created_at: datetime
+
+    @model_validator(mode="after")
+    def valid_summary_provenance(self) -> "Report":
+        values = (self.summary_id, self.summary_hash, self.workflow_version)
+        if (self.origin == "DAILY_SUMMARY" and any(v is None for v in values)) or (
+            self.origin == "ON_DEMAND" and any(v is not None for v in values)
+        ):
+            raise ValueError("INVALID_SUMMARY_PROVENANCE")
+        return self
 
 
 class ReportVersion(ReportContract):

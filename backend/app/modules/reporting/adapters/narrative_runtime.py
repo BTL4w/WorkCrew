@@ -1,5 +1,6 @@
 """Explicit JSON adapters preserve the verified immutable snapshot across packages."""
 
+from typing import cast
 from uuid import NAMESPACE_URL, UUID, uuid5
 
 from pydantic import BaseModel
@@ -69,7 +70,11 @@ class ReportNarrativeRuntime:
         from app.modules.organization.domain.roles import MembershipRole
         from work_management_ai.agents.orchestrator.contracts import OrchestratorTriggerInput
         from work_management_ai.runtime.contracts import ActorReference
-        from work_management_ai.runtime.triggers import ExecutionScope, ReportRequestTrigger
+        from work_management_ai.runtime.triggers import (
+            ExecutionScope,
+            ReportRequestTrigger,
+            SummaryJobTrigger,
+        )
 
         from ..application.generation_service import GenerationService
         from .generation_repository import GenerationTransactions
@@ -88,6 +93,15 @@ class ReportNarrativeRuntime:
         async with ReportTransactions(self.sessions, self.timezone)(actor) as reports:
             await reports.authenticate()
             result = await reports.get(job.report_id)
+            if result.report.origin == "DAILY_SUMMARY":
+                from .summary_repository import authorize_summary
+
+                assert result.report.summary_id is not None
+                from .repository import SQLReportRepository
+
+                await authorize_summary(
+                    cast(SQLReportRepository, reports).session, actor, result.report.summary_id
+                )
         recovering = job.proposed_version_id is not None
         if recovering and (
             result.selected_version.id != job.proposed_version_id
@@ -105,6 +119,11 @@ class ReportNarrativeRuntime:
             mode="VERIFY_EDIT" if job.job_type == "EDIT_VERIFICATION" else "DRAFT",
             edited_version_id=job.base_version_id if job.job_type == "EDIT_VERIFICATION" else None,
         )
+        if result.report.origin == "DAILY_SUMMARY":
+            assert result.report.summary_id is not None
+            trigger = SummaryJobTrigger(
+                summary_id=result.report.summary_id, **trigger.model_dump(exclude={"kind"})
+            )
         registry, tools = build_agent_registry()
         triggers = TriggerService(TriggerTransactions(self.sessions), registry)
         run = await triggers.ensure(actor=actor, trigger=trigger)
@@ -138,8 +157,6 @@ class ReportNarrativeRuntime:
         )
         hub_id = await recorder.ensure_orchestrator_run()
         if recovering:
-            from typing import cast
-
             from sqlalchemy import select
 
             from .generation_repository import SQLGenerationRepository
@@ -216,8 +233,6 @@ class ReportNarrativeRuntime:
         from .usage_models import ReportGenerationUsageModel
 
         async with transactions(actor) as port:
-            from typing import cast
-
             from .generation_repository import SQLGenerationRepository
 
             row = await cast(SQLGenerationRepository, port).session.scalar(

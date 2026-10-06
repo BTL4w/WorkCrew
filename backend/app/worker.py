@@ -72,7 +72,12 @@ from app.modules.progress.application.evidence_service import EvidenceService
 from app.modules.reporting.adapters.generation_repository import GenerationTransactions
 from app.modules.reporting.adapters.narrative_runtime import ReportNarrativeRuntime
 from app.modules.reporting.adapters.outbox_consumer import ReportingOutboxPublisher
+from app.modules.reporting.adapters.summary_repository import (
+    SummaryReportingPublisher,
+    SummaryReportTransactions,
+)
 from app.modules.reporting.application.job_service import ReportJobService
+from app.modules.reporting.application.summary_report_service import SummaryReportService
 from app.modules.risk.adapters.model_assessment import GatewayRiskAssessment
 from app.modules.risk.adapters.outbox_consumer import RiskOutboxPublisher, RiskWorker
 from app.modules.risk.adapters.repository import RiskTransactions
@@ -270,7 +275,15 @@ async def _run_worker() -> None:
     outbox_service = OutboxService(
         transaction_factory=planning_transaction_factory,
         publisher=FeedbackOutboxPublisher(
-            ReportingOutboxPublisher(RiskOutboxPublisher(risk_job_service))
+            ReportingOutboxPublisher(
+                RiskOutboxPublisher(risk_job_service),
+                SummaryReportingPublisher(
+                    SummaryReportService(
+                        SummaryReportTransactions(session_factory, settings.reporting_timezone)
+                    ),
+                    actor_resolver,
+                ),
+            )
         ),
         organization_scopes=scopes,
         lease_seconds=settings.worker_lease_seconds,

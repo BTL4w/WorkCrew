@@ -105,7 +105,16 @@ def verify_numeric(
                 or metric.key != binding.metric_key
                 or metric.unit != binding.unit
                 or metric.time_basis != binding.period
-                or metric.state != "KNOWN"
+                or not (
+                    metric.state == "KNOWN"
+                    or (
+                        snapshot.query_version == "daily-summary-conversion.v1"
+                        and metric.state == "PARTIAL"
+                        and binding.metric_key.startswith("included_")
+                        and block.template == "METRIC"
+                        and "INCLUDED_SUMMARY_ITEMS_ONLY" in metric.limitations
+                    )
+                )
                 or metric.value is None
             ):
                 codes.add("METRIC_BASIS_MISMATCH")
@@ -144,7 +153,7 @@ def verify_numeric(
                 codes.add("SOURCE_ASSERTION_FALSE")
     return VerifierResult(
         verifier_id="reporting_numeric",
-        verifier_version="1.0.0",
+        verifier_version="1.1.0",
         passed=not codes,
         safe_codes=tuple(sorted(codes)),
     )
