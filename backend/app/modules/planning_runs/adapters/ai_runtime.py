@@ -500,6 +500,71 @@ class _Phase2MockModelGateway:
                 and "planning.create" in cast(list[object], capabilities)
             )
 
+        if any(
+            signal in message
+            for signal in (
+                "report",
+                "báo cáo",
+                "project status",
+                "trạng thái dự án",
+                "dự án này",
+                "cần chú ý",
+            )
+        ):
+            original = str(payload.get("message", ""))
+            refs = re.findall(
+                r"[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}",
+                original,
+            )
+            quoted = re.findall(r'["“]([^"”]+)["”]', original)
+            reference = refs[0] if refs else quoted[0] if quoted else ""
+            if not reference:
+                match = re.search(
+                    r"(?:for (?:the )?(?:project )?|cho (?:dự án |project )?|"
+                    r"project status (?:for )?|trạng thái dự án )(.+?)(?:[?.!]?$)",
+                    original,
+                    re.IGNORECASE,
+                )
+                reference = match.group(1).strip() if match else "unspecified"
+            create = any(
+                x in message for x in ("create", "generate", "prepare", "tạo", "lập")
+            ) and any(x in message for x in ("report", "báo cáo"))
+            capability = "reporting.prepare_report" if create else "reporting.explain_snapshot"
+            available = any(
+                isinstance(x, dict) and cast(dict[str, object], x).get("agent_id") == "reporting"
+                for x in catalog
+            )
+            return {
+                "objectives": [original],
+                "steps": [
+                    {
+                        "step_id": "reporting",
+                        "target_agent_id": "reporting",
+                        "target_agent_version": "1.0.0",
+                        "capability": capability,
+                        "objective": original,
+                        "typed_input": {
+                            "operation": "PREPARE_REPORT" if create else "EXPLAIN_STATUS",
+                            "project_reference": reference,
+                            "kind": "WEEKLY"
+                            if any(x in message for x in ("week", "tuần"))
+                            else "DAILY",
+                            "relative_period": "PREVIOUS"
+                            if any(
+                                x in message
+                                for x in ("last week", "tuần trước", "yesterday", "hôm qua")
+                            )
+                            else "CURRENT",
+                            "locale": locale,
+                        },
+                        "mode": "PROPOSAL" if create else "READ_ONLY",
+                    }
+                ]
+                if available
+                else [],
+                "unavailable_capabilities": [] if available else [capability],
+                "response_language": locale,
+            }
         planning_available = any(is_planning_entry(item) for item in catalog)
         if any(
             signal in message

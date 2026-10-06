@@ -966,19 +966,21 @@
     },
     "content_block_mapping": {
       "activity": "#/components/schemas/ActivityBlock",
+      "assignment_result": "#/components/schemas/AssignmentResultBlock",
       "capability_unavailable": "#/components/schemas/CapabilityUnavailableBlock",
+      "daily_summary": "#/components/schemas/DailySummaryBlock",
+      "daily_update": "#/components/schemas/DailyUpdateBlock",
       "decision_result": "#/components/schemas/DecisionResultBlock",
       "planning_run": "#/components/schemas/PlanningRunBlock",
+      "project_status": "#/components/schemas/ProjectStatusResponseBlock",
       "proposal": "#/components/schemas/ProposalBlock",
       "question": "#/components/schemas/QuestionBlock",
-      "safe_error": "#/components/schemas/SafeErrorBlock",
-      "text": "#/components/schemas/TextBlock",
-      "team_recommendation": "#/components/schemas/TeamRecommendationBlock",
-      "team_decision_result": "#/components/schemas/TeamDecisionResultBlock",
-      "assignment_result": "#/components/schemas/AssignmentResultBlock",
-      "daily_update": "#/components/schemas/DailyUpdateBlock",
-      "daily_summary": "#/components/schemas/DailySummaryBlock",
+      "report": "#/components/schemas/ReportResponseBlock",
       "risk": "#/components/schemas/RiskBlock",
+      "safe_error": "#/components/schemas/SafeErrorBlock",
+      "team_decision_result": "#/components/schemas/TeamDecisionResultBlock",
+      "team_recommendation": "#/components/schemas/TeamRecommendationBlock",
+      "text": "#/components/schemas/TextBlock",
       "work_evidence": "#/components/schemas/WorkEvidenceBlock"
     },
     "schemas": {
@@ -1071,6 +1073,111 @@
         "properties": {
           "conversation": "ref:ConversationResponse",
           "messages": "array:ref:MessageResponse"
+        }
+      },
+      "ReportResponseBlock": {
+        "required": [
+          "context_run_id",
+          "project_id",
+          "project_label",
+          "report_id",
+          "report_version_id",
+          "snapshot_id",
+          "snapshot_hash",
+          "period_start",
+          "period_end",
+          "timezone",
+          "report_kind",
+          "captured_at",
+          "generation_state",
+          "metrics",
+          "sources",
+          "limitations",
+          "href"
+        ],
+        "properties": {
+          "context_run_id": "string:uuid",
+          "kind": "literal:report",
+          "project_id": "string:uuid",
+          "project_label": "string[,200]",
+          "report_id": "string:uuid",
+          "report_version_id": "string:uuid",
+          "snapshot_id": "string:uuid",
+          "snapshot_hash": "string",
+          "period_start": "string[,10]",
+          "period_end": "string[,10]",
+          "timezone": "string[,100]",
+          "report_kind": "literal:DAILY|WEEKLY",
+          "captured_at": "string:date-time",
+          "generation_state": "string[,32]",
+          "metrics": "array:ref:ReportMetricSummary",
+          "sources": "array:ref:ReportSourceSummary",
+          "limitations": "array:string",
+          "href": "string",
+          "needs_manager_review": "literal:True"
+        }
+      },
+      "ProjectStatusResponseBlock": {
+        "required": [
+          "project_id",
+          "project_label",
+          "context_run_id",
+          "snapshot_id",
+          "snapshot_hash",
+          "period_start",
+          "period_end",
+          "timezone",
+          "report_kind",
+          "captured_at",
+          "metrics",
+          "sources",
+          "limitations"
+        ],
+        "properties": {
+          "kind": "literal:project_status",
+          "project_id": "string:uuid",
+          "project_label": "string[,200]",
+          "context_run_id": "string:uuid",
+          "snapshot_id": "string:uuid",
+          "snapshot_hash": "string",
+          "period_start": "string[,10]",
+          "period_end": "string[,10]",
+          "timezone": "string[,100]",
+          "report_kind": "literal:DAILY|WEEKLY",
+          "captured_at": "string:date-time",
+          "metrics": "array:ref:ReportMetricSummary",
+          "sources": "array:ref:ReportSourceSummary",
+          "limitations": "array:string",
+          "analysis": "array:string",
+          "analysis_state": "literal:VERIFIED|UNAVAILABLE"
+        }
+      },
+      "ReportMetricSummary": {
+        "required": [
+          "key",
+          "value",
+          "unit",
+          "state",
+          "time_basis"
+        ],
+        "properties": {
+          "key": "string[,256]",
+          "value": "null|string",
+          "unit": "string[,32]",
+          "state": "literal:KNOWN|PARTIAL|UNKNOWN|STALE|NOT_APPLICABLE",
+          "time_basis": "string[,64]"
+        }
+      },
+      "ReportSourceSummary": {
+        "required": [
+          "resource_type",
+          "resource_id",
+          "version"
+        ],
+        "properties": {
+          "resource_type": "string[,100]",
+          "resource_id": "string:uuid",
+          "version": "integer"
         }
       }
     }

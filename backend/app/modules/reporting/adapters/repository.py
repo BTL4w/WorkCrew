@@ -347,7 +347,9 @@ class SQLReportRepository:
             }
         )
 
-    async def get(self, report_id: UUID, *, replayed: bool = False) -> ReportResult:
+    async def get(
+        self, report_id: UUID, *, replayed: bool = False, version_id: UUID | None = None
+    ) -> ReportResult:
         row = await self.session.scalar(
             select(ReportModel).where(
                 ReportModel.organization_id == self.org, ReportModel.id == report_id
@@ -366,10 +368,14 @@ class SQLReportRepository:
         version_row = await self.session.scalar(
             select(ReportVersionModel).where(
                 ReportVersionModel.organization_id == self.org,
-                ReportVersionModel.id == row.selected_version_id,
+                ReportVersionModel.id == (version_id or row.selected_version_id),
                 ReportVersionModel.report_id == row.id,
             )
         )
+        if version_id is not None and (
+            version_row is None or version_row.snapshot_id != row.snapshot_id
+        ):
+            raise ReportError("RESOURCE_NOT_FOUND", 404)
         if snapshot_row is None or version_row is None:
             raise ReportError("REPORT_CAPTURE_FAILED", 409)
         snapshot = ReportMetricSnapshot.model_validate(snapshot_row.payload)

@@ -288,6 +288,40 @@
     "error": { "safe": "Không thể hoàn tất yêu cầu lúc này.", "reference": "Mã tham chiếu: {requestId}" }
   },
   "assistant": {
+  "report": {
+    "title": "Báo cáo dự án",
+    "statusTitle": "Trạng thái dự án",
+    "review": "Bản nháp cần Quản lý xem xét trước khi xuất bản.",
+    "open": "Mở báo cáo",
+    "sources": "Nguồn tại thời điểm chụp",
+    "analysisUnavailable": "Phân tích AI chưa khả dụng. Số liệu đã kiểm chứng vẫn có sẵn.",
+    "analysis": "Phân tích AI đã kiểm chứng",
+    "unavailable": "Ngữ cảnh báo cáo chưa khả dụng. Mở giao diện công việc để kiểm tra quyền hiện tại.",
+    "period": "{start} → {end} · {timezone}",
+    "captured": "Chụp dữ liệu lúc {at}",
+    "bounded": "Tóm tắt số liệu đã chụp. Mở báo cáo để xem toàn bộ số liệu và nguồn.",
+    "unknown": "Chưa rõ",
+    "metrics": {
+      "tasks.status.total_count": "Tổng công việc",
+      "tasks.status.done_count": "Hoàn thành",
+      "tasks.status.in_progress_count": "Đang thực hiện",
+      "tasks.status.to_do_count": "Chưa thực hiện",
+      "progress.observation_coverage": "Mức bao phủ tiến độ",
+      "blockers.open_count": "Vướng mắc đang mở"
+    },
+    "timeBasis": {
+      "AT_CAPTURE": "Tại thời điểm chụp",
+      "IN_PERIOD": "Trong kỳ báo cáo",
+      "DECLARED_REPORTING_DATE": "Ngày báo cáo đã khai"
+    },
+    "states": {
+      "KNOWN": "Đã biết",
+      "PARTIAL": "Một phần",
+      "UNKNOWN": "Chưa rõ",
+      "STALE": "Cũ",
+      "NOT_APPLICABLE": "Không áp dụng"
+    }
+  },
     "brand": "Task Management",
     "eyebrow": "Không gian hội thoại",
     "title": "Trợ lý AI",
@@ -812,6 +846,8 @@
   }
 },
   "reports": {
+  "openCurrentDraft": "Mở bản nháp hiện tại",
+  "referencedVersion": "Phiên bản bất biến được tham chiếu: {version}",
     "sourcesTitle": "Nguồn số liệu",
     "sourceTotal": "{total} nguồn",
     "sourcesExplanation": "Phiên bản được chụp giữ nguyên; nhãn bên cạnh cho biết nguồn hiện tại đã thay đổi hay chưa.",

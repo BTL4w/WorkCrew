@@ -105,7 +105,11 @@ export function WorkWorkspace({
   const [view, setView] = useState<View>(
     initialConversationId ? "aiAssistant" : canManage ? "projects" : "myTasks",
   );
-  const [selectedProject, setSelectedProject] = useState<Project | null>(null);
+  const [projectSelection, setSelectedProject] = useState<Project | null | undefined>(undefined);
+  const linkedProjectId = canManage ? searchParams?.get("project") : null;
+  const linkedReportId = canManage ? searchParams?.get("report") : null;
+  const referenceVersionId = canManage ? searchParams?.get("version") : null;
+  const linkedProject = useQuery({queryKey:[...workQueryKey,"project",linkedProjectId],queryFn:async()=>(await getProject(linkedProjectId!)).data,enabled:Boolean(linkedProjectId && linkedReportId)});
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [projectForm, setProjectForm] = useState<ProjectFormState | null>(null);
   const [taskForm, setTaskForm] = useState<TaskFormState | null>(null);
@@ -114,8 +118,9 @@ export function WorkWorkspace({
   const [tasksPage, setTasksPage] = useState(1);
   const [myTasksPage, setMyTasksPage] = useState(1);
   const [assignmentMode, setAssignmentMode] = useState(false);
-  const [projectSection, setProjectSection] = useState<"tasks" | "plan" | "reports" | "projectTeam" | "automations">("tasks");
+  const [projectSection, setProjectSection] = useState<"tasks" | "plan" | "reports" | "projectTeam" | "automations">(linkedReportId ? "reports" : "tasks");
 
+  const selectedProject = projectSelection === undefined ? linkedProject.data ?? null : projectSelection;
   const projects = useQuery({
     queryKey: [...workQueryKey, "projects", projectsPage],
     queryFn: () => listProjects(projectsPage),
@@ -248,7 +253,9 @@ export function WorkWorkspace({
               actorMembershipId: actor.membership.id,
               canManage,
             }}
-            projectSection={projectSection}
+            initialReportId={linkedReportId ?? undefined}
+          referenceVersionId={referenceVersionId ?? undefined}
+          projectSection={projectSection}
             onProjectSection={setProjectSection}
           />
         ) : (
@@ -355,6 +362,8 @@ function ProjectsView(props: {
   onRetryProjects: () => void; onRetryTasks: () => void;
   onProjectsPage: (page: number) => void; onTasksPage: (page: number) => void;
   planningContext: PlanningContext;
+  initialReportId?: string;
+  referenceVersionId?: string;
   projectSection: "tasks" | "plan" | "reports" | "projectTeam" | "automations";
   onProjectSection: (section: "tasks" | "plan" | "reports" | "projectTeam" | "automations") => void;
 }) {
@@ -375,7 +384,7 @@ function ProjectsView(props: {
           <button aria-selected={props.projectSection === "projectTeam"} className="secondary-button" role="tab" type="button" onClick={() => props.onProjectSection("projectTeam")}>{t("project.teamTab")}</button>
         {props.canManage ? <button aria-selected={props.projectSection === "automations"} className="secondary-button" role="tab" type="button" onClick={() => props.onProjectSection("automations")}>{t("project.automationTab")}</button> : null}
         </div>
-        {props.projectSection === "automations" && props.canManage ? <><DailySummarySettings projectId={props.selectedProject.id} organizationId={props.planningContext.organizationId} membershipId={props.planningContext.actorMembershipId}/><DailySummaryView projectId={props.selectedProject.id} organizationId={props.planningContext.organizationId} membershipId={props.planningContext.actorMembershipId}/></> : props.projectSection === "tasks" ? <><div className="mt-10 flex items-center justify-between"><h3 className="text-xl font-semibold">{t("task.sectionTitle")}</h3>{props.canManage ? <button className="primary-button" type="button" onClick={props.onNewTask}>{t("task.create")}</button> : null}</div><TaskCards tasks={props.tasks} isLoading={props.tasksLoading} error={props.tasksError} onRetry={props.onRetryTasks} onSelect={props.onSelectTask} /><Pagination page={props.tasks} onPage={props.onTasksPage} /></> : props.projectSection === "reports" && props.canManage ? <ReportPanel projectId={props.selectedProject.id} organizationId={props.planningContext.organizationId} actorMembershipId={props.planningContext.actorMembershipId} /> : props.projectSection === "plan" ? <><ProjectPlanPanel organizationId={props.planningContext.organizationId} actorMembershipId={props.planningContext.actorMembershipId} canManage={props.planningContext.canManage} projectId={props.selectedProject.id} tasks={props.tasks.items} />{props.canManage ? <WeeklyProgressPanel organizationId={props.planningContext.organizationId} actorMembershipId={props.planningContext.actorMembershipId} projectId={props.selectedProject.id} /> : null}</> : <div className="mt-8"><TeamPanel projectId={props.selectedProject.id} canManage={props.canManage} onOpenTask={props.onSelectTask} /></div>}
+        {props.projectSection === "automations" && props.canManage ? <><DailySummarySettings projectId={props.selectedProject.id} organizationId={props.planningContext.organizationId} membershipId={props.planningContext.actorMembershipId}/><DailySummaryView projectId={props.selectedProject.id} organizationId={props.planningContext.organizationId} membershipId={props.planningContext.actorMembershipId}/></> : props.projectSection === "tasks" ? <><div className="mt-10 flex items-center justify-between"><h3 className="text-xl font-semibold">{t("task.sectionTitle")}</h3>{props.canManage ? <button className="primary-button" type="button" onClick={props.onNewTask}>{t("task.create")}</button> : null}</div><TaskCards tasks={props.tasks} isLoading={props.tasksLoading} error={props.tasksError} onRetry={props.onRetryTasks} onSelect={props.onSelectTask} /><Pagination page={props.tasks} onPage={props.onTasksPage} /></> : props.projectSection === "reports" && props.canManage ? <ReportPanel initialReportId={props.initialReportId} referenceVersionId={props.referenceVersionId} projectId={props.selectedProject.id} organizationId={props.planningContext.organizationId} actorMembershipId={props.planningContext.actorMembershipId} /> : props.projectSection === "plan" ? <><ProjectPlanPanel organizationId={props.planningContext.organizationId} actorMembershipId={props.planningContext.actorMembershipId} canManage={props.planningContext.canManage} projectId={props.selectedProject.id} tasks={props.tasks.items} />{props.canManage ? <WeeklyProgressPanel organizationId={props.planningContext.organizationId} actorMembershipId={props.planningContext.actorMembershipId} projectId={props.selectedProject.id} /> : null}</> : <div className="mt-8"><TeamPanel projectId={props.selectedProject.id} canManage={props.canManage} onOpenTask={props.onSelectTask} /></div>}
       </section>
     );
   }

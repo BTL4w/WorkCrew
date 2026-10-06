@@ -312,9 +312,20 @@ def create_app(
             create_session_factory(database_engine), resolved_settings.reporting_timezone
         )
     )
+    from app.modules.assistant.adapters.report_projection import ReportStatusContexts
+    from app.modules.assistant.adapters.reporting_tools import ReportBlockProjector
     from app.modules.reporting.adapters.generation_repository import GenerationTransactions
     from app.modules.reporting.application.generation_service import GenerationService
 
+    report_projector = ReportBlockProjector(
+        reports=app.state.reporting_service,
+        contexts=ReportStatusContexts(
+            create_session_factory(database_engine), resolved_settings.reporting_timezone
+        ),
+        previous=risk_projector,
+    )
+    resolved_assistant_service.block_projector = report_projector
+    resolved_assistant_event_service.block_projector = report_projector
     app.state.report_generation_service = GenerationService(
         GenerationTransactions(
             create_session_factory(database_engine), resolved_settings.reporting_timezone

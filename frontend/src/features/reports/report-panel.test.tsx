@@ -38,3 +38,21 @@ it("polls a queued draft and keeps one metrics publication action when the versi
   await waitFor(()=>expect(screen.getByText("AI draft is ready for Manager review.")).toBeVisible(),{timeout:5000});
   expect(screen.getAllByRole("button",{name:"Publish metrics only"})).toHaveLength(1);
 });
+
+it("opens the exact immutable version read only, then updates the current draft after publication", async () => {
+  const historical = "22222222-2222-4222-8222-222222222222";
+  const fetch = vi.fn(async (path:string,init?:RequestInit) => new Response(JSON.stringify(
+    path.includes("/sources?") ? {snapshot_hash:result.snapshot.snapshot_hash,items:[],receipts:[],next_cursor:null,total:0} :
+    path.endsWith("/publish") ? {...result,report:{...result.report,version:2}} :
+    path.includes(`version_id=${historical}`) ? {...result,selected_version:{...result.selected_version,id:historical}} :
+    path.endsWith(`/${id}`) ? result : {items:[result.report],page:1,page_size:20,total:1}),
+    {status:init?.method==="POST"?201:200,headers:{"Content-Type":"application/json"}}));
+  vi.stubGlobal("fetch",fetch);
+  render(<QueryClientProvider client={new QueryClient({defaultOptions:{queries:{retry:false}}})}><AppLocaleProvider initialLocale="en"><ReportPanel projectId={id} organizationId={id} actorMembershipId={id} initialReportId={id} referenceVersionId={historical}/></AppLocaleProvider></QueryClientProvider>);
+  await waitFor(()=>expect(fetch.mock.calls.some(([path])=>path.includes(`version_id=${historical}`))).toBe(true));
+  expect(screen.queryByRole("button",{name:"Publish metrics only"})).not.toBeInTheDocument();
+  expect(screen.queryByRole("button",{name:"Retry AI narrative"})).not.toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button",{name:"Open current draft"}));
+  fireEvent.click(await screen.findByRole("button",{name:"Publish metrics only"}));
+  expect(await screen.findByText("Version 2")).toBeVisible();
+});

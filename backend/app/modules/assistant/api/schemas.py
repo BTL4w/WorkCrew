@@ -10,6 +10,7 @@ from pydantic import BaseModel, ConfigDict, Field, TypeAdapter
 
 from app.modules.assistant.domain.models import AssistantConversation, AssistantMessage
 from work_management_ai.agents.risk.contracts import RiskCardContent
+from work_management_ai.runtime.contracts import ProjectStatusResponseBlock, ReportResponseBlock
 
 # ---------------------------------------------------------------------------
 # Request schemas
@@ -202,6 +203,8 @@ ContentBlock = Annotated[
     | DailyUpdateBlock
     | RiskBlock
     | DailySummaryBlock
+    | ReportResponseBlock
+    | ProjectStatusResponseBlock
     | SafeErrorBlock,
     Field(discriminator="kind"),
 ]

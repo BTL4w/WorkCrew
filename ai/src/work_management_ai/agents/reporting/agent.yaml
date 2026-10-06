@@ -5,7 +5,7 @@ agent:
   version: "1.0.0"
   owner: reporting-agent
   activation_phase: 5
-capabilities: [reporting.draft]
+capabilities: [reporting.draft, reporting.prepare_report, reporting.explain_snapshot]
 contracts:
   input: work_management_ai.runtime.contracts.AgentHandoff
   output: work_management_ai.runtime.contracts.AgentResult
@@ -27,7 +27,7 @@ runtime:
   checkpoint: durable
   model_policy: structured_grounded_narrative
 allowed_skills: [summarize_verified_project_metrics@1, draft_management_report@1]
-allowed_tools: [reporting.read@1, reporting.propose@1]
+allowed_tools: [reporting.read@1, reporting.propose@1, reporting.chat@1]
 approval:
   produced_writes: ALWAYS
   can_self_approve: false

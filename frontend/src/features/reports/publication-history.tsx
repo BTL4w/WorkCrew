@@ -6,8 +6,8 @@ import type { ReportResult } from "./contracts";
 import { MetricGrid } from "./metric-grid";
 import styles from "./reports.module.css";
 
-export function PublicationHistory({ data, publish = publishReport, onPublished, onStale }: {
-  data: ReportResult; publish?: typeof publishReport; onPublished: (data: ReportResult) => void; onStale: () => void;
+export function PublicationHistory({ data, readOnly=false, publish = publishReport, onPublished, onStale }: {
+  readOnly?: boolean; data: ReportResult; publish?: typeof publishReport; onPublished: (data: ReportResult) => void; onStale: () => void;
 }) {
   const t = useTranslations("reports");
   const locale = useLocale();
@@ -36,7 +36,7 @@ export function PublicationHistory({ data, publish = publishReport, onPublished,
   }
   return <section className={styles.publications} aria-label={t("publications")}>
     <div className={styles.header}><div><h4 className={styles.groupTitle}>{t("publications")}</h4><p className={styles.description}>{t("publicationExplanation")}</p></div>
-      <button className="secondary-button" type="button" disabled={pending || error === "publishStale"} onClick={() => void submit()}>{t(pending ? "publishing" : "publishMetrics")}</button></div>
+      {!readOnly && <button className="secondary-button" type="button" disabled={pending || error === "publishStale"} onClick={() => void submit()}>{t(pending ? "publishing" : "publishMetrics")}</button>}</div>
     {error && <p role="alert" className="error-message">{t(error)}</p>}
     {!data.publications.length && <p className={styles.description}>{t("unpublished")}</p>}
     {data.publications.map(item => <div className={styles.historyItem} key={item.id}>

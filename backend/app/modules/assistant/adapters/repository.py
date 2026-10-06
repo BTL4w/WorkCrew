@@ -5,7 +5,7 @@ from datetime import UTC, datetime, timedelta
 from typing import Literal, cast
 from uuid import UUID, uuid4
 
-from sqlalchemy import func, select, update
+from sqlalchemy import func, select, text, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules.assistant.adapters.database_models import (
@@ -1441,6 +1441,29 @@ class PostgreSQLAssistantRepository:
         await self._session.flush()
         return resumed
 
+    async def assert_job_claim(self, *, job: AssistantJob) -> None:
+        from app.modules.assistant.domain.models import AssistantJobClaimLost
+
+        model = await self._session.scalar(
+            select(AssistantJobModel)
+            .where(
+                AssistantJobModel.organization_id == job.organization_id,
+                AssistantJobModel.id == job.id,
+            )
+            .with_for_update()
+        )
+        at = await self._session.scalar(text("SELECT clock_timestamp()"))
+        if (
+            model is None
+            or model.status != "RUNNING"
+            or model.locked_by != job.locked_by
+            or model.attempt_count != job.attempt_count
+            or model.lease_until is None
+            or not isinstance(at, datetime)
+            or model.lease_until <= at
+        ):
+            raise AssistantJobClaimLost("ASSISTANT_JOB_CLAIM_LOST")
+
     async def finish_agent_run(self, *, run: AgentRun) -> None:
         model = await self._session.scalar(
             select(AgentRunModel)
@@ -1454,7 +1477,7 @@ class PostgreSQLAssistantRepository:
         if model is None:
             raise AssistantDomainLookupError("AGENT_RUN_NOT_RUNNING")
         model.typed_output = run.typed_output
-        model.usage = run.usage
+        model.usage = {**model.usage, **run.usage}
         model.status = run.status.value
         model.stop_reason = run.stop_reason
         model.safe_error_code = run.safe_error_code

@@ -291,7 +291,7 @@ async def test_real_hub_handoff_runs_reporting_package(locale: Literal["vi", "en
         ),
         tool_registry=ToolRegistry(
             load_yaml_resource("work_management_ai.tools.reporting", resource, ToolManifest)
-            for resource in ("tool.yaml", "propose.yaml")
+            for resource in ("tool.yaml", "propose.yaml", "chat.yaml")
         ),
         evaluator_ids=frozenset({"reporting_numeric@1", "reporting_grounding@1"}),
     )

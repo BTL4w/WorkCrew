@@ -1,0 +1,10 @@
+.card { border:1px solid var(--border,#e2e4e0);border-radius:16px;padding:24px;background:var(--surface,#fff);max-width:720px; }
+.card h3 {font-size:1.25rem;margin:6px 0 12px;}
+.eyebrow {font-size:.75rem;text-transform:uppercase;letter-spacing:.09em;color:#547461;}
+.muted {font-size:.8rem;color:#65736d;overflow-wrap:anywhere;}
+.metrics {display:grid;grid-template-columns:repeat(auto-fit,minmax(145px,1fr));gap:16px;margin:20px 0;}
+.metrics dt {font-size:.85rem;color:#65736d;}
+.metrics dd {font-size:1.5rem;margin:4px 0;}
+.notice {padding:12px;border-radius:8px;background:#f3f6f0;font-size:.85rem;}
+.card details {margin:16px 0;}
+.card code {font-size:.75rem;overflow-wrap:anywhere;}

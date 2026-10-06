@@ -13,6 +13,7 @@ from pydantic import BaseModel
 
 from app.modules.assistant.adapters.daily_update_tools import DailyUpdateContextResolver
 from app.modules.assistant.adapters.execution_recorder import PostgreSQLExecutionRecorder
+from app.modules.assistant.adapters.report_chat_usage import report_chat_job_scope
 from app.modules.assistant.application.ports import AssistantTransactionFactory
 from app.modules.assistant.domain.models import (
     AgentModelInvocation,
@@ -99,6 +100,7 @@ _SKILL_RESOURCES = (
 _TOOL_RESOURCES = (
     ("work_management_ai.tools.reporting", "tool.yaml"),
     ("work_management_ai.tools.reporting", "propose.yaml"),
+    ("work_management_ai.tools.reporting", "chat.yaml"),
     ("work_management_ai.tools.automation", "tool.yaml"),
     ("work_management_ai.tools.risk", "tool.yaml"),
     ("work_management_ai.tools.daily_update", "tool.yaml"),
@@ -321,9 +323,15 @@ def _safe_model_error_code(error: Exception) -> str:
 
 
 class _ScopedAgentHarness:
-    def __init__(self, harness: AgentHarness, usage_store: UsageStore | None = None) -> None:
+    def __init__(
+        self,
+        harness: AgentHarness,
+        usage_store: UsageStore | None = None,
+        reporting_usage_factory: Callable[[AgentHandoff], ReportingUsagePort] | None = None,
+    ) -> None:
         self._harness = harness
         self._usage_store = usage_store
+        self._reporting_usage_factory = reporting_usage_factory
 
     async def run(self, handoff: AgentHandoff) -> AgentResult:
         run_id = uuid5(NAMESPACE_URL, f"agent-run:{handoff.idempotency_key}")
@@ -343,6 +351,16 @@ class _ScopedAgentHarness:
                         update={"model_attempts_used": await self._usage_store.run_attempts(scope)}
                     )
                 return result
+            if self._reporting_usage_factory is not None and isinstance(
+                self._harness, ReportingHarness
+            ):
+                harness = ReportingHarness(
+                    model_gateway=self._harness.gateway,
+                    tool_executor=self._harness.tools,
+                    actor_resolver=self._harness.actors,
+                    usage=self._reporting_usage_factory(handoff),
+                )
+                return await harness.run(handoff)
             return await self._harness.run(handoff)
 
 
@@ -448,6 +466,7 @@ def build_execution_engine_factory(
     daily_image_token_bound: int | None = None,
     reporting_tool_executor: ToolExecutorPort | None = None,
     reporting_usage: ReportingUsagePort | None = None,
+    reporting_usage_factory: Callable[[AgentHandoff], ReportingUsagePort] | None = None,
 ) -> Callable[[ExecutionRecorderPort], AgentExecutionEngine]:
     """Compose hub-and-spoke Harnesses without opening a database transaction."""
     agent_actor_resolver = CurrentAgentActorResolver(actor_resolver)
@@ -526,7 +545,8 @@ def build_execution_engine_factory(
                     tool_executor=reporting_tool_executor,
                     actor_resolver=agent_actor_resolver,
                     usage=reporting_usage,
-                )
+                ),
+                reporting_usage_factory=reporting_usage_factory,
             ),
         }
 
@@ -723,33 +743,35 @@ class AssistantTurnExecutor:
             ),
             f"assistant:{job.turn_id}:running",
         )
-        output = await self._engine_factory(recorder).execute(
-            orchestration_run_id=job.orchestration_run_id,
-            value=OrchestratorInput(
+        with report_chat_job_scope(job):
+            output = await self._engine_factory(recorder).execute(
                 orchestration_run_id=job.orchestration_run_id,
-                conversation_id=job.conversation_id,
-                turn_id=job.turn_id,
-                message=turn.objective,
-                locale=turn.locale,
-                actor=ActorReference(
-                    membership_id=actor.membership_id,
-                    organization_id=actor.organization_id,
+                value=OrchestratorInput(
+                    orchestration_run_id=job.orchestration_run_id,
+                    conversation_id=job.conversation_id,
+                    turn_id=job.turn_id,
+                    message=turn.objective,
+                    locale=turn.locale,
+                    actor=ActorReference(
+                        membership_id=actor.membership_id,
+                        organization_id=actor.organization_id,
+                    ),
+                    active_context=ActiveConversationContext(
+                        recent_messages=tuple(excerpts),
+                        daily_update=daily_update,
+                        daily_update_resolution_issue=daily_issue,
+                        active_planning=active_planning,
+                        active_team=active_team,
+                        exact_assignment=exact_assignment,
+                        assignment_resolution_issue=assignment_resolution_issue,
+                    ),
                 ),
-                active_context=ActiveConversationContext(
-                    recent_messages=tuple(excerpts),
-                    daily_update=daily_update,
-                    daily_update_resolution_issue=daily_issue,
-                    active_planning=active_planning,
-                    active_team=active_team,
-                    exact_assignment=exact_assignment,
-                    assignment_resolution_issue=assignment_resolution_issue,
-                ),
-            ),
-            recorder=recorder,
-        )
+                recorder=recorder,
+            )
         await recorder.finish_orchestrator_run(root_run_id, output)
         safe_error = "ORCHESTRATOR_MANUAL_FALLBACK" if output.status.value == "FAILED" else None
         async with self._transactions(actor) as transaction:
+            await recorder.check_claim(transaction.repository)
             await transaction.repository.finish_orchestration(
                 job=job,
                 status=output.status.value,

@@ -4,8 +4,8 @@ import { reportSourcesSchema, reportDefaultsSchema, reportPageSchema, reportResu
 export function listReports(projectId: string, page = 1) {
   return requestJson(`/api/v1/reports?project_id=${encodeURIComponent(projectId)}&page=${page}`, { schema: reportPageSchema });
 }
-export function getReport(id: string) {
-  return requestJson(`/api/v1/reports/${encodeURIComponent(id)}`, { schema: reportResultSchema });
+export function getReport(id: string, versionId?: string) {
+  return requestJson(`/api/v1/reports/${encodeURIComponent(id)}${versionId ? `?version_id=${encodeURIComponent(versionId)}` : ""}`, { schema: reportResultSchema });
 }
 export function createReport(body: ReportInput, key: string) {
   return requestJson("/api/v1/reports", { schema: reportResultSchema, expectedStatus: 201, init: {

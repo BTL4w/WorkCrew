@@ -67,6 +67,8 @@ class ReportingHarness:
         )
 
     async def run(self, handoff: AgentHandoff) -> AgentResult:
+        if handoff.capability in {"reporting.prepare_report", "reporting.explain_snapshot"}:
+            return await self.run_chat(handoff)
         state = ReportingState()
         runner = _ReportingRun(self, handoff)
         try:
@@ -121,6 +123,149 @@ class ReportingHarness:
                 tool_calls_used=state.tools,
                 stop_reason="REPORTING_UNAVAILABLE",
                 safe_error_code="REPORTING_UNAVAILABLE",
+            )
+
+    async def run_chat(self, handoff: AgentHandoff) -> AgentResult:
+        from work_management_ai.agents.orchestrator.contracts import ReportIntent
+        from work_management_ai.runtime.contracts import (
+            ProjectStatusResponseBlock,
+            ReportResponseBlock,
+        )
+
+        state = ReportingState()
+        runner = _ReportingRun(self, handoff)
+        try:
+            if self.usage is not None:
+                usage = await self.usage.load()
+                state.attempts, state.tools = usage.attempts, usage.tools
+                state.input_reserved, state.output_reserved = (
+                    usage.input_reserved,
+                    usage.output_reserved,
+                )
+                state.retry_used = usage.retries > 0
+                runner.deadline = monotonic() + min(
+                    180, handoff.budget.timeout_seconds, await self.usage.remaining_seconds()
+                )
+            await runner.authorize()
+            intent = ReportIntent.model_validate(handoff.typed_input)
+            capability = (
+                "reporting.prepare_report"
+                if intent.operation == "PREPARE_REPORT"
+                else "reporting.explain_snapshot"
+            )
+            if capability != handoff.capability:
+                raise ValueError("REPORT_CHAT_MODE")
+            async with asyncio.timeout(max(0, runner.deadline - monotonic())):
+                raw = await runner.tool(
+                    state,
+                    "reporting.chat",
+                    cast(dict[str, JsonValue], intent.model_dump(mode="json")),
+                )
+                if raw.get("resolution") != "UNIQUE":
+                    return AgentResult(
+                        agent_id=AgentId.REPORTING,
+                        agent_version="1.0.0",
+                        status=AgentRunStatus.AWAITING_INPUT,
+                        typed_output={
+                            "question": "Vui lòng chọn hoặc chỉ rõ dự án bằng tên hoặc mã."
+                            if intent.locale == "vi"
+                            else "Please select or specify the project by name or ID.",
+                            "response_context": {
+                                "reporting": True,
+                                "candidates": raw.get("candidates", []),
+                            },
+                        },
+                        iterations_used=1,
+                        tool_calls_used=state.tools,
+                        stop_reason="PROJECT_CLARIFICATION_REQUIRED",
+                    )
+                if intent.operation == "PREPARE_REPORT":
+                    card = ReportResponseBlock.model_validate(raw["card"])
+                    return AgentResult(
+                        agent_id=AgentId.REPORTING,
+                        agent_version="1.0.0",
+                        status=AgentRunStatus.AWAITING_HUMAN,
+                        typed_output={"card": cast(JsonValue, card.model_dump(mode="json"))},
+                        iterations_used=1,
+                        tool_calls_used=state.tools,
+                        stop_reason="AWAITING_MANAGER_REVIEW",
+                    )
+                context = ReportingContext.model_validate(raw["context"])
+                card = ProjectStatusResponseBlock.model_validate(raw["card"])
+                if (
+                    context.snapshot.organization_id != handoff.actor.organization_id
+                    or not context.snapshot.verified_hash()
+                    or context.snapshot.snapshot_hash != card.snapshot_hash
+                ):
+                    raise ValueError("STATUS_CONTEXT_MISMATCH")
+                try:
+                    narrative = await runner.model(
+                        state,
+                        key=f"reporting.{intent.locale}.draft",
+                        system=SYSTEM_V1,
+                        payload=model_context(context),
+                        schema=ReportingNarrative,
+                    )
+                    numeric = verify_numeric(
+                        context.snapshot, narrative, source_detail_limit=SOURCE_DETAIL_LIMIT
+                    )
+                    state.verifiers.append(numeric)
+                    if not numeric.passed:
+                        raise ValueError("STATUS_NUMERIC_REJECTED")
+                    semantic = await runner.model(
+                        state,
+                        key=f"reporting.{intent.locale}.grounding",
+                        system=GROUNDING_V1,
+                        payload={
+                            "context": model_context(context),
+                            "narrative": narrative.model_dump(mode="json"),
+                        },
+                        schema=SemanticVerdict,
+                    )
+                    grounded = verify_grounding(narrative, semantic)
+                    state.verifiers.append(grounded)
+                    if not grounded.passed or narrative.locale != intent.locale:
+                        raise ValueError("STATUS_SEMANTIC_REJECTED")
+                    from work_management_ai.agents.reporting.contracts import NarrativeTextBlock
+
+                    analysis = tuple(
+                        b.text for b in narrative.blocks if isinstance(b, NarrativeTextBlock)
+                    )[:3]
+                    card = card.model_copy(
+                        update={"analysis": analysis, "analysis_state": "VERIFIED"}
+                    )
+                except Exception:
+                    # Only verified snapshot facts survive model failure.
+                    card = card.model_copy(update={"analysis": (), "analysis_state": "UNAVAILABLE"})
+                current = await runner.tool(
+                    state,
+                    "reporting.chat",
+                    {"operation": "REAUTHORIZE", "context_run_id": str(card.context_run_id)},
+                )
+                if current.get("context") != raw.get("context"):
+                    raise ValueError("STATUS_ACCESS_CHANGED")
+                await runner.authorize()
+                return AgentResult(
+                    agent_id=AgentId.REPORTING,
+                    agent_version="1.0.0",
+                    status=AgentRunStatus.COMPLETED,
+                    typed_output={"card": cast(JsonValue, card.model_dump(mode="json"))},
+                    verifier_results=tuple(state.verifiers),
+                    model_attempts_used=state.attempts,
+                    iterations_used=7,
+                    tool_calls_used=state.tools,
+                    stop_reason="STATUS_VERIFIED",
+                )
+        except Exception:
+            return AgentResult(
+                agent_id=AgentId.REPORTING,
+                agent_version="1.0.0",
+                status=AgentRunStatus.FAILED,
+                typed_output={},
+                model_attempts_used=state.attempts,
+                tool_calls_used=state.tools,
+                stop_reason="REPORT_CONTEXT_UNAVAILABLE",
+                safe_error_code="REPORT_CONTEXT_UNAVAILABLE",
             )
 
 

@@ -288,6 +288,40 @@
     "error": { "safe": "The request could not be completed right now.", "reference": "Reference: {requestId}" }
   },
   "assistant": {
+  "report": {
+    "title": "Project report",
+    "statusTitle": "Project status",
+    "review": "Draft requires Manager review before publication.",
+    "open": "Open report",
+    "sources": "Captured sources",
+    "analysisUnavailable": "AI analysis is unavailable. Verified metrics remain available.",
+    "analysis": "Verified AI analysis",
+    "unavailable": "Report context is unavailable. Open the work view to check current access.",
+    "period": "{start} → {end} · {timezone}",
+    "captured": "Captured at {at}",
+    "bounded": "Summary of the captured metrics. Open the report for all metrics and sources.",
+    "unknown": "Unknown",
+    "metrics": {
+      "tasks.status.total_count": "Total tasks",
+      "tasks.status.done_count": "Done",
+      "tasks.status.in_progress_count": "In progress",
+      "tasks.status.to_do_count": "To do",
+      "progress.observation_coverage": "Progress coverage",
+      "blockers.open_count": "Open blockers"
+    },
+    "timeBasis": {
+      "AT_CAPTURE": "At capture",
+      "IN_PERIOD": "In reporting period",
+      "DECLARED_REPORTING_DATE": "Declared reporting date"
+    },
+    "states": {
+      "KNOWN": "Known",
+      "PARTIAL": "Partial",
+      "UNKNOWN": "Unknown",
+      "STALE": "Stale",
+      "NOT_APPLICABLE": "Not applicable"
+    }
+  },
     "brand": "Task Management",
     "eyebrow": "Conversation workspace",
     "title": "AI Assistant",
@@ -812,6 +846,8 @@
   }
 },
   "reports": {
+  "openCurrentDraft": "Open current draft",
+  "referencedVersion": "Referenced immutable version: {version}",
     "sourcesTitle": "Metric sources",
     "sourceTotal": "{total} sources",
     "sourcesExplanation": "Captured versions stay unchanged. The label shows whether the current source has changed.",

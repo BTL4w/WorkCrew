@@ -29,6 +29,7 @@ from app.modules.assistant.adapters.daily_update_tools import (
     DailyUpdateToolAdapter,
 )
 from app.modules.assistant.adapters.planning_tools import AssistantPlanningToolAdapter
+from app.modules.assistant.adapters.report_chat_usage import ReportChatUsageFactory
 from app.modules.assistant.adapters.title_gateway import build_title_gateway
 from app.modules.assistant.adapters.transaction import PostgreSQLAssistantTransactionFactory
 from app.modules.assistant.adapters.work_tools import RecordingToolExecutor, WorkToolExecutor
@@ -386,6 +387,33 @@ async def _run_worker() -> None:
             reads=RiskReadService(RiskTransactions(session_factory, settings.reporting_timezone)),
         ),
     )
+    from app.modules.assistant.adapters.report_projection import ReportStatusContexts
+    from app.modules.assistant.adapters.reporting_tools import (
+        ChatReportingToolAdapter,
+        ReportBlockProjector,
+    )
+    from app.modules.reporting.adapters.transaction import ReportTransactions
+    from app.modules.reporting.application.chat_service import ReportChatService
+    from app.modules.reporting.application.report_service import ReportService
+
+    chat_reports = ReportService(ReportTransactions(session_factory, settings.reporting_timezone))
+    status_contexts = ReportStatusContexts(session_factory, settings.reporting_timezone)
+    chat_tools = RecordingToolExecutor(
+        transaction_factory=assistant_transaction_factory,
+        tool_registry=tool_registry,
+        backend=ChatReportingToolAdapter(
+            actors=actor_resolver,
+            service=ReportChatService(reports=chat_reports, projects=project_service),
+            contexts=status_contexts,
+        ),
+    )
+    report_projector = ReportBlockProjector(
+        reports=chat_reports,
+        contexts=status_contexts,
+        previous=RiskBlockProjector(
+            RiskReadService(RiskTransactions(session_factory, settings.reporting_timezone))
+        ),
+    )
     turn_executor = AssistantTurnExecutor(
         transaction_factory=assistant_transaction_factory,
         registry=registry,
@@ -399,13 +427,13 @@ async def _run_worker() -> None:
             assignment_tool_executor=assignment_tool_executor,
             daily_update_tool_executor=daily_tools,
             risk_tool_executor=risk_tools,
+            reporting_tool_executor=chat_tools,
+            reporting_usage_factory=ReportChatUsageFactory(session_factory),
             automation_tool_executor=automation_tools,
             daily_usage_store=daily_usage,
             daily_image_token_bound=image_token_bound(settings),
         ),
-        block_projector=RiskBlockProjector(
-            RiskReadService(RiskTransactions(session_factory, settings.reporting_timezone))
-        ),
+        block_projector=report_projector,
         daily_update_context_resolver=DailyUpdateContextResolver(
             tasks=task_service, updates=daily_updates
         ),

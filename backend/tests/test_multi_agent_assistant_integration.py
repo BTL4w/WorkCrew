@@ -538,6 +538,9 @@ async def test_worker_persists_running_activity_before_first_model_answer(
         async def finish_orchestrator_run(self, *_):
             return None
 
+        async def check_claim(self, *_):
+            return None
+
     recorder = Recorder()
 
     def recorder_factory(**_: object) -> Recorder:

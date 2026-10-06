@@ -158,11 +158,15 @@ async def report_defaults(
 
 @router.get("/{report_id}", response_model=ReportResponse, responses=_ERRORS)
 async def get_report(
-    report_id: UUID, actor: ActorDependency, service: ReportServiceDependency, response: Response
+    report_id: UUID,
+    actor: ActorDependency,
+    service: ReportServiceDependency,
+    response: Response,
+    version_id: UUID | None = None,
 ) -> ReportResponse:
     response.headers["Cache-Control"] = "private, no-store"
     try:
-        result = await service.get(actor=actor, report_id=report_id)
+        result = await service.get(actor=actor, report_id=report_id, version_id=version_id)
     except ReportError as exc:
         _raise(exc)
     response.headers["ETag"] = f'"{result.report.version}"'

@@ -6,7 +6,7 @@ from typing import Protocol
 from uuid import UUID
 
 from app.modules.assistant.application.ports import AssistantTransaction
-from app.modules.assistant.domain.models import AssistantJob
+from app.modules.assistant.domain.models import AssistantJob, AssistantJobClaimLost
 
 
 class AssistantJobHandler(Protocol):
@@ -54,6 +54,9 @@ class AssistantJobService:
             await txn.commit()
         try:
             await self._handler(job=job, worker_id=worker_id)
+        except AssistantJobClaimLost:
+            # A successor owns the job; the old worker must not fail or complete it.
+            return True
         except Exception as error:
             async with self._transactions(organization_id) as txn:
                 await txn.repository.fail_job(

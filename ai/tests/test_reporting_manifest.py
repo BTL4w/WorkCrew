@@ -23,7 +23,7 @@ def test_reporting_manifest_and_bounds():
     )
     tools = ToolRegistry(
         load_yaml_resource("work_management_ai.tools.reporting", resource, ToolManifest)
-        for resource in ("tool.yaml", "propose.yaml")
+        for resource in ("tool.yaml", "propose.yaml", "chat.yaml")
     )
     registry = AgentRegistry(
         skill_registry=skills,
@@ -36,7 +36,11 @@ def test_reporting_manifest_and_bounds():
     assert not registry.planning_catalog(active_phase=5, role="EMPLOYEE")
     assert registry.planning_catalog(active_phase=5, role="MANAGER")[0]["agent_id"] == "reporting"
     manifest = registry.resolve(AgentId.REPORTING, "1.0.0", 5).manifest
-    assert set(manifest.allowed_tools) == {"reporting.read@1", "reporting.propose@1"}
+    assert set(manifest.allowed_tools) == {
+        "reporting.read@1",
+        "reporting.propose@1",
+        "reporting.chat@1",
+    }
     default = AgentBudget(max_iterations=1, max_tool_calls=0, timeout_seconds=1)
     assert (default.max_input_tokens, default.max_output_tokens) == (24000, 4000)
 

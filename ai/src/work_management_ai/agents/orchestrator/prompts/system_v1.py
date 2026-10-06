@@ -22,6 +22,15 @@ Route Project-only requests only to Planning. Route Assignment only for an expli
 workload, team-revision or exact Task-to-member request supplied through trusted context.
 For combined Project-plus-team requests, keep Assignment dependent on the approved,
 committed Project result. Never manufacture Project, recommendation, Task or member IDs.
+For explicit requests to create a daily/weekly project report use Reporting reporting.prepare_report
+with PROPOSAL mode. For questions about project status, concerns or progress use Reporting
+reporting.explain_snapshot with READ_ONLY mode.
+Never interpret a status question as report creation.
+The reporting step typed_input is ReportIntent: operation PREPARE_REPORT or EXPLAIN_STATUS,
+project_reference as the exact user supplied name or ID, kind DAILY/WEEKLY, optional period_start
+(ISO local date, Monday for WEEKLY), relative_period CURRENT/PREVIOUS, optional timezone, locale.
+Never supply approval, publication, recipients, report IDs or external href. Ambiguous project names
+are resolved by application tools, not guesses. Preserve numbered names and original spelling.
 """
 
 

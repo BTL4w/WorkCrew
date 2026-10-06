@@ -42,10 +42,24 @@ def validate_execution_plan(
             registered = registry.resolve(
                 step.target_agent_id,
                 step.target_agent_version,
-                active_phase=4,
+                active_phase=5,
             )
         except AgentRegistryError as exc:
             raise ExecutionPlanError("UNKNOWN_OR_INACTIVE_AGENT") from exc
+        if step.target_agent_id is AgentId.REPORTING:
+            from work_management_ai.agents.orchestrator.contracts import ReportIntent
+
+            try:
+                intent = ReportIntent.model_validate(step.typed_input)
+            except ValueError as exc:
+                raise ExecutionPlanError("REPORT_INTENT_INVALID") from exc
+            expected = (
+                ("reporting.prepare_report", StepMode.PROPOSAL)
+                if intent.operation == "PREPARE_REPORT"
+                else ("reporting.explain_snapshot", StepMode.READ_ONLY)
+            )
+            if (step.capability, step.mode) != expected:
+                raise ExecutionPlanError("REPORT_INTENT_MODE_MISMATCH")
         manifest = registered.manifest
         if step.capability not in manifest.capabilities:
             raise ExecutionPlanError("CAPABILITY_NOT_ALLOWED")

@@ -3,7 +3,7 @@
 from typing import Any, cast
 from uuid import NAMESPACE_URL, UUID, uuid5
 
-from app.modules.assistant.application.ports import AssistantTransactionFactory
+from app.modules.assistant.application.ports import AssistantRepository, AssistantTransactionFactory
 from app.modules.assistant.domain.models import (
     AgentCheckpoint,
     AgentHandoffRecord,
@@ -45,6 +45,7 @@ class PostgreSQLExecutionRecorder(ExecutionRecorderPort):
         self._transactions = transaction_factory
         self._registry = registry
         self._job = job
+        self._report_chat_active = False
         if scope is None:
             if job is None:
                 raise ValueError("EXECUTION_SCOPE_REQUIRED")
@@ -69,13 +70,18 @@ class PostgreSQLExecutionRecorder(ExecutionRecorderPort):
             if actor is not None and not isinstance(scope.trigger, ChatTurnTrigger)
             else scope.organization_id
         )
-        self._phase = 5 if not isinstance(scope.trigger, ChatTurnTrigger) else 4
+        self._phase = 5
         self._block_projector = block_projector
         self._actor = actor
+
+    async def check_claim(self, repository: AssistantRepository) -> None:
+        if self._report_chat_active and self._job is not None:
+            await repository.assert_job_claim(job=self._job)
 
     async def ensure_orchestrator_run(self) -> UUID:
         run_id = uuid5(NAMESPACE_URL, f"orchestrator:{self._identity}")
         async with self._transactions(self._context) as transaction:
+            await self.check_claim(transaction.repository)
             existing = await transaction.repository.get_agent_run(
                 organization_id=self._scope.organization_id, run_id=run_id
             )
@@ -105,6 +111,7 @@ class PostgreSQLExecutionRecorder(ExecutionRecorderPort):
         if run_id != uuid5(NAMESPACE_URL, f"orchestrator:{self._identity}"):
             raise RuntimeError("ORCHESTRATOR_AGENT_RUN_SCOPE_MISMATCH")
         async with self._transactions(self._context) as transaction:
+            await self.check_claim(transaction.repository)
             run = await transaction.repository.get_agent_run(
                 organization_id=self._scope.organization_id, run_id=run_id
             )
@@ -131,6 +138,7 @@ class PostgreSQLExecutionRecorder(ExecutionRecorderPort):
         if orchestration_run_id != self._scope.orchestration_run_id:
             raise RuntimeError("EXECUTION_CHECKPOINT_SCOPE_MISMATCH")
         async with self._transactions(self._context) as transaction:
+            await self.check_claim(transaction.repository)
             value = await transaction.repository.load_orchestration_checkpoint(
                 organization_id=self._scope.organization_id,
                 orchestration_run_id=orchestration_run_id,
@@ -141,6 +149,8 @@ class PostgreSQLExecutionRecorder(ExecutionRecorderPort):
         return ExecutionCheckpoint.model_validate(value)
 
     async def start_agent_run(self, handoff: AgentHandoff) -> RecordedAgentRun:
+        if handoff.capability in {"reporting.prepare_report", "reporting.explain_snapshot"}:
+            self._report_chat_active = True
         if (
             handoff.orchestration_run_id != self._scope.orchestration_run_id
             or handoff.actor.organization_id != self._scope.organization_id
@@ -151,6 +161,7 @@ class PostgreSQLExecutionRecorder(ExecutionRecorderPort):
         handoff_id = uuid5(NAMESPACE_URL, f"handoff:{handoff.idempotency_key}")
         run_id = uuid5(NAMESPACE_URL, f"agent-run:{handoff.idempotency_key}")
         async with self._transactions(self._context) as transaction:
+            await self.check_claim(transaction.repository)
             existing = await transaction.repository.get_agent_run(
                 organization_id=self._scope.organization_id, run_id=run_id
             )
@@ -227,7 +238,10 @@ class PostgreSQLExecutionRecorder(ExecutionRecorderPort):
         return RecordedAgentRun(id=run.id, status=AgentRunStatus.RUNNING)
 
     async def finish_agent_run(self, run_id: UUID, result: AgentResult) -> None:
+        if result.agent_id is AgentId.REPORTING and self._job is not None:
+            self._report_chat_active = True
         async with self._transactions(self._context) as transaction:
+            await self.check_claim(transaction.repository)
             run = await transaction.repository.get_agent_run(
                 organization_id=self._scope.organization_id, run_id=run_id
             )
@@ -283,6 +297,7 @@ class PostgreSQLExecutionRecorder(ExecutionRecorderPort):
         if checkpoint.orchestration_run_id != self._scope.orchestration_run_id:
             raise RuntimeError("EXECUTION_CHECKPOINT_SCOPE_MISMATCH")
         async with self._transactions(self._context) as transaction:
+            await self.check_claim(transaction.repository)
             await transaction.repository.save_checkpoint(
                 checkpoint=AgentCheckpoint(
                     id=uuid5(
@@ -323,6 +338,7 @@ class PostgreSQLExecutionRecorder(ExecutionRecorderPort):
         if self._block_projector is not None and self._actor is not None:
             projected = tuple(await self._block_projector.project(self._actor, projected))
         async with self._transactions(self._context) as transaction:
+            await self.check_claim(transaction.repository)
             await transaction.repository.append_assistant_blocks(
                 job=self._job,
                 blocks=projected,

@@ -80,10 +80,16 @@ class ReportService:
                 )
             raise
 
-    async def get(self, *, actor: AuthenticatedActor, report_id: UUID) -> ReportResult:
+    async def get(
+        self, *, actor: AuthenticatedActor, report_id: UUID, version_id: UUID | None = None
+    ) -> ReportResult:
         async with self.transactions(actor) as repo:
             await repo.authenticate()
-            return await repo.get(report_id)
+            return (
+                await repo.get(report_id, version_id=version_id)
+                if version_id
+                else await repo.get(report_id)
+            )
 
     async def list(
         self, *, actor: AuthenticatedActor, project_id: UUID, page: int = 1, page_size: int = 20

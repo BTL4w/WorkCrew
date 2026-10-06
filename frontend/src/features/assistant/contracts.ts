@@ -108,6 +108,15 @@ export const riskBlockSchema = strict({
     affected_week_ids:z.array(uuid), fallback:z.boolean(),
   }),
 });
+const reportSummary = {
+ project_id:uuid,project_label:z.string().max(200),snapshot_id:uuid,snapshot_hash:z.string().regex(/^[a-f0-9]{64}$/),
+ period_start:z.string().max(10),period_end:z.string().max(10),timezone:z.string().max(100),report_kind:z.enum(["DAILY","WEEKLY"]),captured_at:z.iso.datetime(),
+ metrics:z.array(strict({key:z.string().max(256),value:z.string().nullable(),unit:z.string().max(32),state:z.enum(["KNOWN","PARTIAL","UNKNOWN","STALE","NOT_APPLICABLE"]),time_basis:z.string().max(64)})).max(6),
+ sources:z.array(strict({resource_type:z.string().max(100),resource_id:uuid,version:z.number().int().positive()})).max(8),limitations:z.array(z.string()).max(10),
+};
+export const reportBlockSchema = strict({kind:z.literal("report"),context_run_id:z.uuid(),...reportSummary,report_id:uuid,report_version_id:uuid,generation_state:z.string().max(32),href:z.string().regex(/^\/\?project=[0-9a-f-]{36}&report=[0-9a-f-]{36}&version=[0-9a-f-]{36}$/),needs_manager_review:z.literal(true)});
+export const projectStatusBlockSchema = strict({kind:z.literal("project_status"),...reportSummary,context_run_id:uuid,analysis:z.array(z.string()).max(3),analysis_state:z.enum(["VERIFIED","UNAVAILABLE"])});
+
 export const safeErrorBlockSchema = strict({
   kind: z.literal("safe_error"),
   code: z.string(),
@@ -130,6 +139,8 @@ export const assistantBlockSchema = z.discriminatedUnion("kind", [
   dailySummaryBlockSchema,
   dailyUpdateBlockSchema,
   riskBlockSchema,
+  reportBlockSchema,
+  projectStatusBlockSchema,
   safeErrorBlockSchema,
 ]);
 

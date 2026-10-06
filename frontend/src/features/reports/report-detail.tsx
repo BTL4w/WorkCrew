@@ -7,7 +7,7 @@ import { SourceList } from "./source-list";
 import { MetricGrid } from "./metric-grid";
 import styles from "./reports.module.css";
 
-export function ReportDetail({ data, organizationId, actorMembershipId, onPublished, onStale }: { onPublished: (data: ReportResult) => void; onStale: () => void; data: ReportResult; organizationId: string; actorMembershipId: string }) {
+export function ReportDetail({ data, readOnly = false, organizationId, actorMembershipId, onPublished, onStale }: { readOnly?: boolean; onPublished: (data: ReportResult) => void; onStale: () => void; data: ReportResult; organizationId: string; actorMembershipId: string }) {
   const t = useTranslations("reports");
   const locale = useLocale();
   const zone = data.snapshot.period.timezone;
@@ -21,10 +21,11 @@ export function ReportDetail({ data, organizationId, actorMembershipId, onPublis
     <p className={styles.description}>{t("periodBounds", {start:data.snapshot.period.local_start,end:data.snapshot.period.local_end})}</p>
     <p className={styles.description}>{t("observedThrough", {at:format(data.snapshot.period.observed_through)})}</p>
     <p className={styles.description}>{t("utcBounds", {start:data.snapshot.period.start_utc,end:data.snapshot.period.end_utc})}</p>
-    <PublicationHistory key={`publication:${data.report.id}:${data.report.version}`} data={data} onPublished={onPublished} onStale={onStale} />
+    <PublicationHistory readOnly={readOnly} key={`publication:${data.report.id}:${data.report.version}`} data={data} onPublished={onPublished} onStale={onStale} />
+    <p className={styles.sourceId}>{t("referencedVersion", {version:data.selected_version.id})}</p>
     <MetricGrid snapshot={data.snapshot} />
     <SourceList key={data.report.id} reportId={data.report.id} organizationId={organizationId} actorMembershipId={actorMembershipId} />
-    <NarrativeView key={`narrative:${data.report.id}:${data.report.version}`} data={data} onUpdated={onPublished} onStale={onStale} />
-    {data.selected_version.narrative&&<FeedbackForm key={data.selected_version.id} reportId={data.report.id} versionId={data.selected_version.id}/>}
+    <NarrativeView readOnly={readOnly} key={`narrative:${data.report.id}:${data.report.version}`} data={data} onUpdated={onPublished} onStale={onStale} />
+    {!readOnly&&data.selected_version.narrative&&<FeedbackForm key={data.selected_version.id} reportId={data.report.id} versionId={data.selected_version.id}/>}
   </article>;
 }

@@ -55,8 +55,10 @@ from work_management_ai.runtime.contracts import (
     DailyUpdateResponseBlock,
     JsonValue,
     PlanningRunResponseBlock,
+    ProjectStatusResponseBlock,
     PublicEvidenceReference,
     QuestionResponseBlock,
+    ReportResponseBlock,
     ResponseBlock,
     RiskResponseBlock,
     SafeErrorResponseBlock,
@@ -71,7 +73,7 @@ from work_management_ai.runtime.policy_guard import AgentPolicyError, PolicyGuar
 _MAX_PLAN_REPAIRS = 1
 _MAX_REPLANS = 2
 _MAX_HANDOFFS = 6
-_ACTIVE_PHASE = 4
+_ACTIVE_PHASE = 5
 _REVISION_SIGNALS = (
     "add",
     "change",
@@ -584,6 +586,14 @@ class OrchestratorHarness:
         step: ExecutionStep, value: OrchestratorInput, risk_replan: RiskReplanRequest | None = None
     ) -> dict[str, JsonValue]:
         """Reconstruct mutation contracts from trusted turn/card context."""
+        if step.target_agent_id is AgentId.REPORTING:
+            from work_management_ai.agents.orchestrator.contracts import ReportIntent
+
+            intent = ReportIntent.model_validate(step.typed_input)
+            return cast(
+                dict[str, JsonValue],
+                intent.model_copy(update={"locale": value.locale}).model_dump(mode="json"),
+            )
         if step.target_agent_id is AgentId.RISK:
             return {
                 "task_reference": step.typed_input.get("task_reference", ""),
@@ -782,6 +792,9 @@ class OrchestratorHarness:
         plan = state["plan"]
         if plan is None:
             return self._failure("EXECUTION_PLAN_MISSING")
+        reporting = self._reporting_blocks(state["results"])
+        if reporting:
+            return {"blocks": reporting, "route": "execute"}
         # Preserve scoped Work answers in evidence blocks so replay can redact them.
         for result in state["results"]:
             raw_evidence = result.typed_output.get("evidence", [])
@@ -940,13 +953,26 @@ class OrchestratorHarness:
         )
         return {
             "blocks": (
-                QuestionResponseBlock(question=question, response_context={"source": "specialist"}),
+                QuestionResponseBlock(
+                    question=question,
+                    response_context=cast(
+                        dict[str, JsonValue],
+                        result.typed_output.get("response_context", {"source": "specialist"}),
+                    ),
+                ),
             ),
             "status": OrchestratorStatus.AWAITING_INPUT,
             "stop_reason": "AWAITING_INPUT",
         }
 
     async def human_gate(self, state: OrchestratorState) -> dict[str, object]:
+        reporting = self._reporting_blocks(state["last_batch_results"])
+        if reporting:
+            return {
+                "blocks": reporting,
+                "status": OrchestratorStatus.AWAITING_HUMAN,
+                "stop_reason": "REPORT_AWAIT_MANAGER",
+            }
         daily_blocks = self._daily_update_blocks(state["last_batch_results"])
         if daily_blocks:
             return {
@@ -1005,6 +1031,21 @@ class OrchestratorHarness:
             "status": OrchestratorStatus.AWAITING_HUMAN,
             "stop_reason": "AWAITING_HUMAN",
         }
+
+    @staticmethod
+    def _reporting_blocks(results: tuple[AgentResult, ...]) -> tuple[ResponseBlock, ...]:
+        blocks: list[ResponseBlock] = []
+        for result in results:
+            if result.agent_id is AgentId.REPORTING and "card" in result.typed_output:
+                raw = result.typed_output["card"]
+                if isinstance(raw, dict):
+                    schema = (
+                        ReportResponseBlock
+                        if raw.get("kind") == "report"
+                        else ProjectStatusResponseBlock
+                    )
+                    blocks.append(schema.model_validate(raw))
+        return tuple(blocks)
 
     @staticmethod
     def _daily_update_blocks(results: tuple[AgentResult, ...]) -> tuple[ResponseBlock, ...]:

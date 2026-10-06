@@ -7,7 +7,7 @@ import type { ReportResult } from "./contracts";
 import {NarrativeEditor} from "./narrative-editor";
 import styles from "./reports.module.css";
 
-export function NarrativeView({data,onUpdated,onStale,generate=generateNarrative}:{data:ReportResult;onUpdated:(data:ReportResult)=>void;onStale:()=>void;generate?:typeof generateNarrative}) {
+export function NarrativeView({data,readOnly=false,onUpdated,onStale,generate=generateNarrative}:{readOnly?:boolean;data:ReportResult;onUpdated:(data:ReportResult)=>void;onStale:()=>void;generate?:typeof generateNarrative}) {
   const t=useTranslations("reports");
   const [pending,setPending]=useState(false);
   const [error,setError]=useState(false);
@@ -27,7 +27,7 @@ export function NarrativeView({data,onUpdated,onStale,generate=generateNarrative
   }
   return <section aria-label={t("narrativeTitle")}>
     <h4 className={styles.groupTitle}>{t("narrativeTitle")}</h4>
-    <p role="status" className={styles.notice}>{t(data.review_state&&data.review_state!=="PENDING"&&!["QUEUED","RUNNING"].includes(state)?`review.${data.review_state}`:`generation.${state}`)}</p>
+    {!readOnly && <p role="status" className={styles.notice}>{t(data.review_state&&data.review_state!=="PENDING"&&!["QUEUED","RUNNING"].includes(state)?`review.${data.review_state}`:`generation.${state}`)}</p>}
     {data.narrative_access_state==="UNAVAILABLE"&&<p role="alert">{t("narrativeUnavailable")}</p>}
     {data.selected_version.narrative && <div>
       <p className={styles.description}>{t(data.verification_state==="PENDING"||data.verification_state==="FAILED"?`verification.${data.verification_state}`:data.review_state&&data.review_state!=="PENDING"?`review.${data.review_state}`:"draftNotice")}</p>
@@ -42,8 +42,8 @@ export function NarrativeView({data,onUpdated,onStale,generate=generateNarrative
       </div>)}
       <details><summary>{t("snapshotReceipt")}</summary><p className={styles.sourceId}>{data.snapshot.snapshot_hash}</p></details>
     </div>}
-    {data.selected_version.narrative&&<NarrativeEditor key={data.selected_version.id} data={data} onUpdated={onUpdated} onStale={onStale}/>}
-    {(["NOT_REQUESTED","AI_UNAVAILABLE","FAILED"].includes(state)||data.review_state==="REJECTED"||data.review_state==="ACCEPTED")&&!["QUEUED","RUNNING"].includes(state)&&<button className="secondary-button" type="button" disabled={pending||stale} onClick={()=>void retry()}>{t(pending?"generationSubmitting":"retryNarrative")}</button>}
+    {!readOnly&&data.selected_version.narrative&&<NarrativeEditor key={data.selected_version.id} data={data} onUpdated={onUpdated} onStale={onStale}/>}
+    {!readOnly&&(["NOT_REQUESTED","AI_UNAVAILABLE","FAILED"].includes(state)||data.review_state==="REJECTED"||data.review_state==="ACCEPTED")&&!["QUEUED","RUNNING"].includes(state)&&<button className="secondary-button" type="button" disabled={pending||stale} onClick={()=>void retry()}>{t(pending?"generationSubmitting":"retryNarrative")}</button>}
     {error&&<p role="alert">{t(stale?"generationStale":"generationError")}</p>}
   </section>;
 }

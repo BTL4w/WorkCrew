@@ -1,5 +1,6 @@
 """Typed contracts for the Phase 2 Orchestrator Agent."""
 
+from datetime import date
 from enum import StrEnum
 from typing import Literal, Protocol, Self
 from uuid import UUID
@@ -21,6 +22,16 @@ from work_management_ai.runtime.triggers import NonChatTrigger
 
 class _StrictFrozenModel(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
+
+
+class ReportIntent(_StrictFrozenModel):
+    operation: Literal["PREPARE_REPORT", "EXPLAIN_STATUS"]
+    project_reference: str = Field(min_length=1, max_length=200)
+    kind: Literal["DAILY", "WEEKLY"] = "DAILY"
+    period_start: date | None = None
+    relative_period: Literal["CURRENT", "PREVIOUS"] = "CURRENT"
+    timezone: str | None = Field(default=None, max_length=100)
+    locale: Literal["vi", "en"]
 
 
 class ScheduleIntent(_StrictFrozenModel):

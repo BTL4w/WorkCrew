@@ -800,3 +800,7 @@ class AssistantJob:
             safe_error_code=_safe_error(error_code),
             updated_at=now,
         )
+
+
+class AssistantJobClaimLost(RuntimeError):
+    """Discard a worker continuation whose fenced claim no longer belongs to it."""

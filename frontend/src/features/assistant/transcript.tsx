@@ -1,3 +1,4 @@
+import { ReportBlock } from "./blocks/report-block";
 import { DailySummaryBlock } from "./blocks/daily-summary-block";
 import { RiskBlock } from "./blocks/risk-block";
 import { DailyUpdateBlock } from "./blocks/daily-update-block";
@@ -181,6 +182,8 @@ function BlockView({ block, canManage, onEdit, onRevise, onApprove, onReject, on
 }) {
   const t = useTranslations("assistant");
   switch (block.kind) {
+    case "report":
+    case "project_status": return <ReportBlock block={block} canManage={canManage}/>;
     case "daily_summary": return canManage ? <DailySummaryBlock block={block}/> : null;
     case "text": return <p>{block.text}</p>;
     case "activity": return <ActivityBlock block={block} />;

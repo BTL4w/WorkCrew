@@ -254,6 +254,63 @@ class RiskResponseBlock(_StrictFrozenModel):
     content: dict[str, JsonValue]
 
 
+class ReportMetricSummary(_StrictFrozenModel):
+    key: str = Field(max_length=256)
+    value: str | None
+    unit: str = Field(max_length=32)
+    state: Literal["KNOWN", "PARTIAL", "UNKNOWN", "STALE", "NOT_APPLICABLE"]
+    time_basis: str = Field(max_length=64)
+
+
+class ReportSourceSummary(_StrictFrozenModel):
+    resource_type: str = Field(max_length=100)
+    resource_id: UUID
+    version: int = Field(ge=1)
+
+
+class ReportResponseBlock(_StrictFrozenModel):
+    context_run_id: UUID
+    kind: Literal["report"] = "report"
+    project_id: UUID
+    project_label: str = Field(max_length=200)
+    report_id: UUID
+    report_version_id: UUID
+    snapshot_id: UUID
+    snapshot_hash: str = Field(pattern=r"^[a-f0-9]{64}$")
+    period_start: str = Field(max_length=10)
+    period_end: str = Field(max_length=10)
+    timezone: str = Field(max_length=100)
+    report_kind: Literal["DAILY", "WEEKLY"]
+    captured_at: datetime
+    generation_state: str = Field(max_length=32)
+    metrics: tuple[ReportMetricSummary, ...] = Field(max_length=6)
+    sources: tuple[ReportSourceSummary, ...] = Field(max_length=8)
+    limitations: tuple[str, ...] = Field(max_length=10)
+    href: str = Field(
+        pattern=r"^/\?project=[0-9a-f-]{36}&report=[0-9a-f-]{36}&version=[0-9a-f-]{36}$"
+    )
+    needs_manager_review: Literal[True] = True
+
+
+class ProjectStatusResponseBlock(_StrictFrozenModel):
+    kind: Literal["project_status"] = "project_status"
+    project_id: UUID
+    project_label: str = Field(max_length=200)
+    context_run_id: UUID
+    snapshot_id: UUID
+    snapshot_hash: str = Field(pattern=r"^[a-f0-9]{64}$")
+    period_start: str = Field(max_length=10)
+    period_end: str = Field(max_length=10)
+    timezone: str = Field(max_length=100)
+    report_kind: Literal["DAILY", "WEEKLY"]
+    captured_at: datetime
+    metrics: tuple[ReportMetricSummary, ...] = Field(max_length=6)
+    sources: tuple[ReportSourceSummary, ...] = Field(max_length=8)
+    limitations: tuple[str, ...] = Field(max_length=10)
+    analysis: tuple[str, ...] = Field(default=(), max_length=3)
+    analysis_state: Literal["VERIFIED", "UNAVAILABLE"] = "UNAVAILABLE"
+
+
 class SafeErrorResponseBlock(_StrictFrozenModel):
     kind: Literal["safe_error"] = "safe_error"
     code: str = Field(min_length=1, max_length=100)
@@ -280,6 +337,8 @@ type ResponseBlock = Annotated[
     | DailySummaryResponseBlock
     | DailyUpdateResponseBlock
     | RiskResponseBlock
+    | ReportResponseBlock
+    | ProjectStatusResponseBlock
     | SafeErrorResponseBlock,
     Field(discriminator="kind"),
 ]
