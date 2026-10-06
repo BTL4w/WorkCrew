@@ -39,6 +39,7 @@ from app.modules.assistant.application.title_service import ConversationTitleSer
 from app.modules.automations.adapters.repository import ScheduleTransactions
 from app.modules.automations.adapters.scheduler import Scheduler
 from app.modules.automations.application.schedule_service import ScheduleService
+from app.modules.feedback.adapters.outbox_consumer import FeedbackOutboxPublisher
 from app.modules.identity.adapters.auth_repository import SqlAlchemyAuthTransactionFactory
 from app.modules.identity.adapters.current_actor import CurrentActorResolver
 from app.modules.identity.application.current_actor_service import CurrentActorService
@@ -267,7 +268,9 @@ async def _run_worker() -> None:
     )
     outbox_service = OutboxService(
         transaction_factory=planning_transaction_factory,
-        publisher=ReportingOutboxPublisher(RiskOutboxPublisher(risk_job_service)),
+        publisher=FeedbackOutboxPublisher(
+            ReportingOutboxPublisher(RiskOutboxPublisher(risk_job_service))
+        ),
         organization_scopes=scopes,
         lease_seconds=settings.worker_lease_seconds,
     )

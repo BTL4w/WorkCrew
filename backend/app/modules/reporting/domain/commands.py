@@ -9,6 +9,7 @@ from pydantic import Field
 from work_management_ai.agents.reporting.contracts import ReportingProposal, ReportingUsageScope
 
 from .metrics import ReportContract
+from .narrative import NarrativeDocument
 from .periods import ReportKind, ReportPeriod
 
 
@@ -30,7 +31,7 @@ class CaptureReportCommand(ReportContract):
 
 
 class PublishReportCommand(ReportContract):
-    mode: Literal["METRICS_ONLY"]
+    mode: Literal["METRICS_ONLY", "REVIEWED_NARRATIVE"]
     report_version_id: UUID
     snapshot_hash: str = Field(pattern=r"^[a-f0-9]{64}$")
 
@@ -45,3 +46,23 @@ class StoreNarrativeCommand(ReportContract):
 
     proposal: ReportingProposal
     scope: ReportingUsageScope
+
+
+class EditReportCommand(ReportContract):
+    parent_version_id: UUID
+    snapshot_hash: str = Field(pattern=r"^[a-f0-9]{64}$")
+    narrative: "NarrativeDocument"
+
+
+class RejectReportCommand(ReportContract):
+    report_version_id: UUID
+    snapshot_hash: str = Field(pattern=r"^[a-f0-9]{64}$")
+    reason: str = Field(min_length=1, max_length=2000)
+
+
+class ReportEditVerificationCommand(ReportContract):
+    report_id: UUID
+    edited_version_id: UUID
+    parent_version_id: UUID
+    snapshot_hash: str = Field(pattern=r"^[a-f0-9]{64}$")
+    original_generation_id: UUID

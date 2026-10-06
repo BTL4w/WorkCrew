@@ -15,13 +15,15 @@ from app.core.config import Settings
 from app.modules.identity.api.dependencies import ActorDependency, get_authenticated_actor
 from app.modules.identity.application.auth_service import AuthService
 
-from ..domain.commands import GenerateNarrativeCommand
-from ..domain.reports import ReportError
+from ..domain.commands import EditReportCommand, GenerateNarrativeCommand, RejectReportCommand
+from ..domain.reports import ReportError, ReportResult
 from .dependencies import (
     GenerationServiceDependency,
     ReportServiceDependency,
+    ReviewServiceDependency,
     get_generation_service,
     get_report_service,
+    get_review_service,
 )
 from .schemas import (
     ReportCreateRequest,
@@ -38,7 +40,9 @@ class ReportRoute(APIRoute):
         handler = super().get_route_handler()
 
         async def preflight(request: Request) -> Response:
-            if request.method == "POST" and request.url.path.endswith(("/publish", "/generate")):
+            if request.method == "POST" and request.url.path.endswith(
+                ("/publish", "/generate", "/versions", "/review-decisions")
+            ):
                 override = request.app.dependency_overrides.get(get_authenticated_actor)
                 if override is not None:
                     candidate = override()
@@ -57,6 +61,16 @@ class ReportRoute(APIRoute):
                     request.state.mutation_rejection_audit = partial(
                         get_generation_service(request).audit_rejection,
                         actor=actor,
+                        key=request.headers.get("Idempotency-Key"),
+                        report_id=report_id,
+                    )
+                elif request.url.path.endswith(("/versions", "/review-decisions")):
+                    request.state.mutation_rejection_audit = partial(
+                        get_review_service(request).audit_rejection,
+                        actor=actor,
+                        operation="report.edit"
+                        if request.url.path.endswith("/versions")
+                        else "report.reject",
                         key=request.headers.get("Idempotency-Key"),
                         report_id=report_id,
                     )
@@ -182,6 +196,7 @@ async def publish_report(
     body: ReportPublishRequest,
     actor: ActorDependency,
     service: ReportServiceDependency,
+    review: ReviewServiceDependency,
     key: IdempotencyHeader,
     request: Request,
     response: Response,
@@ -194,14 +209,24 @@ async def publish_report(
         _raise(ReportError("INVALID_REQUEST", 400))
     request.state.mutation_rejection_audit = None
     try:
-        result = await service.publish_metrics(
-            actor=actor,
-            report_id=report_id,
-            command=body,
-            expected_version=int(match.group(1)),
-            idempotency_key=key,
-            request_id=request.state.request_id,
-        )
+        if body.mode == "REVIEWED_NARRATIVE":
+            decision = await review.publish(
+                actor=actor,
+                report_id=report_id,
+                command=body,
+                expected_version=int(match.group(1)),
+                idempotency_key=key,
+            )
+            result = decision.report_result
+        else:
+            result = await service.publish_metrics(
+                actor=actor,
+                report_id=report_id,
+                command=body,
+                expected_version=int(match.group(1)),
+                idempotency_key=key,
+                request_id=request.state.request_id,
+            )
     except ReportError as exc:
         _raise(exc)
     response.headers["Cache-Control"] = "private, no-store"
@@ -240,6 +265,82 @@ async def generate_report(
         )
     except ReportError as exc:
         _raise(exc)
+    response.headers["Cache-Control"] = "private, no-store"
+    response.headers["ETag"] = f'"{result.report.version}"'
+    if result.replayed:
+        response.headers["Idempotency-Replayed"] = "true"
+    return ReportResponse.model_validate(result.model_dump())
+
+
+@router.post(
+    "/{report_id}/versions", response_model=ReportResponse, status_code=201, responses=_ERRORS
+)
+async def edit_report(
+    report_id: UUID,
+    body: EditReportCommand,
+    actor: ActorDependency,
+    service: ReviewServiceDependency,
+    key: IdempotencyHeader,
+    request: Request,
+    response: Response,
+    if_match: Annotated[str | None, Header(alias="If-Match")] = None,
+) -> ReportResponse:
+    expected = _expected(if_match)
+    request.state.mutation_rejection_audit = None
+    try:
+        result = await service.edit(
+            actor=actor,
+            report_id=report_id,
+            command=body,
+            expected_version=expected,
+            idempotency_key=key,
+        )
+    except ReportError as exc:
+        _raise(exc)
+    return _response(result, response)
+
+
+@router.post(
+    "/{report_id}/review-decisions",
+    response_model=ReportResponse,
+    status_code=201,
+    responses=_ERRORS,
+)
+async def reject_report(
+    report_id: UUID,
+    body: RejectReportCommand,
+    actor: ActorDependency,
+    service: ReviewServiceDependency,
+    key: IdempotencyHeader,
+    request: Request,
+    response: Response,
+    if_match: Annotated[str | None, Header(alias="If-Match")] = None,
+) -> ReportResponse:
+    expected = _expected(if_match)
+    request.state.mutation_rejection_audit = None
+    try:
+        review = await service.reject(
+            actor=actor,
+            report_id=report_id,
+            command=body,
+            expected_version=expected,
+            idempotency_key=key,
+        )
+    except ReportError as exc:
+        _raise(exc)
+    return _response(review.report_result, response)
+
+
+def _expected(if_match: str | None) -> int:
+    if if_match is None:
+        _raise(ReportError("PRECONDITION_REQUIRED", 428))
+    match = re.fullmatch(r'"([1-9][0-9]{0,9})"', if_match)
+    if match is None:
+        _raise(ReportError("INVALID_REQUEST", 400))
+    return int(match.group(1))
+
+
+def _response(result: ReportResult, response: Response) -> ReportResponse:
     response.headers["Cache-Control"] = "private, no-store"
     response.headers["ETag"] = f'"{result.report.version}"'
     if result.replayed:

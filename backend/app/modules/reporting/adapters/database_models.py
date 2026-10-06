@@ -126,7 +126,7 @@ class ReportVersionModel(Base):
             deferrable=True,
             initially="DEFERRED",
         ),
-        CheckConstraint("origin IN ('METRICS_ONLY','AI_PROPOSED')", name="origin"),
+        CheckConstraint("origin IN ('METRICS_ONLY','AI_PROPOSED','AI_EDITED')", name="origin"),
         CheckConstraint("locale IN ('vi','en')", name="locale"),
         Index("ix_report_versions_timeline", "organization_id", "report_id", "created_at", "id"),
     )
@@ -196,7 +196,7 @@ class ReportReviewDecisionModel(Base):
             ["organization_id", "actor_membership_id"],
             ["memberships.organization_id", "memberships.id"],
         ),
-        CheckConstraint("kind='METRICS_ONLY_PUBLISHED'", name="kind"),
+        CheckConstraint("kind IN ('METRICS_ONLY_PUBLISHED','ACCEPT','REJECT')", name="kind"),
         CheckConstraint("length(snapshot_hash)=64", name="hash"),
         CheckConstraint("expected_report_version>=1", name="expected_version"),
         Index("ix_report_decisions_timeline", "organization_id", "report_id", "decided_at", "id"),

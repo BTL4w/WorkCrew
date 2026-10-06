@@ -6,6 +6,7 @@ from datetime import datetime
 from typing import cast
 from uuid import UUID, uuid4
 
+from pydantic import TypeAdapter
 from sqlalchemy import func, select, text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
@@ -118,8 +119,18 @@ class SQLTriggerRepository:
             )
         )
         if existing is not None:
+            saved_trigger = existing.execution_plan.get("trigger")
+            compatible = (
+                TypeAdapter[ExecutionTrigger](ExecutionTrigger)
+                .validate_python(saved_trigger)
+                .model_dump(mode="json")
+                == trigger.model_dump(mode="json")
+                if saved_trigger is not None
+                else getattr(trigger, "mode", "DRAFT") == "DRAFT"
+            )
             if (
-                existing.trigger_kind != trigger.kind
+                not compatible
+                or existing.trigger_kind != trigger.kind
                 or existing.report_id != trigger.report_id
                 or existing.base_version_id != trigger.base_version_id
                 or existing.snapshot_hash != trigger.snapshot_hash

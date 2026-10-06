@@ -30,7 +30,13 @@ it("refreshes and blocks stale retry until the new version is reviewed",async()=
  await screen.findByRole("alert");expect(stale).toHaveBeenCalledOnce();expect(screen.getByRole("button")).toBeDisabled();
 });
 it("renders only server facts and marks prose, assumptions and source versions",()=>{
- const selected={id,report_id:id,snapshot_id:id,origin:"AI_PROPOSED",locale:"en",created_at:"2026-10-05T00:00:00Z",narrative:{locale:"en",snapshot_id:id,snapshot_hash:data.snapshot.snapshot_hash,blocks:[{id:"done",section:"progress",kind:"FACT",template:"METRIC",bindings:[{metric_key:"tasks.status.done_count"}],source_bindings:[]},{id:"advice",section:"recommendations",kind:"RECOMMENDATION",text:"Review the task",source_refs:[{resource_type:"TASK",resource_id:id,version:3,fingerprint:null}],assumptions:["Owner is available"]}]},rendered_facts:{done:"Tasks in DONE: 1 COUNT = 1 (at capture)."}} as ReportResult["selected_version"];
+ const selected={id,report_id:id,snapshot_id:id,origin:"AI_PROPOSED",locale:"en",created_at:"2026-10-05T00:00:00Z",narrative:{locale:"en",snapshot_id:id,snapshot_hash:data.snapshot.snapshot_hash,blocks:[{id:"done",section:"progress",kind:"FACT",template:"METRIC",bindings:[{metric_key:"tasks.status.done_count"}],source_bindings:[]},{id:"advice",section:"recommendations",kind:"RECOMMENDATION",text:"Review the task",source_refs:[{resource_type:"TASK",resource_id:id,version:3,fingerprint:null}],assumptions:["Owner is available"]}]},block_origins:{advice:"HUMAN"},rendered_facts:{done:"Tasks in DONE: 1 COUNT = 1 (at capture)."}} as ReportResult["selected_version"];
  render(<AppLocaleProvider initialLocale="en"><NarrativeView data={{...data,generation_state:"AWAITING_REVIEW",selected_version:selected}} onUpdated={vi.fn()} onStale={vi.fn()}/></AppLocaleProvider>);
+ expect(screen.getByText("Written or edited by Manager")).toBeVisible();
  expect(screen.getByText("Tasks in DONE: 1 COUNT = 1 (at capture).")).toBeVisible();expect(screen.getByText("Advisory recommendation")).toBeVisible();expect(screen.getByText("Assumption: Owner is available")).toBeVisible();expect(screen.getByText(/TASK ·/)).toHaveTextContent("3");
+});
+
+it.each(["en","vi"] as const)("shows inaccessible narrative fallback in %s",locale=>{
+ render(<AppLocaleProvider initialLocale={locale}><NarrativeView data={{...data,narrative_access_state:"UNAVAILABLE"}} onUpdated={vi.fn()} onStale={vi.fn()}/></AppLocaleProvider>);
+ expect(screen.getByRole("alert")).toHaveTextContent(locale==="en"?"a cited source is no longer accessible":"không còn truy cập được nguồn trích dẫn");
 });

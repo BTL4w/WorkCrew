@@ -46,7 +46,13 @@ def job_domain(row: ReportGenerationJobModel) -> GenerationJob:
 
 
 async def enqueue_initial(
-    session: AsyncSession, *, actor: AuthenticatedActor, result: ReportResult, key: str
+    session: AsyncSession,
+    *,
+    actor: AuthenticatedActor,
+    result: ReportResult,
+    key: str,
+    job_type: str = "DRAFT",
+    original_generation_id: UUID | None = None,
 ) -> UUID:
     job = ReportGenerationJobModel(
         id=uuid4(),
@@ -59,6 +65,8 @@ async def enqueue_initial(
         request_key=key,
         expected_report_version=result.report.version,
         state="QUEUED",
+        job_type=job_type,
+        original_generation_id=original_generation_id,
         created_at=cast(datetime, await session.scalar(text("SELECT clock_timestamp()"))),
     )
     session.add(job)
@@ -250,8 +258,21 @@ class SQLGenerationRepository:
             or result.report.version != row.expected_report_version
             or result.report.selected_version_id != row.base_version_id
             or request.locale != result.report.locale
+            or request.mode != ("VERIFY_EDIT" if row.job_type == "EDIT_VERIFICATION" else "DRAFT")
+            or request.edited_version_id
+            != (row.base_version_id if row.job_type == "EDIT_VERIFICATION" else None)
         ):
             raise ReportError("STALE_REPORT_VERSION", 412)
+        from . import source_reader
+
+        if result.narrative_access_state == "UNAVAILABLE":
+            raise ReportError("REPORT_SOURCE_UNAVAILABLE")
+        for ref in result.snapshot.sources[:100]:
+            if (
+                await source_reader.source_freshness(self.session, reports.actor, ref)
+                == "UNAVAILABLE"
+            ):
+                raise ReportError("REPORT_SOURCE_UNAVAILABLE")
         label = await self.session.scalar(
             select(ProjectModel.name).where(
                 ProjectModel.organization_id == self.org,
@@ -265,6 +286,9 @@ class SQLGenerationRepository:
             base_version_id=row.base_version_id,
             locale=result.report.locale,
             project_label=label,
+            edited_narrative=result.selected_version.narrative
+            if row.job_type == "EDIT_VERIFICATION"
+            else None,
         )
 
     async def store(self, proposal: ReportingProposal, scope: ReportingUsageScope) -> ReportVersion:
@@ -297,6 +321,29 @@ class SQLGenerationRepository:
         ):
             raise ReportError("STALE_REPORT_VERSION", 412)
         result = await reports.get(row.id)
+        if job.job_type == "EDIT_VERIFICATION":
+            from app.modules.feedback.adapters.database_models import ReportVerificationModel
+
+            if (
+                proposal.narrative != result.selected_version.narrative
+                or result.selected_version.generation_id != job.original_generation_id
+            ):
+                raise ReportError("REPORT_VERIFICATION_MISMATCH")
+            self.session.add(
+                ReportVerificationModel(
+                    id=uuid4(),
+                    organization_id=self.org,
+                    report_id=row.id,
+                    report_version_id=job.base_version_id,
+                    verification_job_id=job.id,
+                    verdict=proposal.model_dump(mode="json", exclude={"request", "narrative"}),
+                    created_at=await reports.captured_at(),
+                )
+            )
+            job.proposed_version_id = job.base_version_id
+            await self.audit("report.edit.verified", row.id, succeeded=True, key=job.request_key)
+            await self.session.flush()
+            return result.selected_version
         version = ReportVersion(
             id=uuid4(),
             report_id=row.id,

@@ -185,6 +185,8 @@ class SQLReportRepository:
                 **version.model_dump(
                     mode="python",
                     exclude={
+                        "block_origins",
+                        "narrative_access_state",
                         "narrative",
                         "rendered_facts",
                         "provenance",
@@ -287,6 +289,64 @@ class SQLReportRepository:
             )
         return result
 
+    async def narrative_available(
+        self, version: ReportVersion, snapshot: ReportMetricSnapshot
+    ) -> bool:
+        from ..domain.narrative import FactBlock
+        from . import source_reader
+
+        if version.narrative is None:
+            return version.narrative_access_state == "AVAILABLE"
+        refs = {
+            (ref.resource_type, ref.resource_id, ref.version, ref.fingerprint)
+            for block in version.narrative.blocks
+            for ref in (
+                block.source_bindings if isinstance(block, FactBlock) else block.source_refs
+            )
+        }
+        captured = {
+            (ref.resource_type, ref.resource_id, ref.version, ref.fingerprint): ref
+            for ref in snapshot.sources
+        }
+        for identity in refs:
+            ref = captured.get(identity)
+            if (
+                ref is None
+                or await source_reader.source_freshness(self.session, self.actor, ref)
+                == "UNAVAILABLE"
+            ):
+                return False
+        return True
+
+    async def accessible_version(
+        self, version: ReportVersion, snapshot: ReportMetricSnapshot
+    ) -> ReportVersion:
+        if await self.narrative_available(version, snapshot):
+            return version
+        return version.model_copy(
+            update={
+                "narrative": None,
+                "rendered_facts": {},
+                "narrative_access_state": "UNAVAILABLE",
+            }
+        )
+
+    async def accessible_result(self, result: ReportResult) -> ReportResult:
+        selected = await self.accessible_version(result.selected_version, result.snapshot)
+        published = tuple(
+            [
+                await self.accessible_version(version, result.snapshot)
+                for version in result.published_versions
+            ]
+        )
+        return result.model_copy(
+            update={
+                "selected_version": selected,
+                "published_versions": published,
+                "narrative_access_state": selected.narrative_access_state,
+            }
+        )
+
     async def get(self, report_id: UUID, *, replayed: bool = False) -> ReportResult:
         row = await self.session.scalar(
             select(ReportModel).where(
@@ -352,20 +412,67 @@ class SQLReportRepository:
             .order_by(ReportVersionModel.created_at)
             .limit(1)
         )
-        return ReportResult(
-            publications=publications,
-            generation_id=generation.id if generation else None,
-            metrics_version_id=metrics_version,
-            report=report_domain(row),
-            snapshot=snapshot,
-            selected_version=version_domain(version_row),
-            generation_state=cast(
-                "GenerationState",
-                generation.state
-                if generation
-                else ("AI_UNAVAILABLE" if row.narrative_requested else "NOT_REQUESTED"),
-            ),
-            replayed=replayed,
+        from app.modules.feedback.adapters.database_models import (
+            FeedbackModel,
+            ReportVerificationModel,
+        )
+
+        verification_state = "NOT_APPLICABLE"
+        review_state = "PENDING"
+        version = version_domain(version_row)
+        if version.origin == "AI_PROPOSED":
+            verification_state = "VERIFIED"
+        elif version.origin == "AI_EDITED":
+            verified = await self.session.scalar(
+                select(ReportVerificationModel.id).where(
+                    ReportVerificationModel.organization_id == self.org,
+                    ReportVerificationModel.report_version_id == version.id,
+                )
+            )
+            verification_state = (
+                "VERIFIED"
+                if verified
+                else "FAILED"
+                if generation and generation.state in ("FAILED", "AI_UNAVAILABLE")
+                else "PENDING"
+            )
+        if version.generation_id:
+            terminal = await self.session.scalar(
+                select(FeedbackModel).where(
+                    FeedbackModel.organization_id == self.org,
+                    FeedbackModel.generation_id == version.generation_id,
+                    FeedbackModel.kind == "TERMINAL_QUALITY",
+                )
+            )
+            if terminal:
+                review_state = "REJECTED" if terminal.decision == "REJECT" else "ACCEPTED"
+        published_rows = await self.session.scalars(
+            select(ReportVersionModel).where(
+                ReportVersionModel.organization_id == self.org,
+                ReportVersionModel.report_id == row.id,
+                ReportVersionModel.id.in_([p.report_version_id for p in publications]),
+            )
+        )
+        published_versions = tuple(version_domain(v) for v in published_rows)
+        return await self.accessible_result(
+            ReportResult(
+                publications=publications,
+                verification_state=verification_state,
+                review_state=review_state,
+                published_versions=published_versions,
+                generation_id=generation.id if generation else None,
+                metrics_version_id=metrics_version,
+                report=report_domain(row),
+                snapshot=snapshot,
+                selected_version=version_domain(version_row),
+                generation_state=cast(
+                    "GenerationState",
+                    generation.state
+                    if generation
+                    else ("AI_UNAVAILABLE" if row.narrative_requested else "NOT_REQUESTED"),
+                ),
+                replayed=replayed,
+            )
         )
 
     async def list(self, project_id: UUID, page: int, page_size: int) -> ReportPage:
@@ -466,6 +573,8 @@ class SQLReportRepository:
         fingerprint: str,
         request_id: str,
     ) -> ReportResult:
+        if command.mode != "METRICS_ONLY":
+            raise ReportError("REPORT_VERIFICATION_REQUIRED")
         # Lock before reading the resource; retry a stale RR snapshot on serialization failure.
         await self.session.execute(
             text("SELECT pg_advisory_xact_lock(hashtextextended(:key,0))"),
@@ -493,8 +602,10 @@ class SQLReportRepository:
         if replay is not None:
             if replay.request_fingerprint != fingerprint or replay.response_body is None:
                 raise ReportError("IDEMPOTENCY_KEY_REUSED", 409)
-            return ReportResult.model_validate(replay.response_body).model_copy(
-                update={"replayed": True}
+            return await self.accessible_result(
+                ReportResult.model_validate(replay.response_body).model_copy(
+                    update={"replayed": True}
+                )
             )
         if row.version != expected_version:
             raise ReportError("STALE_REPORT_VERSION", 412)

@@ -969,6 +969,8 @@
     "snapshotReceipt": "Metric snapshot receipt",
     "publishError": "Publication could not be confirmed. Retry to check the same request.",
     "publishStale": "This report changed. Review the refreshed version before publishing.",
+    "humanAuthored": "Written or edited by Manager",
+    "narrativeUnavailable": "Narrative unavailable: a cited source is no longer accessible. Captured metrics remain available.",
     "narrativeTitle": "AI report draft",
     "draftNotice": "Verified draft awaiting Manager review. Publishing metrics keeps the narrative separate.",
     "retryNarrative": "Generate AI draft",
@@ -989,6 +991,44 @@
       "INTERPRETATION": "Interpretation",
       "RECOMMENDATION": "Advisory recommendation",
       "LIMITATION": "Limitation"
-    }
+    },
+    "reviewTitle": "Review this version",
+    "editNarrative": "Edit narrative",
+    "reviewPublish": "Review and publish",
+    "rejectNarrative": "Reject narrative",
+    "rejectReason": "Reason for rejection",
+    "saveVerify": "Save and verify",
+    "cancelEdit": "Cancel edit",
+    "editBlock": "Narrative · {id}",
+    "before": "Before: {text}",
+    "editExplanation": "Edit interpretation or advice. Captured metric values and rendered facts stay fixed. Saved edits require verification before publication.",
+    "editedLineage": "This edit retains the original AI generation for quality feedback.",
+    "reviewError": "The review could not be saved. Retry the same action.",
+    "verification": {
+      "NOT_APPLICABLE": "No narrative to verify.",
+      "PENDING": "This version is awaiting verification. Metrics-only publication remains available.",
+      "VERIFIED": "This exact version passed verification.",
+      "FAILED": "Verification is unavailable or rejected. Edit again or publish metrics only."
+    },
+    "review": {
+      "PENDING": "Awaiting your decision.",
+      "ACCEPTED": "This generation has been reviewed and published.",
+      "REJECTED": "This generation was rejected. No narrative was published."
+    },
+    "addNote": "Add limitation",
+    "newNote": "New note"
+  },
+  "feedback": {
+    "title": "Feedback",
+    "advisory": "Advisory feedback does not approve or publish this report.",
+    "decision": "Feedback decision",
+    "reason": "Feedback reason",
+    "submit": "Send feedback",
+    "error": "Feedback could not be saved. Retry the same action.",
+    "saved": "Feedback saved",
+    "ACCEPT": "Accept",
+    "EDIT": "Needs edits",
+    "REJECT": "Reject"
   }
+
 }

@@ -30,5 +30,7 @@ class GenerationJob(ReportContract):
     deadline: datetime | None
     orchestration_run_id: UUID | None
     proposed_version_id: UUID | None
+    job_type: Literal["DRAFT", "EDIT_VERIFICATION"] = "DRAFT"
+    original_generation_id: UUID | None = None
     safe_error_code: str | None
     created_at: datetime

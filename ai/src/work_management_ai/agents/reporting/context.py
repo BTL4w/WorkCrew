@@ -9,6 +9,8 @@ SOURCE_DETAIL_LIMIT = 100
 
 def model_context(context: ReportingContext) -> dict[str, Any]:
     payload = context.model_dump(mode="json")
+    # Edited content is supplied separately to grounding; avoid a duplicate context copy.
+    payload.pop("edited_narrative", None)
     snapshot = payload["snapshot"]
     # The full authorized immutable source index stays outside provider context.
     # Metrics retain their exact values and aggregate receipts. Never recompute a

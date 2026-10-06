@@ -5,7 +5,7 @@ from uuid import uuid4
 
 import pytest
 
-from work_management_ai.agents.reporting.contracts import ReportingContext
+from work_management_ai.agents.reporting.contracts import ReportingContext, ReportingProposal
 from work_management_ai.agents.reporting.harness import ReportingHarness
 from work_management_ai.agents.reporting.tests.fixtures import narrative_wire, snapshot_wire
 from work_management_ai.model_gateway.errors import ModelTimeoutError
@@ -428,3 +428,31 @@ async def test_semantic_pass_cannot_override_false_numeric_fact():
     assert result.model_attempts_used == 1
     assert result.verifier_results[0].safe_codes == ("METRIC_ASSERTION_FALSE",)
     assert not result.proposed_actions
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("locale", ["vi", "en"])
+async def test_verify_edit_uses_exact_content_and_only_grounding(locale: str):
+    wire, handoff, actors, tools = setup(locale)
+    doc = narrative_wire(wire, locale)
+    tools.context["edited_narrative"] = doc
+    handoff = handoff.model_copy(
+        update={
+            "typed_input": {
+                **handoff.typed_input,
+                "mode": "VERIFY_EDIT",
+                "edited_version_id": handoff.typed_input["base_version_id"],
+            }
+        }
+    )
+    gateway = MockModelGateway(fixtures={f"reporting.{locale}.grounding": verdict(doc)})
+    result = await ReportingHarness(
+        model_gateway=gateway, tool_executor=tools, actor_resolver=actors
+    ).run(handoff)
+    assert result.status == AgentRunStatus.AWAITING_HUMAN
+    assert result.typed_output["narrative"] == doc
+    assert result.model_attempts_used == 1
+    assert (
+        ReportingProposal.model_validate(tools.calls[-1].typed_input).request.mode == "VERIFY_EDIT"
+    )
+    assert result.requested_handoff is None

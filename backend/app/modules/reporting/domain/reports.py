@@ -42,11 +42,13 @@ class ReportVersion(ReportContract):
     id: UUID
     report_id: UUID
     snapshot_id: UUID
-    origin: Literal["METRICS_ONLY", "AI_PROPOSED"] = "METRICS_ONLY"
+    origin: Literal["METRICS_ONLY", "AI_PROPOSED", "AI_EDITED"] = "METRICS_ONLY"
     locale: Literal["vi", "en"]
     created_at: datetime
 
     narrative: NarrativeDocument | None = None
+    block_origins: dict[str, Literal["AI", "HUMAN"]] = Field(default_factory=dict)
+    narrative_access_state: Literal["AVAILABLE", "UNAVAILABLE"] = "AVAILABLE"
     rendered_facts: dict[str, str] = Field(default_factory=dict)
     provenance: dict[str, JsonValue] = Field(default_factory=dict)
     generation_id: UUID | None = None
@@ -71,6 +73,12 @@ class ReportResult(ReportContract):
     generation_state: GenerationState
     generation_id: UUID | None = None
     metrics_version_id: UUID | None = None
+    verification_state: Literal["NOT_APPLICABLE", "PENDING", "VERIFIED", "FAILED"] = (
+        "NOT_APPLICABLE"
+    )
+    review_state: Literal["PENDING", "ACCEPTED", "REJECTED"] = "PENDING"
+    narrative_access_state: Literal["AVAILABLE", "UNAVAILABLE"] = "AVAILABLE"
+    published_versions: tuple[ReportVersion, ...] = ()
     replayed: bool = False
 
 
@@ -97,3 +105,9 @@ class ReportSourcePage(ReportContract):
     receipts: tuple[AggregateReceipt, ...]
     next_cursor: str | None
     total: int
+
+
+class ReviewResult(ReportContract):
+    report_result: ReportResult
+    decision_id: UUID
+    terminal_outcome_id: UUID

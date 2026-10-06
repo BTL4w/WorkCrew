@@ -1,5 +1,6 @@
 import { useLocale, useTranslations } from "next-intl";
 import type { ReportResult } from "./contracts";
+import {FeedbackForm} from "../feedback/feedback-form";
 import { NarrativeView } from "./narrative-view";
 import { PublicationHistory } from "./publication-history";
 import { SourceList } from "./source-list";
@@ -24,5 +25,6 @@ export function ReportDetail({ data, organizationId, actorMembershipId, onPublis
     <MetricGrid snapshot={data.snapshot} />
     <SourceList key={data.report.id} reportId={data.report.id} organizationId={organizationId} actorMembershipId={actorMembershipId} />
     <NarrativeView key={`narrative:${data.report.id}:${data.report.version}`} data={data} onUpdated={onPublished} onStale={onStale} />
+    {data.selected_version.narrative&&<FeedbackForm key={data.selected_version.id} reportId={data.report.id} versionId={data.selected_version.id}/>}
   </article>;
 }

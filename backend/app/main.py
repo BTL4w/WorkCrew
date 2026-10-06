@@ -320,6 +320,23 @@ def create_app(
             create_session_factory(database_engine), resolved_settings.reporting_timezone
         )
     )
+    from app.modules.feedback.adapters.transaction import FeedbackTransactions
+    from app.modules.feedback.api.routes import router as feedback_router
+    from app.modules.feedback.application.feedback_service import FeedbackService
+    from app.modules.reporting.adapters.review_repository import ReviewTransactions
+    from app.modules.reporting.application.review_service import ReviewService
+
+    app.state.report_review_service = ReviewService(
+        ReviewTransactions(
+            create_session_factory(database_engine), resolved_settings.reporting_timezone
+        )
+    )
+    app.state.feedback_service = FeedbackService(
+        FeedbackTransactions(
+            create_session_factory(database_engine), resolved_settings.reporting_timezone
+        )
+    )
+    app.include_router(feedback_router, prefix="/api/v1")
     app.include_router(reporting_router, prefix="/api/v1")
     app.state.digest_service = DigestService(
         DigestTransactions(create_session_factory(database_engine))

@@ -969,6 +969,8 @@
     "snapshotReceipt": "Biên nhận số liệu",
     "publishError": "Chưa xác nhận được việc xuất bản. Thử lại để kiểm tra cùng yêu cầu.",
     "publishStale": "Báo cáo đã thay đổi. Xem lại phiên bản mới trước khi xuất bản.",
+    "humanAuthored": "Manager viết hoặc chỉnh sửa",
+    "narrativeUnavailable": "Narrative không khả dụng: không còn truy cập được nguồn trích dẫn. Metrics đã chụp vẫn khả dụng.",
     "narrativeTitle": "Bản nháp báo cáo AI",
     "draftNotice": "Bản nháp đã được kiểm chứng, chờ Quản lý xem xét. Xuất bản số liệu giữ riêng phần diễn giải.",
     "retryNarrative": "Tạo bản nháp AI",
@@ -989,6 +991,44 @@
       "INTERPRETATION": "Diễn giải",
       "RECOMMENDATION": "Khuyến nghị tham khảo",
       "LIMITATION": "Giới hạn"
-    }
+    },
+    "reviewTitle": "Xem xét phiên bản này",
+    "editNarrative": "Sửa nhận xét",
+    "reviewPublish": "Duyệt và xuất bản",
+    "rejectNarrative": "Từ chối nhận xét",
+    "rejectReason": "Lý do từ chối",
+    "saveVerify": "Lưu và kiểm chứng",
+    "cancelEdit": "Hủy sửa",
+    "editBlock": "Nhận xét · {id}",
+    "before": "Trước: {text}",
+    "editExplanation": "Sửa nhận định hoặc khuyến nghị. Số liệu đã chụp và diễn giải số liệu được giữ nguyên. Bản sửa cần được kiểm chứng trước khi xuất bản.",
+    "editedLineage": "Bản sửa giữ liên kết với lần tạo AI gốc để ghi nhận feedback chất lượng.",
+    "reviewError": "Không lưu được quyết định. Hãy thử lại cùng thao tác.",
+    "verification": {
+      "NOT_APPLICABLE": "Chưa có nhận xét cần kiểm chứng.",
+      "PENDING": "Phiên bản này đang chờ kiểm chứng. Vẫn có thể xuất bản chỉ số liệu.",
+      "VERIFIED": "Phiên bản cụ thể này đã qua kiểm chứng.",
+      "FAILED": "Kiểm chứng không khả dụng hoặc đã từ chối. Sửa lại hoặc xuất bản chỉ số liệu."
+    },
+    "review": {
+      "PENDING": "Đang chờ quyết định của bạn.",
+      "ACCEPTED": "Lần tạo này đã được duyệt và xuất bản.",
+      "REJECTED": "Lần tạo này đã bị từ chối. Không xuất bản nhận xét."
+    },
+    "addNote": "Thêm giới hạn",
+    "newNote": "Ghi chú mới"
+  },
+  "feedback": {
+    "title": "Góp ý",
+    "advisory": "Góp ý tham khảo không duyệt hay xuất bản báo cáo này.",
+    "decision": "Nhận xét đánh giá",
+    "reason": "Lý do góp ý",
+    "submit": "Gửi góp ý",
+    "error": "Không lưu được góp ý. Hãy thử lại cùng thao tác.",
+    "saved": "Đã lưu góp ý",
+    "ACCEPT": "Chấp nhận",
+    "EDIT": "Cần chỉnh sửa",
+    "REJECT": "Từ chối"
   }
+
 }

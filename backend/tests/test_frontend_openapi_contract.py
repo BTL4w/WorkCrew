@@ -304,6 +304,8 @@ def test_reporting_openapi_matches_frontend_manifest() -> None:
         "/api/v1/reports/{report_id}/sources",
         "/api/v1/reports/{report_id}/publish",
         "/api/v1/reports/{report_id}/generate",
+        "/api/v1/reports/{report_id}/versions",
+        "/api/v1/reports/{report_id}/review-decisions",
     }
     for route, methods in manifest["paths"].items():
         assert set(schema["paths"][route]) == set(methods)
@@ -333,3 +335,22 @@ def test_report_generation_requires_retry_key_and_version():
     assert any(p["name"] == "Idempotency-Key" and p["required"] for p in post["parameters"])
     assert any(p["name"] == "If-Match" for p in post["parameters"])
     assert {"202", "400", "403", "404", "409", "412", "422", "428"} <= set(post["responses"])
+
+
+def test_feedback_openapi_matches_frontend_manifest() -> None:
+    schema = app.openapi()
+    manifest = json.loads(
+        (
+            Path(__file__).resolve().parents[2] / "frontend/src/features/work/openapi-contract.json"
+        ).read_text()
+    )["feedback"]
+    schemas = cast(dict[str, object], schema["components"]["schemas"])
+    for route, methods in manifest["paths"].items():
+        assert set(schema["paths"][route]) == set(methods)
+    for name, expected in manifest["schemas"].items():
+        contract = cast(dict[str, object], schemas[name])
+        properties = cast(dict[str, dict[str, object]], contract["properties"])
+        assert {
+            "required": contract.get("required", []),
+            "properties": {k: _describe(v, schemas) for k, v in properties.items()},
+        } == expected

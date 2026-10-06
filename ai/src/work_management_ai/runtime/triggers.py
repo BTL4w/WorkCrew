@@ -1,9 +1,16 @@
 """Authority-free typed intents and the server-owned execution scope."""
 
-from typing import Annotated, Literal
+from typing import Annotated, Literal, Self
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    SerializerFunctionWrapHandler,
+    model_serializer,
+    model_validator,
+)
 
 
 class _Trigger(BaseModel):
@@ -24,6 +31,24 @@ class _ReportTrigger(_Trigger):
 
 class ReportRequestTrigger(_ReportTrigger):
     kind: Literal["REPORT_REQUEST"] = "REPORT_REQUEST"
+    mode: Literal["DRAFT", "VERIFY_EDIT"] = "DRAFT"
+    edited_version_id: UUID | None = None
+
+    @model_serializer(mode="wrap")
+    def legacy_wire(self, handler: SerializerFunctionWrapHandler) -> dict[str, object]:
+        data: dict[str, object] = handler(self)
+        if self.mode == "DRAFT":
+            data.pop("mode", None)
+            data.pop("edited_version_id", None)
+        return data
+
+    @model_validator(mode="after")
+    def edit_shape(self) -> Self:
+        if (self.mode == "VERIFY_EDIT") != (self.edited_version_id is not None):
+            raise ValueError("edit verification trigger shape")
+        if self.edited_version_id is not None and self.edited_version_id != self.base_version_id:
+            raise ValueError("edit version must equal base version")
+        return self
 
 
 class SummaryJobTrigger(_ReportTrigger):

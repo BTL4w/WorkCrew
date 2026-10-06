@@ -1545,7 +1545,10 @@ class PostgreSQLAssistantRepository:
                 OrchestrationRunModel.organization_id == organization_id,
                 OrchestrationRunModel.id == orchestration_run_id,
             )
-            .values(checkpoint=checkpoint, execution_plan=execution_plan)
+            .values(
+                checkpoint=checkpoint,
+                execution_plan=OrchestrationRunModel.execution_plan.op("||")(execution_plan),
+            )
         )
         if result.rowcount != 1:  # type: ignore[attr-defined]
             raise AssistantDomainLookupError("ORCHESTRATION_RUN_NOT_FOUND")

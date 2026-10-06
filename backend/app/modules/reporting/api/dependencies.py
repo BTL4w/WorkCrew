@@ -4,6 +4,7 @@ from fastapi import Depends, Request
 
 from ..application.generation_service import GenerationService
 from ..application.report_service import ReportService
+from ..application.review_service import ReviewService
 
 
 def get_report_service(request: Request) -> ReportService:
@@ -18,3 +19,10 @@ def get_generation_service(request: Request) -> GenerationService:
 
 
 GenerationServiceDependency = Annotated[GenerationService, Depends(get_generation_service)]
+
+
+def get_review_service(request: Request) -> ReviewService:
+    return cast(ReviewService, request.app.state.report_review_service)
+
+
+ReviewServiceDependency = Annotated[ReviewService, Depends(get_review_service)]

@@ -92,7 +92,8 @@ class ReportNarrativeRuntime:
         if recovering and (
             result.selected_version.id != job.proposed_version_id
             or result.snapshot.snapshot_hash != job.snapshot_hash
-            or result.selected_version.generation_id != job.id
+            or result.selected_version.generation_id
+            != (job.original_generation_id if job.job_type == "EDIT_VERIFICATION" else job.id)
             or result.selected_version.narrative is None
         ):
             return False
@@ -101,6 +102,8 @@ class ReportNarrativeRuntime:
             base_version_id=job.base_version_id,
             snapshot_hash=job.snapshot_hash,
             request_key=job.request_key,
+            mode="VERIFY_EDIT" if job.job_type == "EDIT_VERIFICATION" else "DRAFT",
+            edited_version_id=job.base_version_id if job.job_type == "EDIT_VERIFICATION" else None,
         )
         registry, tools = build_agent_registry()
         triggers = TriggerService(TriggerTransactions(self.sessions), registry)

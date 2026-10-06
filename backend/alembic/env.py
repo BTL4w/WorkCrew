@@ -16,6 +16,7 @@ from app.modules.assistant.adapters import database_models as assistant_models
 from app.modules.audit.adapters import database_models as audit_models
 from app.modules.automations.adapters import database_models as automation_models
 from app.modules.automations.adapters import delivery_models
+from app.modules.feedback.adapters import database_models as feedback_models
 from app.modules.identity.adapters import database_models as identity_models
 from app.modules.organization.adapters import database_models as organization_models
 from app.modules.people_capacity.adapters import database_models as people_capacity_models
@@ -40,6 +41,7 @@ from app.modules.work.planning.assignment.adapters import recommendation_models
 _MODEL_MODULES = (
     reporting_usage_models,
     reporting_models,
+    feedback_models,
     delivery_models,
     automation_models,
     risk_models,

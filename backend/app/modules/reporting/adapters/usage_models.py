@@ -53,6 +53,15 @@ class ReportGenerationJobModel(Base):
             ["organization_id", "report_id", "proposed_version_id"],
             ["report_versions.organization_id", "report_versions.report_id", "report_versions.id"],
         ),
+        ForeignKeyConstraint(
+            ["organization_id", "original_generation_id"],
+            ["report_generation_jobs.organization_id", "report_generation_jobs.id"],
+        ),
+        CheckConstraint(
+            "job_type IN ('DRAFT','EDIT_VERIFICATION') AND "
+            "((job_type='EDIT_VERIFICATION') = (original_generation_id IS NOT NULL))",
+            name="job_type",
+        ),
         CheckConstraint(
             "state IN ('QUEUED','RUNNING','AWAITING_REVIEW','AI_UNAVAILABLE','FAILED')",
             name="state",
@@ -86,6 +95,8 @@ class ReportGenerationJobModel(Base):
     deadline: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     orchestration_run_id: Mapped[UUID | None]
     proposed_version_id: Mapped[UUID | None]
+    job_type: Mapped[str] = mapped_column(String(24), server_default="DRAFT", default="DRAFT")
+    original_generation_id: Mapped[UUID | None]
     safe_error_code: Mapped[str | None] = mapped_column(String(100))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
 

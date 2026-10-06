@@ -1,89 +1,968 @@
 {
   "enums": {
-    "MembershipRole": ["ADMIN", "MANAGER", "EMPLOYEE"],
-    "TaskStatus": ["TO_DO", "IN_PROGRESS", "DONE"],
-    "ApprovalDecision": ["APPROVE", "REJECT"],
-    "ProjectWeekStatus": ["PLANNED", "ACTIVE", "COMPLETED"],
-    "SkillEvidenceType": ["MANAGER_NOTE", "CERTIFICATE", "COMPLETED_TASK", "REVIEW_OUTCOME"],
-    "CapacityKind": ["DEFAULT", "OVERRIDE"]
+    "MembershipRole": [
+      "ADMIN",
+      "MANAGER",
+      "EMPLOYEE"
+    ],
+    "TaskStatus": [
+      "TO_DO",
+      "IN_PROGRESS",
+      "DONE"
+    ],
+    "ApprovalDecision": [
+      "APPROVE",
+      "REJECT"
+    ],
+    "ProjectWeekStatus": [
+      "PLANNED",
+      "ACTIVE",
+      "COMPLETED"
+    ],
+    "SkillEvidenceType": [
+      "MANAGER_NOTE",
+      "CERTIFICATE",
+      "COMPLETED_TASK",
+      "REVIEW_OUTCOME"
+    ],
+    "CapacityKind": [
+      "DEFAULT",
+      "OVERRIDE"
+    ]
   },
   "schemas": {
-    "EvidenceResponse": {"required": ["evidence_id", "version", "filename", "mime_type", "byte_length", "sha256", "uploaded_at", "expires_at"], "properties": {"evidence_id": "string:uuid", "version": "integer", "filename": "string", "mime_type": "string", "byte_length": "integer", "sha256": "string", "uploaded_at": "string:date-time", "expires_at": "null|string:date-time"}},
-    "ProjectCreateRequest": { "required": ["name"], "properties": { "name": "string[1,160]", "description": "null|string[,5000]" } },
-    "ProjectUpdateRequest": { "required": [], "properties": { "name": "null|string[1,160]", "description": "null|string[,5000]" } },
-    "TaskCreateRequest": { "required": ["project_id", "project_week_id", "title", "estimated_effort_hours"], "properties": { "project_id": "string:uuid", "project_week_id": "string:uuid", "milestone_id": "null|string:uuid", "title": "string[1,200]", "description": "null|string[,10000]", "assignee_membership_id": "null|string:uuid", "required_skill_labels": "array:string", "estimated_effort_hours": "integer", "due_date": "null|string:date" } },
-    "TaskUpdateRequest": { "required": [], "properties": { "title": "null|string[1,200]", "description": "null|string[,10000]", "assignee_membership_id": "null|string:uuid", "due_date": "null|string:date", "milestone_id": "null|string:uuid", "project_week_id": "null|string:uuid", "required_skill_labels": "array:string|null", "estimated_effort_hours": "integer|null" } },
-    "TaskStatusRequest": { "required": ["to_status"], "properties": { "to_status": "enum:TaskStatus", "attestations": "array:ref:CriterionAttestationRequest" } },
-    "CriterionAttestationRequest": { "required": ["criterion_id", "version", "confirmed"], "properties": { "criterion_id": "string:uuid", "version": "integer", "confirmed": "boolean", "evidence_refs": "array:ref:SelectedEvidence" } },
-    "SelectedEvidence": { "required": ["evidence_id", "version"], "properties": { "evidence_id": "string:uuid", "version": "integer" } },
-    "ProjectResponse": { "required": ["id", "name", "description", "version", "created_at", "updated_at"], "properties": { "id": "string:uuid", "name": "string", "description": "null|string", "version": "integer", "created_at": "string:date-time", "updated_at": "string:date-time" } },
-    "ProjectPageResponse": { "required": ["items", "page", "page_size", "total"], "properties": { "items": "array:ref:ProjectResponse", "page": "integer", "page_size": "integer", "total": "integer" } },
-    "MemberResponse": { "required": ["membership_id", "display_name", "role", "is_active"], "properties": { "membership_id": "string:uuid", "display_name": "string", "role": "enum:MembershipRole", "is_active": "boolean" } },
-    "MemberPageResponse": { "required": ["items", "page", "page_size", "total"], "properties": { "items": "array:ref:MemberResponse", "page": "integer", "page_size": "integer", "total": "integer" } },
-    "AssigneeResponse": { "required": ["membership_id", "display_name"], "properties": { "membership_id": "string:uuid", "display_name": "string" } },
-    "TaskResponse": { "required": ["id", "project_id", "project_week_id", "milestone_id", "title", "description", "assignee", "required_skill_labels", "estimated_effort_hours", "status", "due_date", "version", "created_at", "updated_at"], "properties": { "id": "string:uuid", "project_id": "string:uuid", "project_week_id": "null|string:uuid", "milestone_id": "null|string:uuid", "title": "string", "description": "null|string", "assignee": "null|ref:AssigneeResponse", "required_skill_labels": "array:string", "estimated_effort_hours": "integer|null", "status": "enum:TaskStatus", "due_date": "null|string:date", "version": "integer", "created_at": "string:date-time", "updated_at": "string:date-time" } },
-    "TaskPageResponse": { "required": ["items", "page", "page_size", "total"], "properties": { "items": "array:ref:TaskResponse", "page": "integer", "page_size": "integer", "total": "integer" } },
-    "GoalCreateRequest": { "required": ["project_id", "title"], "properties": { "project_id": "string:uuid", "title": "string[1,200]", "description": "null|string[,5000]", "expected_outcomes": "array:string", "target_date": "null|string:date" } },
-    "GoalUpdateRequest": { "required": [], "properties": { "title": "null|string[1,200]", "description": "null|string[,5000]", "expected_outcomes": "array:string|null", "target_date": "null|string:date" } },
-    "GoalResponse": { "required": ["id", "project_id", "title", "description", "expected_outcomes", "target_date", "version", "created_at", "updated_at"], "properties": { "id": "string:uuid", "project_id": "string:uuid", "title": "string", "description": "null|string", "expected_outcomes": "array:string", "target_date": "null|string:date", "version": "integer", "created_at": "string:date-time", "updated_at": "string:date-time" } },
-    "MilestoneCreateRequest": { "required": ["project_id", "name", "position"], "properties": { "project_id": "string:uuid", "name": "string[1,200]", "description": "null|string[,5000]", "target_date": "null|string:date", "position": "integer" } },
-    "MilestoneUpdateRequest": { "required": [], "properties": { "name": "null|string[1,200]", "description": "null|string[,5000]", "target_date": "null|string:date", "position": "integer|null" } },
-    "MilestoneResponse": { "required": ["id", "project_id", "name", "description", "target_date", "position", "version", "created_at", "updated_at"], "properties": { "id": "string:uuid", "project_id": "string:uuid", "name": "string", "description": "null|string", "target_date": "null|string:date", "position": "integer", "version": "integer", "created_at": "string:date-time", "updated_at": "string:date-time" } },
-    "ProjectWeekCreateRequest": { "required": ["week_number", "start_date", "end_date", "objective"], "properties": { "week_number": "integer", "start_date": "string:date", "end_date": "string:date", "objective": "string[1,2000]", "status": "enum:ProjectWeekStatus" } },
-    "ProjectWeekUpdateRequest": { "required": [], "properties": { "week_number": "integer|null", "start_date": "null|string:date", "end_date": "null|string:date", "objective": "null|string[1,2000]", "status": "enum:ProjectWeekStatus|null" } },
-    "ProjectWeekResponse": { "required": ["id", "project_id", "week_number", "start_date", "end_date", "objective", "status", "version", "created_at", "updated_at"], "properties": { "id": "string:uuid", "project_id": "string:uuid", "week_number": "integer", "start_date": "string:date", "end_date": "string:date", "objective": "string", "status": "enum:ProjectWeekStatus", "version": "integer", "created_at": "string:date-time", "updated_at": "string:date-time" } },
-    "DependencyCreateRequest": { "required": ["predecessor_task_id", "successor_task_id"], "properties": { "predecessor_task_id": "string:uuid", "successor_task_id": "string:uuid" } },
-    "DependencyUpdateRequest": { "required": [], "properties": { "predecessor_task_id": "null|string:uuid", "successor_task_id": "null|string:uuid" } },
-    "DependencyResponse": { "required": ["id", "predecessor_task_id", "successor_task_id", "version", "created_at", "updated_at"], "properties": { "id": "string:uuid", "predecessor_task_id": "string:uuid", "successor_task_id": "string:uuid", "version": "integer", "created_at": "string:date-time", "updated_at": "string:date-time" } },
-    "AcceptanceCriterionCreateRequest": { "required": ["task_id", "text", "position"], "properties": { "task_id": "string:uuid", "text": "string[1,1000]", "position": "integer" } },
-    "AcceptanceCriterionUpdateRequest": { "required": [], "properties": { "text": "null|string[1,1000]", "position": "integer|null" } },
-    "AcceptanceCriterionResponse": { "required": ["id", "task_id", "text", "position", "version", "created_at", "updated_at"], "properties": { "id": "string:uuid", "task_id": "string:uuid", "text": "string", "position": "integer", "version": "integer", "created_at": "string:date-time", "updated_at": "string:date-time" } },
-    "PlanningPageResponse": { "required": ["items", "page", "page_size", "total"], "properties": { "items": "array:ref:AcceptanceCriterionResponse|ref:DependencyResponse|ref:GoalResponse|ref:MilestoneResponse|ref:ProjectWeekResponse", "page": "integer", "page_size": "integer", "total": "integer" } },
-    "DeleteResponse": { "required": ["id", "version"], "properties": { "id": "string:uuid", "version": "integer" } },
-    "WorkflowRunReferenceResponse": { "required": ["run_id", "status", "version"], "properties": { "run_id": "string:uuid", "status": "string", "version": "integer" } },
-    "PreviousProposalVersionResponse": { "required": ["version", "content", "field_provenance", "creator_type"], "properties": { "version": "integer", "content": "object", "field_provenance": "object", "creator_type": "string" } },
-    "WorkflowProposalSnapshotResponse": { "required": ["proposal_id", "approval_id", "status", "version", "validation_result", "content", "change_summary", "field_provenance", "creator_type", "previous_version"], "properties": { "proposal_id": "string:uuid", "approval_id": "null|string:uuid", "status": "string", "version": "integer", "validation_result": "object", "content": "object", "change_summary": "null|string", "field_provenance": "object", "creator_type": "string", "previous_version": "null|ref:PreviousProposalVersionResponse" } },
-    "WorkflowRunResponse": { "required": ["id", "project_id", "status", "workflow_name", "workflow_version", "verifier_version", "input_goal_text", "version", "created_at", "updated_at"], "properties": { "id": "string:uuid", "project_id": "null|string:uuid", "status": "string", "workflow_name": "string", "workflow_version": "string", "verifier_version": "string", "input_goal_text": "string", "version": "integer", "created_at": "string:date-time", "updated_at": "string:date-time", "current_stage": "null|string", "current_proposal": "null|ref:WorkflowProposalSnapshotResponse", "public_timeline": "array:ref:WorkflowTimelineItemResponse", "allowed_actions": "array:string" } },
-    "ApprovalDecisionResponse": { "required": ["approval", "proposal", "created", "workflow_run_id", "finalization_job_id"], "properties": { "approval": "ref:ApprovalStatusResponse", "proposal": "ref:DecidedProposalResponse", "created": "ref:CreatedBusinessIdsResponse", "workflow_run_id": "string:uuid", "finalization_job_id": "string:uuid" } },
-    "FieldError": { "required": ["field", "code", "message_key"], "properties": { "field": "string", "code": "string", "message_key": "string" } },
-    "ErrorDetail": { "required": ["code", "message_key", "request_id"], "properties": { "code": "string", "message_key": "string", "request_id": "string", "field_errors": "array:ref:FieldError", "details": "object" } },
-    "ErrorResponse": { "required": ["error"], "properties": { "error": "ref:ErrorDetail" } },
-    "SkillCreateRequest": { "required": ["name"], "properties": { "name": "string[1,100]", "description": "null|string[,2000]" } },
-    "SkillUpdateRequest": { "required": [], "properties": { "name": "null|string[1,100]", "description": "null|string[,2000]", "active": "boolean|null" } },
-    "SkillResponse": { "required": ["id", "organization_id", "name", "normalized_name", "description", "active", "version", "created_at", "updated_at"], "properties": { "id": "string:uuid", "organization_id": "string:uuid", "name": "string", "normalized_name": "string", "description": "null|string", "active": "boolean", "version": "integer", "created_at": "string:date-time", "updated_at": "string:date-time" } },
-    "SkillEvidenceCreateRequest": { "required": ["evidence_type", "summary", "source_resource_type", "source_resource_id", "occurred_at"], "properties": { "evidence_type": "enum:SkillEvidenceType", "summary": "string[1,2000]", "source_resource_type": "string[1,100]", "source_resource_id": "string:uuid", "occurred_at": "string:date-time" } },
-    "SkillEvidenceResponse": { "required": ["id", "organization_id", "person_skill_id", "evidence_type", "summary", "source_resource_type", "source_resource_id", "occurred_at", "created_by_membership_id", "created_at"], "properties": { "id": "string:uuid", "organization_id": "string:uuid", "person_skill_id": "string:uuid", "evidence_type": "enum:SkillEvidenceType", "summary": "string", "source_resource_type": "string", "source_resource_id": "string:uuid", "occurred_at": "string:date-time", "created_by_membership_id": "string:uuid", "created_at": "string:date-time" } },
-    "PersonSkillUpsertRequest": { "required": ["skill_id", "level"], "properties": { "skill_id": "string:uuid", "level": "integer", "evidence": "array:ref:SkillEvidenceCreateRequest" } },
-    "PersonSkillResponse": { "required": ["id", "organization_id", "membership_id", "skill_id", "level", "verified_by_membership_id", "verified_at", "version", "created_at", "updated_at", "active", "evidence"], "properties": { "id": "string:uuid", "organization_id": "string:uuid", "membership_id": "string:uuid", "skill_id": "string:uuid", "level": "integer", "verified_by_membership_id": "string:uuid", "verified_at": "string:date-time", "version": "integer", "created_at": "string:date-time", "updated_at": "string:date-time", "active": "boolean", "evidence": "array:ref:SkillEvidenceResponse" } },
-    "WorkOutcomeEvidenceCreateRequest": { "required": ["evidence_type", "summary", "source_resource_type", "source_resource_id", "source_resource_version", "observed_at"], "properties": { "evidence_type": "enum:SkillEvidenceType", "summary": "string[1,2000]", "source_resource_type": "string[1,100]", "source_resource_id": "string:uuid", "source_resource_version": "integer", "observed_at": "string:date-time" } },
-    "WorkOutcomeEvidenceResponse": { "required": ["id", "organization_id", "membership_id", "evidence_type", "summary", "source_resource_type", "source_resource_id", "source_resource_version", "observed_at", "created_by_membership_id", "created_at"], "properties": { "id": "string:uuid", "organization_id": "string:uuid", "membership_id": "string:uuid", "evidence_type": "enum:SkillEvidenceType", "summary": "string", "source_resource_type": "string", "source_resource_id": "string:uuid", "source_resource_version": "integer", "observed_at": "string:date-time", "created_by_membership_id": "string:uuid", "created_at": "string:date-time" } },
-    "CapacityUpsertRequest": { "required": ["membership_id", "kind", "hours"], "properties": { "membership_id": "string:uuid", "kind": "literal:DEFAULT|OVERRIDE", "week_start": "null|string:date", "hours": "integer", "effective_from": "null|string:date", "effective_to": "null|string:date" } },
-    "CapacityResponse": { "required": ["id", "organization_id", "membership_id", "kind", "hours", "effective_from", "effective_to", "week_start", "version", "created_at", "updated_at"], "properties": { "id": "string:uuid", "organization_id": "string:uuid", "membership_id": "string:uuid", "kind": "enum:CapacityKind", "hours": "integer", "effective_from": "string:date", "effective_to": "string:date", "week_start": "null|string:date", "version": "integer", "created_at": "string:date-time", "updated_at": "string:date-time" } },
-    "LeaveCreateRequest": { "required": ["membership_id", "start_date", "end_date", "unavailable_hours"], "properties": { "membership_id": "string:uuid", "start_date": "string:date", "end_date": "string:date", "unavailable_hours": "integer" } },
-    "LeaveUpdateRequest": { "required": [], "properties": { "start_date": "null|string:date", "end_date": "null|string:date", "unavailable_hours": "integer|null" } },
-    "LeaveResponse": { "required": ["id", "organization_id", "membership_id", "start_date", "end_date", "unavailable_hours", "version", "created_at", "updated_at"], "properties": { "id": "string:uuid", "organization_id": "string:uuid", "membership_id": "string:uuid", "start_date": "string:date", "end_date": "string:date", "unavailable_hours": "integer", "version": "integer", "created_at": "string:date-time", "updated_at": "string:date-time" } },
-    "WorkloadResponse": { "required": ["membership_id", "project_week_id", "effective_capacity_hours", "allocated_effort_hours", "residual_capacity_hours", "workload_ratio"], "properties": { "membership_id": "string:uuid", "project_week_id": "string:uuid", "effective_capacity_hours": "integer", "allocated_effort_hours": "integer", "residual_capacity_hours": "integer", "workload_ratio": "null|string" } }
+    "EvidenceResponse": {
+      "required": [
+        "evidence_id",
+        "version",
+        "filename",
+        "mime_type",
+        "byte_length",
+        "sha256",
+        "uploaded_at",
+        "expires_at"
+      ],
+      "properties": {
+        "evidence_id": "string:uuid",
+        "version": "integer",
+        "filename": "string",
+        "mime_type": "string",
+        "byte_length": "integer",
+        "sha256": "string",
+        "uploaded_at": "string:date-time",
+        "expires_at": "null|string:date-time"
+      }
+    },
+    "ProjectCreateRequest": {
+      "required": [
+        "name"
+      ],
+      "properties": {
+        "name": "string[1,160]",
+        "description": "null|string[,5000]"
+      }
+    },
+    "ProjectUpdateRequest": {
+      "required": [],
+      "properties": {
+        "name": "null|string[1,160]",
+        "description": "null|string[,5000]"
+      }
+    },
+    "TaskCreateRequest": {
+      "required": [
+        "project_id",
+        "project_week_id",
+        "title",
+        "estimated_effort_hours"
+      ],
+      "properties": {
+        "project_id": "string:uuid",
+        "project_week_id": "string:uuid",
+        "milestone_id": "null|string:uuid",
+        "title": "string[1,200]",
+        "description": "null|string[,10000]",
+        "assignee_membership_id": "null|string:uuid",
+        "required_skill_labels": "array:string",
+        "estimated_effort_hours": "integer",
+        "due_date": "null|string:date"
+      }
+    },
+    "TaskUpdateRequest": {
+      "required": [],
+      "properties": {
+        "title": "null|string[1,200]",
+        "description": "null|string[,10000]",
+        "assignee_membership_id": "null|string:uuid",
+        "due_date": "null|string:date",
+        "milestone_id": "null|string:uuid",
+        "project_week_id": "null|string:uuid",
+        "required_skill_labels": "array:string|null",
+        "estimated_effort_hours": "integer|null"
+      }
+    },
+    "TaskStatusRequest": {
+      "required": [
+        "to_status"
+      ],
+      "properties": {
+        "to_status": "enum:TaskStatus",
+        "attestations": "array:ref:CriterionAttestationRequest"
+      }
+    },
+    "CriterionAttestationRequest": {
+      "required": [
+        "criterion_id",
+        "version",
+        "confirmed"
+      ],
+      "properties": {
+        "criterion_id": "string:uuid",
+        "version": "integer",
+        "confirmed": "boolean",
+        "evidence_refs": "array:ref:SelectedEvidence"
+      }
+    },
+    "SelectedEvidence": {
+      "required": [
+        "evidence_id",
+        "version"
+      ],
+      "properties": {
+        "evidence_id": "string:uuid",
+        "version": "integer"
+      }
+    },
+    "ProjectResponse": {
+      "required": [
+        "id",
+        "name",
+        "description",
+        "version",
+        "created_at",
+        "updated_at"
+      ],
+      "properties": {
+        "id": "string:uuid",
+        "name": "string",
+        "description": "null|string",
+        "version": "integer",
+        "created_at": "string:date-time",
+        "updated_at": "string:date-time"
+      }
+    },
+    "ProjectPageResponse": {
+      "required": [
+        "items",
+        "page",
+        "page_size",
+        "total"
+      ],
+      "properties": {
+        "items": "array:ref:ProjectResponse",
+        "page": "integer",
+        "page_size": "integer",
+        "total": "integer"
+      }
+    },
+    "MemberResponse": {
+      "required": [
+        "membership_id",
+        "display_name",
+        "role",
+        "is_active"
+      ],
+      "properties": {
+        "membership_id": "string:uuid",
+        "display_name": "string",
+        "role": "enum:MembershipRole",
+        "is_active": "boolean"
+      }
+    },
+    "MemberPageResponse": {
+      "required": [
+        "items",
+        "page",
+        "page_size",
+        "total"
+      ],
+      "properties": {
+        "items": "array:ref:MemberResponse",
+        "page": "integer",
+        "page_size": "integer",
+        "total": "integer"
+      }
+    },
+    "AssigneeResponse": {
+      "required": [
+        "membership_id",
+        "display_name"
+      ],
+      "properties": {
+        "membership_id": "string:uuid",
+        "display_name": "string"
+      }
+    },
+    "TaskResponse": {
+      "required": [
+        "id",
+        "project_id",
+        "project_week_id",
+        "milestone_id",
+        "title",
+        "description",
+        "assignee",
+        "required_skill_labels",
+        "estimated_effort_hours",
+        "status",
+        "due_date",
+        "version",
+        "created_at",
+        "updated_at"
+      ],
+      "properties": {
+        "id": "string:uuid",
+        "project_id": "string:uuid",
+        "project_week_id": "null|string:uuid",
+        "milestone_id": "null|string:uuid",
+        "title": "string",
+        "description": "null|string",
+        "assignee": "null|ref:AssigneeResponse",
+        "required_skill_labels": "array:string",
+        "estimated_effort_hours": "integer|null",
+        "status": "enum:TaskStatus",
+        "due_date": "null|string:date",
+        "version": "integer",
+        "created_at": "string:date-time",
+        "updated_at": "string:date-time"
+      }
+    },
+    "TaskPageResponse": {
+      "required": [
+        "items",
+        "page",
+        "page_size",
+        "total"
+      ],
+      "properties": {
+        "items": "array:ref:TaskResponse",
+        "page": "integer",
+        "page_size": "integer",
+        "total": "integer"
+      }
+    },
+    "GoalCreateRequest": {
+      "required": [
+        "project_id",
+        "title"
+      ],
+      "properties": {
+        "project_id": "string:uuid",
+        "title": "string[1,200]",
+        "description": "null|string[,5000]",
+        "expected_outcomes": "array:string",
+        "target_date": "null|string:date"
+      }
+    },
+    "GoalUpdateRequest": {
+      "required": [],
+      "properties": {
+        "title": "null|string[1,200]",
+        "description": "null|string[,5000]",
+        "expected_outcomes": "array:string|null",
+        "target_date": "null|string:date"
+      }
+    },
+    "GoalResponse": {
+      "required": [
+        "id",
+        "project_id",
+        "title",
+        "description",
+        "expected_outcomes",
+        "target_date",
+        "version",
+        "created_at",
+        "updated_at"
+      ],
+      "properties": {
+        "id": "string:uuid",
+        "project_id": "string:uuid",
+        "title": "string",
+        "description": "null|string",
+        "expected_outcomes": "array:string",
+        "target_date": "null|string:date",
+        "version": "integer",
+        "created_at": "string:date-time",
+        "updated_at": "string:date-time"
+      }
+    },
+    "MilestoneCreateRequest": {
+      "required": [
+        "project_id",
+        "name",
+        "position"
+      ],
+      "properties": {
+        "project_id": "string:uuid",
+        "name": "string[1,200]",
+        "description": "null|string[,5000]",
+        "target_date": "null|string:date",
+        "position": "integer"
+      }
+    },
+    "MilestoneUpdateRequest": {
+      "required": [],
+      "properties": {
+        "name": "null|string[1,200]",
+        "description": "null|string[,5000]",
+        "target_date": "null|string:date",
+        "position": "integer|null"
+      }
+    },
+    "MilestoneResponse": {
+      "required": [
+        "id",
+        "project_id",
+        "name",
+        "description",
+        "target_date",
+        "position",
+        "version",
+        "created_at",
+        "updated_at"
+      ],
+      "properties": {
+        "id": "string:uuid",
+        "project_id": "string:uuid",
+        "name": "string",
+        "description": "null|string",
+        "target_date": "null|string:date",
+        "position": "integer",
+        "version": "integer",
+        "created_at": "string:date-time",
+        "updated_at": "string:date-time"
+      }
+    },
+    "ProjectWeekCreateRequest": {
+      "required": [
+        "week_number",
+        "start_date",
+        "end_date",
+        "objective"
+      ],
+      "properties": {
+        "week_number": "integer",
+        "start_date": "string:date",
+        "end_date": "string:date",
+        "objective": "string[1,2000]",
+        "status": "enum:ProjectWeekStatus"
+      }
+    },
+    "ProjectWeekUpdateRequest": {
+      "required": [],
+      "properties": {
+        "week_number": "integer|null",
+        "start_date": "null|string:date",
+        "end_date": "null|string:date",
+        "objective": "null|string[1,2000]",
+        "status": "enum:ProjectWeekStatus|null"
+      }
+    },
+    "ProjectWeekResponse": {
+      "required": [
+        "id",
+        "project_id",
+        "week_number",
+        "start_date",
+        "end_date",
+        "objective",
+        "status",
+        "version",
+        "created_at",
+        "updated_at"
+      ],
+      "properties": {
+        "id": "string:uuid",
+        "project_id": "string:uuid",
+        "week_number": "integer",
+        "start_date": "string:date",
+        "end_date": "string:date",
+        "objective": "string",
+        "status": "enum:ProjectWeekStatus",
+        "version": "integer",
+        "created_at": "string:date-time",
+        "updated_at": "string:date-time"
+      }
+    },
+    "DependencyCreateRequest": {
+      "required": [
+        "predecessor_task_id",
+        "successor_task_id"
+      ],
+      "properties": {
+        "predecessor_task_id": "string:uuid",
+        "successor_task_id": "string:uuid"
+      }
+    },
+    "DependencyUpdateRequest": {
+      "required": [],
+      "properties": {
+        "predecessor_task_id": "null|string:uuid",
+        "successor_task_id": "null|string:uuid"
+      }
+    },
+    "DependencyResponse": {
+      "required": [
+        "id",
+        "predecessor_task_id",
+        "successor_task_id",
+        "version",
+        "created_at",
+        "updated_at"
+      ],
+      "properties": {
+        "id": "string:uuid",
+        "predecessor_task_id": "string:uuid",
+        "successor_task_id": "string:uuid",
+        "version": "integer",
+        "created_at": "string:date-time",
+        "updated_at": "string:date-time"
+      }
+    },
+    "AcceptanceCriterionCreateRequest": {
+      "required": [
+        "task_id",
+        "text",
+        "position"
+      ],
+      "properties": {
+        "task_id": "string:uuid",
+        "text": "string[1,1000]",
+        "position": "integer"
+      }
+    },
+    "AcceptanceCriterionUpdateRequest": {
+      "required": [],
+      "properties": {
+        "text": "null|string[1,1000]",
+        "position": "integer|null"
+      }
+    },
+    "AcceptanceCriterionResponse": {
+      "required": [
+        "id",
+        "task_id",
+        "text",
+        "position",
+        "version",
+        "created_at",
+        "updated_at"
+      ],
+      "properties": {
+        "id": "string:uuid",
+        "task_id": "string:uuid",
+        "text": "string",
+        "position": "integer",
+        "version": "integer",
+        "created_at": "string:date-time",
+        "updated_at": "string:date-time"
+      }
+    },
+    "PlanningPageResponse": {
+      "required": [
+        "items",
+        "page",
+        "page_size",
+        "total"
+      ],
+      "properties": {
+        "items": "array:ref:AcceptanceCriterionResponse|ref:DependencyResponse|ref:GoalResponse|ref:MilestoneResponse|ref:ProjectWeekResponse",
+        "page": "integer",
+        "page_size": "integer",
+        "total": "integer"
+      }
+    },
+    "DeleteResponse": {
+      "required": [
+        "id",
+        "version"
+      ],
+      "properties": {
+        "id": "string:uuid",
+        "version": "integer"
+      }
+    },
+    "WorkflowRunReferenceResponse": {
+      "required": [
+        "run_id",
+        "status",
+        "version"
+      ],
+      "properties": {
+        "run_id": "string:uuid",
+        "status": "string",
+        "version": "integer"
+      }
+    },
+    "PreviousProposalVersionResponse": {
+      "required": [
+        "version",
+        "content",
+        "field_provenance",
+        "creator_type"
+      ],
+      "properties": {
+        "version": "integer",
+        "content": "object",
+        "field_provenance": "object",
+        "creator_type": "string"
+      }
+    },
+    "WorkflowProposalSnapshotResponse": {
+      "required": [
+        "proposal_id",
+        "approval_id",
+        "status",
+        "version",
+        "validation_result",
+        "content",
+        "change_summary",
+        "field_provenance",
+        "creator_type",
+        "previous_version"
+      ],
+      "properties": {
+        "proposal_id": "string:uuid",
+        "approval_id": "null|string:uuid",
+        "status": "string",
+        "version": "integer",
+        "validation_result": "object",
+        "content": "object",
+        "change_summary": "null|string",
+        "field_provenance": "object",
+        "creator_type": "string",
+        "previous_version": "null|ref:PreviousProposalVersionResponse"
+      }
+    },
+    "WorkflowRunResponse": {
+      "required": [
+        "id",
+        "project_id",
+        "status",
+        "workflow_name",
+        "workflow_version",
+        "verifier_version",
+        "input_goal_text",
+        "version",
+        "created_at",
+        "updated_at"
+      ],
+      "properties": {
+        "id": "string:uuid",
+        "project_id": "null|string:uuid",
+        "status": "string",
+        "workflow_name": "string",
+        "workflow_version": "string",
+        "verifier_version": "string",
+        "input_goal_text": "string",
+        "version": "integer",
+        "created_at": "string:date-time",
+        "updated_at": "string:date-time",
+        "current_stage": "null|string",
+        "current_proposal": "null|ref:WorkflowProposalSnapshotResponse",
+        "public_timeline": "array:ref:WorkflowTimelineItemResponse",
+        "allowed_actions": "array:string"
+      }
+    },
+    "ApprovalDecisionResponse": {
+      "required": [
+        "approval",
+        "proposal",
+        "created",
+        "workflow_run_id",
+        "finalization_job_id"
+      ],
+      "properties": {
+        "approval": "ref:ApprovalStatusResponse",
+        "proposal": "ref:DecidedProposalResponse",
+        "created": "ref:CreatedBusinessIdsResponse",
+        "workflow_run_id": "string:uuid",
+        "finalization_job_id": "string:uuid"
+      }
+    },
+    "FieldError": {
+      "required": [
+        "field",
+        "code",
+        "message_key"
+      ],
+      "properties": {
+        "field": "string",
+        "code": "string",
+        "message_key": "string"
+      }
+    },
+    "ErrorDetail": {
+      "required": [
+        "code",
+        "message_key",
+        "request_id"
+      ],
+      "properties": {
+        "code": "string",
+        "message_key": "string",
+        "request_id": "string",
+        "field_errors": "array:ref:FieldError",
+        "details": "object"
+      }
+    },
+    "ErrorResponse": {
+      "required": [
+        "error"
+      ],
+      "properties": {
+        "error": "ref:ErrorDetail"
+      }
+    },
+    "SkillCreateRequest": {
+      "required": [
+        "name"
+      ],
+      "properties": {
+        "name": "string[1,100]",
+        "description": "null|string[,2000]"
+      }
+    },
+    "SkillUpdateRequest": {
+      "required": [],
+      "properties": {
+        "name": "null|string[1,100]",
+        "description": "null|string[,2000]",
+        "active": "boolean|null"
+      }
+    },
+    "SkillResponse": {
+      "required": [
+        "id",
+        "organization_id",
+        "name",
+        "normalized_name",
+        "description",
+        "active",
+        "version",
+        "created_at",
+        "updated_at"
+      ],
+      "properties": {
+        "id": "string:uuid",
+        "organization_id": "string:uuid",
+        "name": "string",
+        "normalized_name": "string",
+        "description": "null|string",
+        "active": "boolean",
+        "version": "integer",
+        "created_at": "string:date-time",
+        "updated_at": "string:date-time"
+      }
+    },
+    "SkillEvidenceCreateRequest": {
+      "required": [
+        "evidence_type",
+        "summary",
+        "source_resource_type",
+        "source_resource_id",
+        "occurred_at"
+      ],
+      "properties": {
+        "evidence_type": "enum:SkillEvidenceType",
+        "summary": "string[1,2000]",
+        "source_resource_type": "string[1,100]",
+        "source_resource_id": "string:uuid",
+        "occurred_at": "string:date-time"
+      }
+    },
+    "SkillEvidenceResponse": {
+      "required": [
+        "id",
+        "organization_id",
+        "person_skill_id",
+        "evidence_type",
+        "summary",
+        "source_resource_type",
+        "source_resource_id",
+        "occurred_at",
+        "created_by_membership_id",
+        "created_at"
+      ],
+      "properties": {
+        "id": "string:uuid",
+        "organization_id": "string:uuid",
+        "person_skill_id": "string:uuid",
+        "evidence_type": "enum:SkillEvidenceType",
+        "summary": "string",
+        "source_resource_type": "string",
+        "source_resource_id": "string:uuid",
+        "occurred_at": "string:date-time",
+        "created_by_membership_id": "string:uuid",
+        "created_at": "string:date-time"
+      }
+    },
+    "PersonSkillUpsertRequest": {
+      "required": [
+        "skill_id",
+        "level"
+      ],
+      "properties": {
+        "skill_id": "string:uuid",
+        "level": "integer",
+        "evidence": "array:ref:SkillEvidenceCreateRequest"
+      }
+    },
+    "PersonSkillResponse": {
+      "required": [
+        "id",
+        "organization_id",
+        "membership_id",
+        "skill_id",
+        "level",
+        "verified_by_membership_id",
+        "verified_at",
+        "version",
+        "created_at",
+        "updated_at",
+        "active",
+        "evidence"
+      ],
+      "properties": {
+        "id": "string:uuid",
+        "organization_id": "string:uuid",
+        "membership_id": "string:uuid",
+        "skill_id": "string:uuid",
+        "level": "integer",
+        "verified_by_membership_id": "string:uuid",
+        "verified_at": "string:date-time",
+        "version": "integer",
+        "created_at": "string:date-time",
+        "updated_at": "string:date-time",
+        "active": "boolean",
+        "evidence": "array:ref:SkillEvidenceResponse"
+      }
+    },
+    "WorkOutcomeEvidenceCreateRequest": {
+      "required": [
+        "evidence_type",
+        "summary",
+        "source_resource_type",
+        "source_resource_id",
+        "source_resource_version",
+        "observed_at"
+      ],
+      "properties": {
+        "evidence_type": "enum:SkillEvidenceType",
+        "summary": "string[1,2000]",
+        "source_resource_type": "string[1,100]",
+        "source_resource_id": "string:uuid",
+        "source_resource_version": "integer",
+        "observed_at": "string:date-time"
+      }
+    },
+    "WorkOutcomeEvidenceResponse": {
+      "required": [
+        "id",
+        "organization_id",
+        "membership_id",
+        "evidence_type",
+        "summary",
+        "source_resource_type",
+        "source_resource_id",
+        "source_resource_version",
+        "observed_at",
+        "created_by_membership_id",
+        "created_at"
+      ],
+      "properties": {
+        "id": "string:uuid",
+        "organization_id": "string:uuid",
+        "membership_id": "string:uuid",
+        "evidence_type": "enum:SkillEvidenceType",
+        "summary": "string",
+        "source_resource_type": "string",
+        "source_resource_id": "string:uuid",
+        "source_resource_version": "integer",
+        "observed_at": "string:date-time",
+        "created_by_membership_id": "string:uuid",
+        "created_at": "string:date-time"
+      }
+    },
+    "CapacityUpsertRequest": {
+      "required": [
+        "membership_id",
+        "kind",
+        "hours"
+      ],
+      "properties": {
+        "membership_id": "string:uuid",
+        "kind": "literal:DEFAULT|OVERRIDE",
+        "week_start": "null|string:date",
+        "hours": "integer",
+        "effective_from": "null|string:date",
+        "effective_to": "null|string:date"
+      }
+    },
+    "CapacityResponse": {
+      "required": [
+        "id",
+        "organization_id",
+        "membership_id",
+        "kind",
+        "hours",
+        "effective_from",
+        "effective_to",
+        "week_start",
+        "version",
+        "created_at",
+        "updated_at"
+      ],
+      "properties": {
+        "id": "string:uuid",
+        "organization_id": "string:uuid",
+        "membership_id": "string:uuid",
+        "kind": "enum:CapacityKind",
+        "hours": "integer",
+        "effective_from": "string:date",
+        "effective_to": "string:date",
+        "week_start": "null|string:date",
+        "version": "integer",
+        "created_at": "string:date-time",
+        "updated_at": "string:date-time"
+      }
+    },
+    "LeaveCreateRequest": {
+      "required": [
+        "membership_id",
+        "start_date",
+        "end_date",
+        "unavailable_hours"
+      ],
+      "properties": {
+        "membership_id": "string:uuid",
+        "start_date": "string:date",
+        "end_date": "string:date",
+        "unavailable_hours": "integer"
+      }
+    },
+    "LeaveUpdateRequest": {
+      "required": [],
+      "properties": {
+        "start_date": "null|string:date",
+        "end_date": "null|string:date",
+        "unavailable_hours": "integer|null"
+      }
+    },
+    "LeaveResponse": {
+      "required": [
+        "id",
+        "organization_id",
+        "membership_id",
+        "start_date",
+        "end_date",
+        "unavailable_hours",
+        "version",
+        "created_at",
+        "updated_at"
+      ],
+      "properties": {
+        "id": "string:uuid",
+        "organization_id": "string:uuid",
+        "membership_id": "string:uuid",
+        "start_date": "string:date",
+        "end_date": "string:date",
+        "unavailable_hours": "integer",
+        "version": "integer",
+        "created_at": "string:date-time",
+        "updated_at": "string:date-time"
+      }
+    },
+    "WorkloadResponse": {
+      "required": [
+        "membership_id",
+        "project_week_id",
+        "effective_capacity_hours",
+        "allocated_effort_hours",
+        "residual_capacity_hours",
+        "workload_ratio"
+      ],
+      "properties": {
+        "membership_id": "string:uuid",
+        "project_week_id": "string:uuid",
+        "effective_capacity_hours": "integer",
+        "allocated_effort_hours": "integer",
+        "residual_capacity_hours": "integer",
+        "workload_ratio": "null|string"
+      }
+    }
   },
   "people_capacity": {
     "paths": {
-      "/api/v1/skills": ["get", "post"],
-      "/api/v1/skills/{skill_id}": ["get", "patch", "delete"],
-      "/api/v1/members/{membership_id}/skills": ["get"],
-      "/api/v1/members/{membership_id}/skills/{skill_id}": ["get", "put", "delete"],
-      "/api/v1/members/{membership_id}/work-evidence": ["get", "post"],
-      "/api/v1/capacity": ["get", "post"],
-      "/api/v1/capacity/{capacity_id}": ["get", "delete"],
-      "/api/v1/leave": ["get", "post"],
-      "/api/v1/leave/{leave_id}": ["get", "patch", "delete"],
-      "/api/v1/workload": ["get"]
+      "/api/v1/skills": [
+        "get",
+        "post"
+      ],
+      "/api/v1/skills/{skill_id}": [
+        "get",
+        "patch",
+        "delete"
+      ],
+      "/api/v1/members/{membership_id}/skills": [
+        "get"
+      ],
+      "/api/v1/members/{membership_id}/skills/{skill_id}": [
+        "get",
+        "put",
+        "delete"
+      ],
+      "/api/v1/members/{membership_id}/work-evidence": [
+        "get",
+        "post"
+      ],
+      "/api/v1/capacity": [
+        "get",
+        "post"
+      ],
+      "/api/v1/capacity/{capacity_id}": [
+        "get",
+        "delete"
+      ],
+      "/api/v1/leave": [
+        "get",
+        "post"
+      ],
+      "/api/v1/leave/{leave_id}": [
+        "get",
+        "patch",
+        "delete"
+      ],
+      "/api/v1/workload": [
+        "get"
+      ]
     }
   },
   "assistant": {
     "paths": {
-      "/api/v1/ai/conversations": ["get", "post"],
-      "/api/v1/ai/conversations/{conversation_id}": ["get"],
-      "/api/v1/ai/conversations/{conversation_id}/messages": ["post"],
-      "/api/v1/ai/conversations/{conversation_id}/events": ["get"]
+      "/api/v1/ai/conversations": [
+        "get",
+        "post"
+      ],
+      "/api/v1/ai/conversations/{conversation_id}": [
+        "get"
+      ],
+      "/api/v1/ai/conversations/{conversation_id}/messages": [
+        "post"
+      ],
+      "/api/v1/ai/conversations/{conversation_id}/events": [
+        "get"
+      ]
     },
     "content_block_mapping": {
       "activity": "#/components/schemas/ActivityBlock",
@@ -103,63 +982,455 @@
       "work_evidence": "#/components/schemas/WorkEvidenceBlock"
     },
     "schemas": {
-      "DailySummaryBlock": {"required": ["project_id", "expected_version", "operation"], "properties": {"kind": "literal:daily_summary", "project_id": "string:uuid", "draft_id": "null|string:uuid", "expected_version": "integer", "operation": "literal:CONFIGURE|PAUSE|RESUME", "needs_manager_confirmation": "literal:True"}},
-      "CreateConversationRequest": { "required": ["locale"], "properties": { "locale": "literal:vi|en", "title": "null|string[,120]" } },
-      "ConversationResponse": { "required": ["id", "locale", "title", "status", "last_message_sequence", "last_event_sequence", "created_at", "updated_at"], "properties": { "id": "string:uuid", "locale": "literal:vi|en", "title": "null|string", "status": "string", "last_message_sequence": "integer", "last_event_sequence": "integer", "created_at": "string:date-time", "updated_at": "string:date-time" } },
-      "ConversationListResponse": { "required": ["items"], "properties": { "items": "array:ref:ConversationResponse" } },
-      "PostAssistantMessageRequest": { "required": ["message", "locale"], "properties": { "message": "string[1,8000]", "locale": "literal:vi|en", "card_action": "null|ref:CardAction" } },
-      "AssistantTurnAcceptedResponse": { "required": ["conversation_id", "message_id", "turn_id", "orchestration_run_id", "status"], "properties": { "conversation_id": "string:uuid", "message_id": "string:uuid", "turn_id": "string:uuid", "orchestration_run_id": "string:uuid", "status": "literal:QUEUED" } },
-      "ConversationSnapshotResponse": { "required": ["conversation", "messages"], "properties": { "conversation": "ref:ConversationResponse", "messages": "array:ref:MessageResponse" } }
+      "DailySummaryBlock": {
+        "required": [
+          "project_id",
+          "expected_version",
+          "operation"
+        ],
+        "properties": {
+          "kind": "literal:daily_summary",
+          "project_id": "string:uuid",
+          "draft_id": "null|string:uuid",
+          "expected_version": "integer",
+          "operation": "literal:CONFIGURE|PAUSE|RESUME",
+          "needs_manager_confirmation": "literal:True"
+        }
+      },
+      "CreateConversationRequest": {
+        "required": [
+          "locale"
+        ],
+        "properties": {
+          "locale": "literal:vi|en",
+          "title": "null|string[,120]"
+        }
+      },
+      "ConversationResponse": {
+        "required": [
+          "id",
+          "locale",
+          "title",
+          "status",
+          "last_message_sequence",
+          "last_event_sequence",
+          "created_at",
+          "updated_at"
+        ],
+        "properties": {
+          "id": "string:uuid",
+          "locale": "literal:vi|en",
+          "title": "null|string",
+          "status": "string",
+          "last_message_sequence": "integer",
+          "last_event_sequence": "integer",
+          "created_at": "string:date-time",
+          "updated_at": "string:date-time"
+        }
+      },
+      "ConversationListResponse": {
+        "required": [
+          "items"
+        ],
+        "properties": {
+          "items": "array:ref:ConversationResponse"
+        }
+      },
+      "PostAssistantMessageRequest": {
+        "required": [
+          "message",
+          "locale"
+        ],
+        "properties": {
+          "message": "string[1,8000]",
+          "locale": "literal:vi|en",
+          "card_action": "null|ref:CardAction"
+        }
+      },
+      "AssistantTurnAcceptedResponse": {
+        "required": [
+          "conversation_id",
+          "message_id",
+          "turn_id",
+          "orchestration_run_id",
+          "status"
+        ],
+        "properties": {
+          "conversation_id": "string:uuid",
+          "message_id": "string:uuid",
+          "turn_id": "string:uuid",
+          "orchestration_run_id": "string:uuid",
+          "status": "literal:QUEUED"
+        }
+      },
+      "ConversationSnapshotResponse": {
+        "required": [
+          "conversation",
+          "messages"
+        ],
+        "properties": {
+          "conversation": "ref:ConversationResponse",
+          "messages": "array:ref:MessageResponse"
+        }
+      }
     }
   },
   "team_requirements": {
     "paths": {
-      "/api/v1/projects/{project_id}/team-requirements": ["get", "post", "patch"],
-      "/api/v1/projects/{project_id}/team-requirements/ranking-preview": ["get"]
+      "/api/v1/projects/{project_id}/team-requirements": [
+        "get",
+        "post",
+        "patch"
+      ],
+      "/api/v1/projects/{project_id}/team-requirements/ranking-preview": [
+        "get"
+      ]
     },
     "schemas": {
-      "RequirementItemInput": { "required": ["skill_id", "minimum_level", "project_week_id", "effort_hours", "source_task_ids"], "properties": { "skill_id": "string:uuid", "minimum_level": "integer", "project_week_id": "string:uuid", "effort_hours": "integer", "source_task_ids": "array:string:uuid" } },
-      "RequirementItemResponse": { "required": ["skill_id", "minimum_level", "project_week_id", "effort_hours", "source_task_ids", "id"], "properties": { "skill_id": "string:uuid", "minimum_level": "integer", "project_week_id": "string:uuid", "effort_hours": "integer", "source_task_ids": "array:string:uuid", "id": "string:uuid" } },
-      "IncompleteRequirementResponse": { "required": ["task_id", "reason"], "properties": { "task_id": "string:uuid", "reason": "string" } },
-      "ReviseTeamRequirementsRequest": { "required": ["action", "items"], "properties": { "action": "literal:revise", "items": "array:ref:RequirementItemInput", "incomplete_items": "array:ref:IncompleteRequirementResponse" } },
-      "ConfirmTeamRequirementsRequest": { "required": ["action"], "properties": { "action": "literal:confirm" } },
-      "RefreshTeamRequirementsRequest": { "required": ["action"], "properties": { "action": "literal:refresh" } },
-      "TeamRequirementSetResponse": { "required": ["id", "organization_id", "project_id", "version", "status", "items", "incomplete_items", "created_at", "updated_at"], "properties": { "id": "string:uuid", "organization_id": "string:uuid", "project_id": "string:uuid", "version": "integer", "status": "literal:DRAFT|CONFIRMED|STALE", "items": "array:ref:RequirementItemResponse", "incomplete_items": "array:ref:IncompleteRequirementResponse", "created_at": "string:date-time", "updated_at": "string:date-time" } },
-      "RankingEvidenceResponse": { "required": ["id", "summary", "source_resource_type", "source_resource_id"], "properties": { "id": "string:uuid", "summary": "string", "source_resource_type": "string", "source_resource_id": "string:uuid" } },
-      "CandidateRankingResponse": { "required": ["requirement_id", "membership_id", "display_name", "eligible", "hard_failure_codes", "skill_points", "capacity_points", "evidence_points", "familiarity_points", "total_points", "effective_capacity_hours", "residual_capacity_hours", "evidence"], "properties": { "requirement_id": "string:uuid", "membership_id": "string:uuid", "display_name": "string", "eligible": "boolean", "hard_failure_codes": "array:string", "skill_points": "string", "capacity_points": "string", "evidence_points": "string", "familiarity_points": "string", "total_points": "string", "effective_capacity_hours": "integer|null", "residual_capacity_hours": "integer|null", "evidence": "array:ref:RankingEvidenceResponse" } },
-      "RankingAllocationResponse": { "required": ["requirement_id", "membership_id", "allocated_effort_hours"], "properties": { "requirement_id": "string:uuid", "membership_id": "string:uuid", "allocated_effort_hours": "string" } },
-      "RankingUncoveredResponse": { "required": ["requirement_id", "uncovered_effort_hours"], "properties": { "requirement_id": "string:uuid", "uncovered_effort_hours": "string" } },
-      "RankingPreviewResponse": { "required": ["requirement_set_id", "requirement_version", "policy_version", "origin", "candidates", "allocations", "uncovered"], "properties": { "requirement_set_id": "string:uuid", "requirement_version": "integer", "policy_version": "literal:ranking-v1", "origin": "literal:DETERMINISTIC", "candidates": "array:ref:CandidateRankingResponse", "allocations": "array:ref:RankingAllocationResponse", "uncovered": "array:ref:RankingUncoveredResponse" } }
+      "RequirementItemInput": {
+        "required": [
+          "skill_id",
+          "minimum_level",
+          "project_week_id",
+          "effort_hours",
+          "source_task_ids"
+        ],
+        "properties": {
+          "skill_id": "string:uuid",
+          "minimum_level": "integer",
+          "project_week_id": "string:uuid",
+          "effort_hours": "integer",
+          "source_task_ids": "array:string:uuid"
+        }
+      },
+      "RequirementItemResponse": {
+        "required": [
+          "skill_id",
+          "minimum_level",
+          "project_week_id",
+          "effort_hours",
+          "source_task_ids",
+          "id"
+        ],
+        "properties": {
+          "skill_id": "string:uuid",
+          "minimum_level": "integer",
+          "project_week_id": "string:uuid",
+          "effort_hours": "integer",
+          "source_task_ids": "array:string:uuid",
+          "id": "string:uuid"
+        }
+      },
+      "IncompleteRequirementResponse": {
+        "required": [
+          "task_id",
+          "reason"
+        ],
+        "properties": {
+          "task_id": "string:uuid",
+          "reason": "string"
+        }
+      },
+      "ReviseTeamRequirementsRequest": {
+        "required": [
+          "action",
+          "items"
+        ],
+        "properties": {
+          "action": "literal:revise",
+          "items": "array:ref:RequirementItemInput",
+          "incomplete_items": "array:ref:IncompleteRequirementResponse"
+        }
+      },
+      "ConfirmTeamRequirementsRequest": {
+        "required": [
+          "action"
+        ],
+        "properties": {
+          "action": "literal:confirm"
+        }
+      },
+      "RefreshTeamRequirementsRequest": {
+        "required": [
+          "action"
+        ],
+        "properties": {
+          "action": "literal:refresh"
+        }
+      },
+      "TeamRequirementSetResponse": {
+        "required": [
+          "id",
+          "organization_id",
+          "project_id",
+          "version",
+          "status",
+          "items",
+          "incomplete_items",
+          "created_at",
+          "updated_at"
+        ],
+        "properties": {
+          "id": "string:uuid",
+          "organization_id": "string:uuid",
+          "project_id": "string:uuid",
+          "version": "integer",
+          "status": "literal:DRAFT|CONFIRMED|STALE",
+          "items": "array:ref:RequirementItemResponse",
+          "incomplete_items": "array:ref:IncompleteRequirementResponse",
+          "created_at": "string:date-time",
+          "updated_at": "string:date-time"
+        }
+      },
+      "RankingEvidenceResponse": {
+        "required": [
+          "id",
+          "summary",
+          "source_resource_type",
+          "source_resource_id"
+        ],
+        "properties": {
+          "id": "string:uuid",
+          "summary": "string",
+          "source_resource_type": "string",
+          "source_resource_id": "string:uuid"
+        }
+      },
+      "CandidateRankingResponse": {
+        "required": [
+          "requirement_id",
+          "membership_id",
+          "display_name",
+          "eligible",
+          "hard_failure_codes",
+          "skill_points",
+          "capacity_points",
+          "evidence_points",
+          "familiarity_points",
+          "total_points",
+          "effective_capacity_hours",
+          "residual_capacity_hours",
+          "evidence"
+        ],
+        "properties": {
+          "requirement_id": "string:uuid",
+          "membership_id": "string:uuid",
+          "display_name": "string",
+          "eligible": "boolean",
+          "hard_failure_codes": "array:string",
+          "skill_points": "string",
+          "capacity_points": "string",
+          "evidence_points": "string",
+          "familiarity_points": "string",
+          "total_points": "string",
+          "effective_capacity_hours": "integer|null",
+          "residual_capacity_hours": "integer|null",
+          "evidence": "array:ref:RankingEvidenceResponse"
+        }
+      },
+      "RankingAllocationResponse": {
+        "required": [
+          "requirement_id",
+          "membership_id",
+          "allocated_effort_hours"
+        ],
+        "properties": {
+          "requirement_id": "string:uuid",
+          "membership_id": "string:uuid",
+          "allocated_effort_hours": "string"
+        }
+      },
+      "RankingUncoveredResponse": {
+        "required": [
+          "requirement_id",
+          "uncovered_effort_hours"
+        ],
+        "properties": {
+          "requirement_id": "string:uuid",
+          "uncovered_effort_hours": "string"
+        }
+      },
+      "RankingPreviewResponse": {
+        "required": [
+          "requirement_set_id",
+          "requirement_version",
+          "policy_version",
+          "origin",
+          "candidates",
+          "allocations",
+          "uncovered"
+        ],
+        "properties": {
+          "requirement_set_id": "string:uuid",
+          "requirement_version": "integer",
+          "policy_version": "literal:ranking-v1",
+          "origin": "literal:DETERMINISTIC",
+          "candidates": "array:ref:CandidateRankingResponse",
+          "allocations": "array:ref:RankingAllocationResponse",
+          "uncovered": "array:ref:RankingUncoveredResponse"
+        }
+      }
     }
   },
   "team_recommendations": {
     "paths": {
-      "/api/v1/projects/{project_id}/team": ["get"],
-      "/api/v1/projects/{project_id}/team-recommendations": ["post"],
-      "/api/v1/recommendations/{recommendation_id}": ["get", "patch"],
-      "/api/v1/recommendations/{recommendation_id}/versions/{version}": ["get"],
-      "/api/v1/recommendations/{recommendation_id}/approve": ["post"],
-      "/api/v1/recommendations/{recommendation_id}/feedback": ["post"]
+      "/api/v1/projects/{project_id}/team": [
+        "get"
+      ],
+      "/api/v1/projects/{project_id}/team-recommendations": [
+        "post"
+      ],
+      "/api/v1/recommendations/{recommendation_id}": [
+        "get",
+        "patch"
+      ],
+      "/api/v1/recommendations/{recommendation_id}/versions/{version}": [
+        "get"
+      ],
+      "/api/v1/recommendations/{recommendation_id}/approve": [
+        "post"
+      ],
+      "/api/v1/recommendations/{recommendation_id}/feedback": [
+        "post"
+      ]
     },
     "schemas": {
-      "CreateRecommendationRequest": { "required": ["requirement_set_id", "requirement_version"], "properties": { "requirement_set_id": "string:uuid", "requirement_version": "integer", "policy_version": "string[1,64]" } },
-      "CandidateOverrideInput": { "required": ["requirement_id", "selected_membership_id"], "properties": { "requirement_id": "string:uuid", "selected_membership_id": "string:uuid", "override_reason": "null|string[,500]", "allocated_effort_hours": "null|number|string" } },
-      "ReviseRecommendationRequest": { "required": ["overrides"], "properties": { "overrides": "array:ref:CandidateOverrideInput" } },
-      "DecideRecommendationRequest": { "required": ["action"], "properties": { "action": "literal:approve|reject", "reason": "null|string[,500]" } },
-      "RecommendationFeedbackRequest": { "required": ["version", "kind"], "properties": { "version": "integer", "kind": "literal:accept|override|reject", "comment": "string[,2000]" } },
-      "RecommendationFeedbackResponse": { "required": ["id", "recommendation_id", "version", "kind", "comment"], "properties": { "id": "string:uuid", "recommendation_id": "string:uuid", "version": "integer", "kind": "literal:accept|override|reject", "comment": "string" } },
-      "ProjectTeamMembershipResponse": { "required": ["id", "project_id", "membership_id", "decision_id", "active", "created_at"], "properties": { "id": "string:uuid", "project_id": "string:uuid", "membership_id": "string:uuid", "decision_id": "string:uuid", "active": "boolean", "created_at": "string:date-time" } },
-      "ProjectTeamResponse": { "required": ["memberships"], "properties": { "memberships": "array:ref:ProjectTeamMembershipResponse" } }
+      "CreateRecommendationRequest": {
+        "required": [
+          "requirement_set_id",
+          "requirement_version"
+        ],
+        "properties": {
+          "requirement_set_id": "string:uuid",
+          "requirement_version": "integer",
+          "policy_version": "string[1,64]"
+        }
+      },
+      "CandidateOverrideInput": {
+        "required": [
+          "requirement_id",
+          "selected_membership_id"
+        ],
+        "properties": {
+          "requirement_id": "string:uuid",
+          "selected_membership_id": "string:uuid",
+          "override_reason": "null|string[,500]",
+          "allocated_effort_hours": "null|number|string"
+        }
+      },
+      "ReviseRecommendationRequest": {
+        "required": [
+          "overrides"
+        ],
+        "properties": {
+          "overrides": "array:ref:CandidateOverrideInput"
+        }
+      },
+      "DecideRecommendationRequest": {
+        "required": [
+          "action"
+        ],
+        "properties": {
+          "action": "literal:approve|reject",
+          "reason": "null|string[,500]"
+        }
+      },
+      "RecommendationFeedbackRequest": {
+        "required": [
+          "version",
+          "kind"
+        ],
+        "properties": {
+          "version": "integer",
+          "kind": "literal:accept|override|reject",
+          "comment": "string[,2000]"
+        }
+      },
+      "RecommendationFeedbackResponse": {
+        "required": [
+          "id",
+          "recommendation_id",
+          "version",
+          "kind",
+          "comment"
+        ],
+        "properties": {
+          "id": "string:uuid",
+          "recommendation_id": "string:uuid",
+          "version": "integer",
+          "kind": "literal:accept|override|reject",
+          "comment": "string"
+        }
+      },
+      "ProjectTeamMembershipResponse": {
+        "required": [
+          "id",
+          "project_id",
+          "membership_id",
+          "decision_id",
+          "active",
+          "created_at"
+        ],
+        "properties": {
+          "id": "string:uuid",
+          "project_id": "string:uuid",
+          "membership_id": "string:uuid",
+          "decision_id": "string:uuid",
+          "active": "boolean",
+          "created_at": "string:date-time"
+        }
+      },
+      "ProjectTeamResponse": {
+        "required": [
+          "memberships"
+        ],
+        "properties": {
+          "memberships": "array:ref:ProjectTeamMembershipResponse"
+        }
+      }
     }
   },
   "explicit_assignment": {
     "paths": {
-      "/api/v1/tasks/{task_id}/assign": ["post"]
+      "/api/v1/tasks/{task_id}/assign": [
+        "post"
+      ]
     },
     "schemas": {
-      "ExplicitAssignmentRequest": { "required": ["assignee_membership_id", "expected_task_version"], "properties": { "assignee_membership_id": "string:uuid", "expected_task_version": "integer" } },
-      "AssignmentWarningResponse": { "required": ["code"], "properties": { "code": "string" } },
-      "ExplicitAssignmentResponse": { "required": ["task", "warnings", "effective_capacity_hours", "workload_before_hours", "workload_after_hours"], "properties": { "task": "ref:TaskResponse", "warnings": "array:ref:AssignmentWarningResponse", "effective_capacity_hours": "integer", "workload_before_hours": "integer", "workload_after_hours": "integer" } }
+      "ExplicitAssignmentRequest": {
+        "required": [
+          "assignee_membership_id",
+          "expected_task_version"
+        ],
+        "properties": {
+          "assignee_membership_id": "string:uuid",
+          "expected_task_version": "integer"
+        }
+      },
+      "AssignmentWarningResponse": {
+        "required": [
+          "code"
+        ],
+        "properties": {
+          "code": "string"
+        }
+      },
+      "ExplicitAssignmentResponse": {
+        "required": [
+          "task",
+          "warnings",
+          "effective_capacity_hours",
+          "workload_before_hours",
+          "workload_after_hours"
+        ],
+        "properties": {
+          "task": "ref:TaskResponse",
+          "warnings": "array:ref:AssignmentWarningResponse",
+          "effective_capacity_hours": "integer",
+          "workload_before_hours": "integer",
+          "workload_after_hours": "integer"
+        }
+      }
     }
   },
   "weekly_progress": {
@@ -402,7 +1673,6 @@
           "done_text"
         ],
         "properties": {
-          "blocker_commands": "array:ref:BlockerCommand",
           "task_id": "string:uuid",
           "expected_task_version": "integer",
           "expected_progress_version": "integer",
@@ -413,6 +1683,7 @@
           "done_text": "string[1,4000]",
           "next_steps": "string[,4000]",
           "evidence_refs": "array:ref:SelectedEvidence",
+          "blocker_commands": "array:ref:BlockerCommand",
           "corrects_observation_id": "null|string:uuid",
           "correction_reason": "string[,1000]"
         }
@@ -427,7 +1698,6 @@
           "done_text"
         ],
         "properties": {
-          "blocker_commands": "array:ref:BlockerCommand",
           "task_id": "string:uuid",
           "expected_task_version": "integer",
           "expected_progress_version": "integer",
@@ -438,6 +1708,7 @@
           "done_text": "string[1,4000]",
           "next_steps": "string[,4000]",
           "evidence_refs": "array:ref:SelectedEvidence",
+          "blocker_commands": "array:ref:BlockerCommand",
           "corrects_observation_id": "null|string:uuid",
           "correction_reason": "string[,1000]"
         }
@@ -594,280 +1865,280 @@
     }
   },
   "blockers": {
-  "paths": {
-    "/api/v1/blockers": [
-      "post",
-      "get"
-    ],
-    "/api/v1/blockers/{blocker_id}": [
-      "delete",
-      "patch",
-      "get"
-    ],
-    "/api/v1/blockers/{blocker_id}/history": [
-      "get"
-    ]
-  },
-  "schemas": {
-    "Blocker": {
-      "required": [
-        "id",
-        "task_id",
-        "created_by_membership_id",
-        "severity",
-        "text",
-        "status",
-        "version",
-        "created_at",
-        "updated_at"
+    "paths": {
+      "/api/v1/blockers": [
+        "post",
+        "get"
       ],
-      "properties": {
-        "id": "string:uuid",
-        "task_id": "string:uuid",
-        "created_by_membership_id": "string:uuid",
-        "severity": "literal:LOW|MEDIUM|HIGH|CRITICAL",
-        "text": "string",
-        "evidence_refs": "array:ref:SelectedEvidence",
-        "status": "literal:OPEN|ACKNOWLEDGED|RESOLVED",
-        "archived": "boolean",
-        "version": "integer",
-        "created_at": "string:date-time",
-        "updated_at": "string:date-time"
-      }
+      "/api/v1/blockers/{blocker_id}": [
+        "delete",
+        "patch",
+        "get"
+      ],
+      "/api/v1/blockers/{blocker_id}/history": [
+        "get"
+      ]
     },
-    "BlockerCommand": {
-      "required": [
-        "task_id",
-        "expected_task_version",
-        "action"
-      ],
-      "properties": {
-        "task_id": "string:uuid",
-        "expected_task_version": "integer",
-        "severity": "literal:LOW|MEDIUM|HIGH|CRITICAL",
-        "text": "string[,4000]",
-        "evidence_refs": "array:ref:SelectedEvidence",
-        "expected_blocker_version": "integer|null",
-        "blocker_id": "null|string:uuid",
-        "action": "literal:CREATE|EDIT|ACKNOWLEDGE|RESOLVE|REOPEN|ARCHIVE"
-      }
-    },
-    "BlockerMutationRequest": {
-      "required": [
-        "task_id",
-        "expected_task_version",
-        "action"
-      ],
-      "properties": {
-        "task_id": "string:uuid",
-        "expected_task_version": "integer",
-        "severity": "literal:LOW|MEDIUM|HIGH|CRITICAL",
-        "text": "string[,4000]",
-        "evidence_refs": "array:ref:SelectedEvidence",
-        "expected_blocker_version": "integer|null",
-        "blocker_id": "null|string:uuid",
-        "action": "literal:CREATE|EDIT|ACKNOWLEDGE|RESOLVE|REOPEN|ARCHIVE"
-      }
-    },
-    "BlockerTransition": {
-      "required": [
-        "id",
-        "blocker_id",
-        "version",
-        "actor_membership_id",
-        "action",
-        "from_status",
-        "to_status",
-        "at",
-        "snapshot"
-      ],
-      "properties": {
-        "id": "string:uuid",
-        "blocker_id": "string:uuid",
-        "version": "integer",
-        "actor_membership_id": "string:uuid",
-        "action": "literal:CREATE|EDIT|ACKNOWLEDGE|RESOLVE|REOPEN|ARCHIVE",
-        "from_status": "literal:OPEN|ACKNOWLEDGED|RESOLVED|null",
-        "to_status": "literal:OPEN|ACKNOWLEDGED|RESOLVED",
-        "at": "string:date-time",
-        "snapshot": "ref:Blocker"
+    "schemas": {
+      "Blocker": {
+        "required": [
+          "id",
+          "task_id",
+          "created_by_membership_id",
+          "severity",
+          "text",
+          "status",
+          "version",
+          "created_at",
+          "updated_at"
+        ],
+        "properties": {
+          "id": "string:uuid",
+          "task_id": "string:uuid",
+          "created_by_membership_id": "string:uuid",
+          "severity": "literal:LOW|MEDIUM|HIGH|CRITICAL",
+          "text": "string",
+          "evidence_refs": "array:ref:SelectedEvidence",
+          "status": "literal:OPEN|ACKNOWLEDGED|RESOLVED",
+          "archived": "boolean",
+          "version": "integer",
+          "created_at": "string:date-time",
+          "updated_at": "string:date-time"
+        }
+      },
+      "BlockerCommand": {
+        "required": [
+          "task_id",
+          "expected_task_version",
+          "action"
+        ],
+        "properties": {
+          "task_id": "string:uuid",
+          "expected_task_version": "integer",
+          "severity": "literal:LOW|MEDIUM|HIGH|CRITICAL",
+          "text": "string[,4000]",
+          "evidence_refs": "array:ref:SelectedEvidence",
+          "expected_blocker_version": "integer|null",
+          "blocker_id": "null|string:uuid",
+          "action": "literal:CREATE|EDIT|ACKNOWLEDGE|RESOLVE|REOPEN|ARCHIVE"
+        }
+      },
+      "BlockerMutationRequest": {
+        "required": [
+          "task_id",
+          "expected_task_version",
+          "action"
+        ],
+        "properties": {
+          "task_id": "string:uuid",
+          "expected_task_version": "integer",
+          "severity": "literal:LOW|MEDIUM|HIGH|CRITICAL",
+          "text": "string[,4000]",
+          "evidence_refs": "array:ref:SelectedEvidence",
+          "expected_blocker_version": "integer|null",
+          "blocker_id": "null|string:uuid",
+          "action": "literal:CREATE|EDIT|ACKNOWLEDGE|RESOLVE|REOPEN|ARCHIVE"
+        }
+      },
+      "BlockerTransition": {
+        "required": [
+          "id",
+          "blocker_id",
+          "version",
+          "actor_membership_id",
+          "action",
+          "from_status",
+          "to_status",
+          "at",
+          "snapshot"
+        ],
+        "properties": {
+          "id": "string:uuid",
+          "blocker_id": "string:uuid",
+          "version": "integer",
+          "actor_membership_id": "string:uuid",
+          "action": "literal:CREATE|EDIT|ACKNOWLEDGE|RESOLVE|REOPEN|ARCHIVE",
+          "from_status": "literal:OPEN|ACKNOWLEDGED|RESOLVED|null",
+          "to_status": "literal:OPEN|ACKNOWLEDGED|RESOLVED",
+          "at": "string:date-time",
+          "snapshot": "ref:Blocker"
+        }
       }
     }
-  }
-},
+  },
   "risk": {
-  "paths": {
-    "/api/v1/risks/refresh": [
-      "post"
-    ],
-    "/api/v1/risks": [
-      "get"
-    ],
-    "/api/v1/risks/weeks/{week_id}": [
-      "get"
-    ],
-    "/api/v1/risks/{risk_id}": [
-      "get"
-    ],
-    "/api/v1/risks/{risk_id}/reviews": [
-      "post",
-      "get"
-    ],
-    "/api/v1/notifications": [
-      "get"
-    ],
-    "/api/v1/notifications/{notification_id}/read": [
-      "post"
-    ]
-  },
-  "schemas": {
-    "RiskAssessment": {
-      "required": [
-        "id",
-        "task_id",
-        "task_version",
-        "state",
-        "evaluated_at"
+    "paths": {
+      "/api/v1/risks/refresh": [
+        "post"
       ],
-      "properties": {
-        "id": "string:uuid",
-        "task_id": "string:uuid",
-        "task_version": "integer",
-        "state": "literal:PENDING|READY|UNAVAILABLE|STALE",
-        "evaluated_at": "string:date-time",
-        "input_snapshot": "null|ref:RiskInputs",
-        "judgment": "null|ref:RiskJudgment",
-        "band": "literal:LOW|MEDIUM|HIGH|null",
-        "limitation": "string",
-        "policy_version": "literal:risk.ai.v1",
-        "model_ref": "null|string",
-        "prompt_version": "literal:risk-assessment.v1",
-        "schema_version": "literal:risk-judgment.v1"
-      }
+      "/api/v1/risks": [
+        "get"
+      ],
+      "/api/v1/risks/weeks/{week_id}": [
+        "get"
+      ],
+      "/api/v1/risks/{risk_id}": [
+        "get"
+      ],
+      "/api/v1/risks/{risk_id}/reviews": [
+        "post",
+        "get"
+      ],
+      "/api/v1/notifications": [
+        "get"
+      ],
+      "/api/v1/notifications/{notification_id}/read": [
+        "post"
+      ]
     },
-    "RiskInputs": {
-      "required": [
-        "task_id",
-        "task_version",
-        "facts"
-      ],
-      "properties": {
-        "task_id": "string:uuid",
-        "task_version": "integer",
-        "facts": "array:ref:RiskFact",
-        "missing": "array:string"
-      }
-    },
-    "RiskFact": {
-      "required": [
-        "id",
-        "kind",
-        "values"
-      ],
-      "properties": {
-        "id": "string",
-        "kind": "literal:TASK|PROGRESS|BLOCKER|DEPENDENCY|CAPACITY|WARNING|BASELINE",
-        "values": "object"
-      }
-    },
-    "RiskJudgment": {
-      "required": [
-        "score",
-        "rationale"
-      ],
-      "properties": {
-        "score": "null|string",
-        "rationale": "string[1,2000]",
-        "observations": "array:ref:RiskObservation",
-        "limitations": "array:string[1,2000]",
-        "recommendations": "array:string[1,2000]"
-      }
-    },
-    "RiskObservation": {
-      "required": [
-        "text",
-        "source_ids"
-      ],
-      "properties": {
-        "text": "string[1,2000]",
-        "source_ids": "array:string"
-      }
-    },
-    "RiskReviewCommand": {
-      "required": [
-        "disposition",
-        "reason"
-      ],
-      "properties": {
-        "disposition": "literal:NEEDS_FOLLOWUP|ACCEPTED_EXPLANATION|RESOLVED",
-        "reason": "string[1,2000]"
-      }
-    },
-    "RiskReviewEvent": {
-      "required": [
-        "disposition",
-        "reason",
-        "id",
-        "risk_id",
-        "actor_membership_id",
-        "at"
-      ],
-      "properties": {
-        "disposition": "literal:NEEDS_FOLLOWUP|ACCEPTED_EXPLANATION|RESOLVED",
-        "reason": "string[1,2000]",
-        "id": "string:uuid",
-        "risk_id": "string:uuid",
-        "actor_membership_id": "string:uuid",
-        "at": "string:date-time"
-      }
-    },
-    "RiskNotification": {
-      "required": [
-        "id",
-        "task_id",
-        "risk_id",
-        "kind",
-        "created_at"
-      ],
-      "properties": {
-        "id": "string:uuid",
-        "task_id": "string:uuid",
-        "risk_id": "string:uuid",
-        "kind": "literal:HIGH_RISK|SEVERE_BLOCKER|EVIDENCE_REVIEW",
-        "created_at": "string:date-time",
-        "read": "boolean"
-      }
-    },
-    "RiskRefreshRequest": {
-      "required": [
-        "task_id"
-      ],
-      "properties": {
-        "task_id": "string:uuid"
-      }
-    },
-    "WeeklyRisk": {
-      "required": [
-        "project_week_id",
-        "state",
-        "score",
-        "band",
-        "task_count",
-        "assessed_count",
-        "unavailable_task_ids"
-      ],
-      "properties": {
-        "project_week_id": "string:uuid",
-        "state": "literal:READY|PARTIAL|UNAVAILABLE",
-        "score": "null|string",
-        "band": "literal:LOW|MEDIUM|HIGH|null",
-        "task_count": "integer",
-        "assessed_count": "integer",
-        "unavailable_task_ids": "array:string:uuid"
+    "schemas": {
+      "RiskAssessment": {
+        "required": [
+          "id",
+          "task_id",
+          "task_version",
+          "state",
+          "evaluated_at"
+        ],
+        "properties": {
+          "id": "string:uuid",
+          "task_id": "string:uuid",
+          "task_version": "integer",
+          "state": "literal:PENDING|READY|UNAVAILABLE|STALE",
+          "evaluated_at": "string:date-time",
+          "input_snapshot": "null|ref:RiskInputs",
+          "judgment": "null|ref:RiskJudgment",
+          "band": "literal:LOW|MEDIUM|HIGH|null",
+          "limitation": "string",
+          "policy_version": "literal:risk.ai.v1",
+          "model_ref": "null|string",
+          "prompt_version": "literal:risk-assessment.v1",
+          "schema_version": "literal:risk-judgment.v1"
+        }
+      },
+      "RiskInputs": {
+        "required": [
+          "task_id",
+          "task_version",
+          "facts"
+        ],
+        "properties": {
+          "task_id": "string:uuid",
+          "task_version": "integer",
+          "facts": "array:ref:RiskFact",
+          "missing": "array:string"
+        }
+      },
+      "RiskFact": {
+        "required": [
+          "id",
+          "kind",
+          "values"
+        ],
+        "properties": {
+          "id": "string",
+          "kind": "literal:TASK|PROGRESS|BLOCKER|DEPENDENCY|CAPACITY|WARNING|BASELINE",
+          "values": "object"
+        }
+      },
+      "RiskJudgment": {
+        "required": [
+          "score",
+          "rationale"
+        ],
+        "properties": {
+          "score": "null|string",
+          "rationale": "string[1,2000]",
+          "observations": "array:ref:RiskObservation",
+          "limitations": "array:string[1,2000]",
+          "recommendations": "array:string[1,2000]"
+        }
+      },
+      "RiskObservation": {
+        "required": [
+          "text",
+          "source_ids"
+        ],
+        "properties": {
+          "text": "string[1,2000]",
+          "source_ids": "array:string"
+        }
+      },
+      "RiskReviewCommand": {
+        "required": [
+          "disposition",
+          "reason"
+        ],
+        "properties": {
+          "disposition": "literal:NEEDS_FOLLOWUP|ACCEPTED_EXPLANATION|RESOLVED",
+          "reason": "string[1,2000]"
+        }
+      },
+      "RiskReviewEvent": {
+        "required": [
+          "disposition",
+          "reason",
+          "id",
+          "risk_id",
+          "actor_membership_id",
+          "at"
+        ],
+        "properties": {
+          "disposition": "literal:NEEDS_FOLLOWUP|ACCEPTED_EXPLANATION|RESOLVED",
+          "reason": "string[1,2000]",
+          "id": "string:uuid",
+          "risk_id": "string:uuid",
+          "actor_membership_id": "string:uuid",
+          "at": "string:date-time"
+        }
+      },
+      "RiskNotification": {
+        "required": [
+          "id",
+          "task_id",
+          "risk_id",
+          "kind",
+          "created_at"
+        ],
+        "properties": {
+          "id": "string:uuid",
+          "task_id": "string:uuid",
+          "risk_id": "string:uuid",
+          "kind": "literal:HIGH_RISK|SEVERE_BLOCKER|EVIDENCE_REVIEW",
+          "created_at": "string:date-time",
+          "read": "boolean"
+        }
+      },
+      "RiskRefreshRequest": {
+        "required": [
+          "task_id"
+        ],
+        "properties": {
+          "task_id": "string:uuid"
+        }
+      },
+      "WeeklyRisk": {
+        "required": [
+          "project_week_id",
+          "state",
+          "score",
+          "band",
+          "task_count",
+          "assessed_count",
+          "unavailable_task_ids"
+        ],
+        "properties": {
+          "project_week_id": "string:uuid",
+          "state": "literal:READY|PARTIAL|UNAVAILABLE",
+          "score": "null|string",
+          "band": "literal:LOW|MEDIUM|HIGH|null",
+          "task_count": "integer",
+          "assessed_count": "integer",
+          "unavailable_task_ids": "array:string:uuid"
+        }
       }
     }
-  }
-},
+  },
   "reporting": {
     "paths": {
       "/api/v1/reports": [
@@ -887,6 +2158,12 @@
         "post"
       ],
       "/api/v1/reports/{report_id}/generate": [
+        "post"
+      ],
+      "/api/v1/reports/{report_id}/versions": [
+        "post"
+      ],
+      "/api/v1/reports/{report_id}/review-decisions": [
         "post"
       ]
     },
@@ -929,6 +2206,10 @@
           "generation_state": "enum:GenerationState",
           "generation_id": "null|string:uuid",
           "metrics_version_id": "null|string:uuid",
+          "verification_state": "literal:NOT_APPLICABLE|PENDING|VERIFIED|FAILED",
+          "review_state": "literal:PENDING|ACCEPTED|REJECTED",
+          "narrative_access_state": "literal:AVAILABLE|UNAVAILABLE",
+          "published_versions": "array:ref:ReportVersion",
           "replayed": "boolean"
         }
       },
@@ -987,10 +2268,12 @@
           "id": "string:uuid",
           "report_id": "string:uuid",
           "snapshot_id": "string:uuid",
-          "origin": "literal:METRICS_ONLY|AI_PROPOSED",
+          "origin": "literal:METRICS_ONLY|AI_PROPOSED|AI_EDITED",
           "locale": "literal:vi|en",
           "created_at": "string:date-time",
-          "narrative": "null|ref:ReportingNarrative",
+          "narrative": "null|ref:ReportingNarrative-Output",
+          "block_origins": "object",
+          "narrative_access_state": "literal:AVAILABLE|UNAVAILABLE",
           "rendered_facts": "object",
           "provenance": "object",
           "generation_id": "null|string:uuid",
@@ -1156,7 +2439,7 @@
           "snapshot_hash"
         ],
         "properties": {
-          "mode": "literal:METRICS_ONLY",
+          "mode": "literal:METRICS_ONLY|REVIEWED_NARRATIVE",
           "report_version_id": "string:uuid",
           "snapshot_hash": "string"
         }
@@ -1169,37 +2452,6 @@
         "properties": {
           "base_version_id": "string:uuid",
           "snapshot_hash": "string"
-        }
-      },
-      "ReportingNarrative": {
-        "required": [
-          "snapshot_id",
-          "snapshot_hash",
-          "locale",
-          "blocks"
-        ],
-        "properties": {
-          "schema_version": "literal:1.0",
-          "snapshot_id": "string:uuid",
-          "snapshot_hash": "string",
-          "catalog_version": "literal:report-metrics.v1",
-          "locale": "literal:vi|en",
-          "blocks": "array:ref:NarrativeBlock"
-        }
-      },
-      "FactBlock": {
-        "required": [
-          "id",
-          "section",
-          "template"
-        ],
-        "properties": {
-          "id": "string",
-          "section": "enum:Section",
-          "kind": "literal:FACT",
-          "template": "literal:METRIC|DONE_RATIO|RISK_SCORE",
-          "bindings": "array:ref:MetricBinding",
-          "source_bindings": "array:ref:SourceBinding"
         }
       },
       "NarrativeTextBlock": {
@@ -1219,7 +2471,62 @@
           "assumptions": "array:string[1,500]"
         }
       },
-      "MetricBinding": {
+      "EditReportCommand": {
+        "required": [
+          "parent_version_id",
+          "snapshot_hash",
+          "narrative"
+        ],
+        "properties": {
+          "parent_version_id": "string:uuid",
+          "snapshot_hash": "string",
+          "narrative": "ref:ReportingNarrative-Input"
+        }
+      },
+      "RejectReportCommand": {
+        "required": [
+          "report_version_id",
+          "snapshot_hash",
+          "reason"
+        ],
+        "properties": {
+          "report_version_id": "string:uuid",
+          "snapshot_hash": "string",
+          "reason": "string[1,2000]"
+        }
+      },
+      "ReportingNarrative-Output": {
+        "required": [
+          "snapshot_id",
+          "snapshot_hash",
+          "locale",
+          "blocks"
+        ],
+        "properties": {
+          "schema_version": "literal:1.0",
+          "snapshot_id": "string:uuid",
+          "snapshot_hash": "string",
+          "catalog_version": "literal:report-metrics.v1",
+          "locale": "literal:vi|en",
+          "blocks": "array:ref:NarrativeBlock-Output"
+        }
+      },
+      "FactBlock-Output": {
+        "required": [
+          "id",
+          "section",
+          "template"
+        ],
+        "properties": {
+          "id": "string",
+          "section": "enum:Section",
+          "kind": "literal:FACT",
+          "template": "literal:METRIC|DONE_RATIO|RISK_SCORE",
+          "bindings": "array:ref:MetricBinding-Output",
+          "source_bindings": "array:ref:SourceBinding-Output"
+        }
+      },
+      "MetricBinding-Output": {
         "required": [
           "metric_key",
           "unit",
@@ -1233,6 +2540,67 @@
           "operator": "literal:EQ|LT|LTE|GT|GTE",
           "value": "string",
           "comparison_metric_key": "null|string[,256]"
+        }
+      }
+    }
+  },
+  "feedback": {
+    "paths": {
+      "/api/v1/feedback": [
+        "post"
+      ]
+    },
+    "schemas": {
+      "FeedbackRequest": {
+        "required": [
+          "report_id",
+          "report_version_id",
+          "decision",
+          "reason"
+        ],
+        "properties": {
+          "report_id": "string:uuid",
+          "report_version_id": "string:uuid",
+          "decision": "literal:ACCEPT|EDIT|REJECT",
+          "reason": "string[1,2000]"
+        }
+      },
+      "FeedbackResponse": {
+        "required": [
+          "feedback"
+        ],
+        "properties": {
+          "feedback": "ref:Feedback",
+          "replayed": "boolean"
+        }
+      },
+      "Feedback": {
+        "required": [
+          "id",
+          "report_id",
+          "report_version_id",
+          "original_version_id",
+          "generation_id",
+          "actor_membership_id",
+          "kind",
+          "decision",
+          "reason",
+          "provenance",
+          "created_at"
+        ],
+        "properties": {
+          "id": "string:uuid",
+          "report_id": "string:uuid",
+          "report_version_id": "string:uuid",
+          "original_version_id": "string:uuid",
+          "generation_id": "string:uuid",
+          "actor_membership_id": "string:uuid",
+          "decision_id": "null|string:uuid",
+          "kind": "literal:TERMINAL_QUALITY|ADVISORY",
+          "decision": "literal:ACCEPT|EDIT|REJECT",
+          "reason": "null|string",
+          "provenance": "object",
+          "created_at": "string:date-time"
         }
       }
     }

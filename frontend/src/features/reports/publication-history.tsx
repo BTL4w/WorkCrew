@@ -17,6 +17,7 @@ export function PublicationHistory({ data, publish = publishReport, onPublished,
   const intent = useRef<{binding: string; key: string} | null>(null);
   const format = (at: string) => new Intl.DateTimeFormat(locale, { dateStyle: "medium", timeStyle: "short", timeZone: data.snapshot.period.timezone }).format(new Date(at));
   const selected = data.publications.find(item => item.id === viewing);
+  const publishedVersion=data.published_versions?.find(item=>item.id===selected?.report_version_id);
   async function submit() {
     if (pending || error === "publishStale") return;
     const binding = `${data.report.id}:${data.report.version}:${data.selected_version.id}:${data.snapshot.snapshot_hash}`;
@@ -48,6 +49,12 @@ export function PublicationHistory({ data, publish = publishReport, onPublished,
       <p className={styles.description}>{t("publishedAt", {at:format(selected.published_at)})}</p>
       <p className={styles.sourceId}>{t("publishedVersion", {id:selected.report_version_id})}</p>
       <details><summary>{t("snapshotReceipt")}</summary><p className={styles.sourceId}>{selected.snapshot_hash}</p></details>
+      {publishedVersion?.narrative_access_state==="UNAVAILABLE"&&<p role="alert">{t("narrativeUnavailable")}</p>}
+      {publishedVersion?.narrative&&<section aria-label={t("narrativeTitle")}>
+        {publishedVersion.narrative.blocks.map(block=><div key={block.id}>{publishedVersion.block_origins?.[block.id]==="HUMAN"&&<span className={styles.badge}>{t("humanAuthored")}</span>}<p>{block.kind==="FACT"?publishedVersion.rendered_facts?.[block.id]??t("unknown"):block.text}</p>
+          {block.kind!=="FACT"&&<><p>{t(`blockKind.${block.kind}`)}</p>{block.assumptions.map((a,i)=><p key={i}>{t("assumption",{text:a})}</p>)}{block.source_refs.map(source=><p key={`${source.resource_type}:${source.resource_id}`} className={styles.sourceId}>{source.resource_type} · {source.resource_id} · {t("version",{version:source.version})}</p>)}</>}
+        </div>)}
+      </section>}
       {selected.snapshot_hash === data.snapshot.snapshot_hash ? <MetricGrid snapshot={data.snapshot} /> : <p role="alert">{t("error")}</p>}
     </section>}
   </section>;

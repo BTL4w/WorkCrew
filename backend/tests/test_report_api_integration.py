@@ -140,6 +140,8 @@ async def report_harness() -> AsyncGenerator[ReportHarness]:
                 "skill_invocations",
                 "tool_invocations",
                 "agent_usage_budgets",
+                "feedback",
+                "report_version_verifications",
                 "report_generation_usage",
                 "report_generation_jobs",
                 "reporting_window_reporters",

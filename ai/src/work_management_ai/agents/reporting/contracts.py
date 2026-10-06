@@ -205,6 +205,7 @@ class ReportingContext(Contract):
     base_version_id: UUID
     locale: Literal["vi", "en"]
     project_label: str = Field(max_length=2000)
+    edited_narrative: ReportingNarrative | None = None
 
 
 class ReportingRequest(Contract):
@@ -215,11 +216,19 @@ class ReportingRequest(Contract):
     request_key: str = Field(min_length=16, max_length=128)
     summary_id: UUID | None = None
     locale: Literal["vi", "en"]
+    mode: Literal["DRAFT", "VERIFY_EDIT"] = "DRAFT"
+    edited_version_id: UUID | None = None
 
     @model_validator(mode="after")
     def summary_shape(self) -> Self:
         if (self.kind == "SUMMARY_JOB") != (self.summary_id is not None):
             raise ValueError("summary trigger shape")
+        if (self.mode == "VERIFY_EDIT") != (self.edited_version_id is not None):
+            raise ValueError("edit verification shape")
+        if self.edited_version_id is not None and (
+            self.kind != "REPORT_REQUEST" or self.edited_version_id != self.base_version_id
+        ):
+            raise ValueError("edit verification ownership")
         return self
 
 

@@ -278,7 +278,14 @@ class _ReportingRun:
         context = state.context
         if context is None:
             raise ValueError("REPORTING_CONTEXT_REQUIRED")
+        if node == "draft" and value.mode == "VERIFY_EDIT":
+            if context.edited_narrative is None:
+                raise ValueError("REPORTING_EDIT_REQUIRED")
+            state.narrative = context.edited_narrative
+            return
         if node == "draft":
+            if context.edited_narrative is not None:
+                raise ValueError("REPORTING_MODE_MISMATCH")
             state.narrative = await self.model(
                 state,
                 key=f"reporting.{value.locale}.draft",

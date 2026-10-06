@@ -325,3 +325,53 @@ async def test_summary_trigger_requires_same_project_and_exact_capture(
             {"summary": summaries[1].id, "id": run.id},
         )
     assert getattr(mismatch.value.orig, "sqlstate", None) == "23503"
+
+
+@pytest.mark.asyncio
+async def test_legacy_draft_trigger_replay_keeps_existing_run(report_harness: ReportHarness):
+    import json
+
+    from app.modules.reporting.domain.snapshots import canonical_hash
+
+    h = report_harness
+    service, trigger = await inputs(h)
+    run = await service.ensure(actor=h.actor, trigger=trigger)
+    legacy = trigger.model_dump(mode="json", exclude={"mode", "edited_version_id"})
+    await h.sql(
+        "UPDATE orchestration_runs SET execution_plan=jsonb_set("
+        "jsonb_set(execution_plan,'{trigger}',CAST(:trigger AS jsonb)),"
+        "'{trigger_fingerprint}',CAST(:fingerprint AS jsonb)) WHERE id=:id",
+        {
+            "id": run.id,
+            "trigger": json.dumps(legacy),
+            "fingerprint": json.dumps(canonical_hash(legacy)),
+        },
+    )
+    replay = await service.ensure(actor=h.actor, trigger=trigger)
+    assert replay.id == run.id
+
+
+@pytest.mark.asyncio
+async def test_checkpoint_keeps_edit_trigger_identity(report_harness: ReportHarness):
+    from app.modules.assistant.adapters.repository import PostgreSQLAssistantRepository
+    from app.modules.assistant.domain.triggers import TriggerError
+
+    h = report_harness
+    service, draft = await inputs(h)
+    trigger = draft.model_copy(
+        update={"mode": "VERIFY_EDIT", "edited_version_id": draft.base_version_id}
+    )
+    run = await service.ensure(actor=h.actor, trigger=trigger)
+    factory = async_sessionmaker(h.engine, expire_on_commit=False)
+    async with factory() as session, session.begin():
+        await PostgreSQLAssistantRepository(session).save_orchestration_checkpoint(
+            organization_id=h.actor.organization_id,
+            orchestration_run_id=run.id,
+            checkpoint={"phase": "verify"},
+            execution_plan={"schema_version": "1.0"},
+        )
+    replay = await service.ensure(actor=h.actor, trigger=trigger)
+    assert replay.id == run.id
+    assert replay.execution_plan["trigger"]["mode"] == "VERIFY_EDIT"
+    with pytest.raises(TriggerError, match="IDEMPOTENCY_KEY_REUSED"):
+        await service.ensure(actor=h.actor, trigger=draft)

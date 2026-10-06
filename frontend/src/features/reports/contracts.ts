@@ -27,12 +27,15 @@ export const snapshotSchema = z.object({
   limitations: z.array(z.string()),
 });
 export const publicationSchema = z.object({ id: z.uuid(), report_id: z.uuid(), report_version_id: z.uuid(), snapshot_hash: z.string().regex(/^[a-f0-9]{64}$/), publisher_membership_id: z.uuid(), decision_id: z.uuid(), published_at: z.string().datetime({ offset: true }) });
-const narrativeSchema = z.object({ locale: z.enum(["vi","en"]), snapshot_id:z.uuid(), snapshot_hash:z.string(), blocks:z.array(z.discriminatedUnion("kind",[
-  z.object({id:z.string(),section:z.string(),kind:z.literal("FACT"),template:z.string(),bindings:z.array(z.object({metric_key:z.string()})),source_bindings:z.array(capturedSourceSchema.omit({observed_at:true,label:true,facts:true})).optional()}),
+export const narrativeSchema = z.object({ locale: z.enum(["vi","en"]), snapshot_id:z.uuid(), snapshot_hash:z.string(), blocks:z.array(z.discriminatedUnion("kind",[
+  z.object({id:z.string(),section:z.string(),kind:z.literal("FACT"),template:z.string(),bindings:z.array(z.object({metric_key:z.string(),unit:z.enum(["COUNT","HOURS","FRACTION","PERCENT","SCORE","DAYS"]),period:z.enum(["AT_CAPTURE","IN_PERIOD","DECLARED_REPORTING_DATE"]),operator:z.enum(["EQ","LT","LTE","GT","GTE"]),value:z.string(),comparison_metric_key:z.string().nullable()})),source_bindings:z.array(capturedSourceSchema.omit({observed_at:true,label:true,facts:true}).extend({field:z.literal("score"),value:z.string()})).optional()}),
   z.object({id:z.string(),section:z.string(),kind:z.enum(["INTERPRETATION","RECOMMENDATION","LIMITATION"]),text:z.string(),source_refs:z.array(capturedSourceSchema.omit({observed_at:true,label:true,facts:true})),assumptions:z.array(z.string())})])) });
+export const reportVersionSchema = z.object({ id: z.uuid(), report_id: z.uuid(), snapshot_id: z.uuid(), origin: z.enum(["METRICS_ONLY", "AI_PROPOSED", "AI_EDITED"]), locale: z.enum(["vi", "en"]), created_at: z.string(), narrative: narrativeSchema.nullable().optional(), rendered_facts: z.record(z.string(),z.string()).optional(), block_origins:z.record(z.string(),z.enum(["AI","HUMAN"])).optional(), narrative_access_state:z.enum(["AVAILABLE","UNAVAILABLE"]).optional(), provenance: z.record(z.string(),z.json()).optional(), generation_id:z.uuid().nullable().optional(),base_version_id:z.uuid().nullable().optional() });
 export const reportResultSchema = z.object({
   report: reportSchema, snapshot: snapshotSchema,
-  selected_version: z.object({ id: z.uuid(), report_id: z.uuid(), snapshot_id: z.uuid(), origin: z.enum(["METRICS_ONLY", "AI_PROPOSED"]), locale: z.enum(["vi", "en"]), created_at: z.string(), narrative: narrativeSchema.nullable().optional(), rendered_facts: z.record(z.string(),z.string()).optional(), provenance: z.record(z.string(),z.json()).optional() }),
+  selected_version: reportVersionSchema,
+  narrative_access_state:z.enum(["AVAILABLE","UNAVAILABLE"]).optional(),
+  published_versions:z.array(reportVersionSchema).default([]), verification_state:z.enum(["NOT_APPLICABLE","PENDING","VERIFIED","FAILED"]).default("NOT_APPLICABLE"), review_state:z.enum(["PENDING","ACCEPTED","REJECTED"]).default("PENDING"),
   publications: z.array(publicationSchema), generation_state: z.enum(["NOT_REQUESTED", "QUEUED", "RUNNING", "AWAITING_REVIEW", "AI_UNAVAILABLE", "FAILED"]), generation_id: z.uuid().nullable().optional(), metrics_version_id: z.uuid().nullable().optional(), replayed: z.boolean(),
 });
 export const reportPageSchema = z.object({ items: z.array(reportSchema), page: z.number().int(), page_size: z.number().int(), total: z.number().int() });
@@ -43,4 +46,8 @@ export type ReportInput = { project_id: string; kind: "DAILY" | "WEEKLY"; period
 
 export const reportDefaultsSchema = z.object({ timezone: z.string(), period_start: z.string() });
 
-export type PublishReportInput = { mode: "METRICS_ONLY"; report_version_id: string; snapshot_hash: string };
+export type PublishReportInput = { mode: "METRICS_ONLY" | "REVIEWED_NARRATIVE"; report_version_id: string; snapshot_hash: string };
+
+export type NarrativeDocument = z.infer<typeof narrativeSchema>;
+export type EditReportInput = {parent_version_id:string;snapshot_hash:string;narrative:NarrativeDocument};
+export type RejectReportInput = {report_version_id:string;snapshot_hash:string;reason:string};
