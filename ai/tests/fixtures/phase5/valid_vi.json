@@ -1,0 +1,41 @@
+[
+  {
+    "id": "vi-valid",
+    "locale": "vi",
+    "scenario": "valid",
+    "expected": "PROPOSAL",
+    "expected_evidence": [
+      "HUMAN_GATE"
+    ],
+    "expected_metric_keys": [
+      "tasks.status.done_count",
+      "tasks.status.total_count"
+    ]
+  },
+  {
+    "id": "vi-advice",
+    "locale": "vi",
+    "scenario": "advice",
+    "expected": "PROPOSAL",
+    "expected_evidence": [
+      "HUMAN_GATE"
+    ],
+    "expected_metric_keys": [
+      "tasks.status.done_count",
+      "tasks.status.total_count"
+    ]
+  },
+  {
+    "id": "vi-numbered_name",
+    "locale": "vi",
+    "scenario": "numbered_name",
+    "expected": "PROPOSAL",
+    "expected_evidence": [
+      "HUMAN_GATE"
+    ],
+    "expected_metric_keys": [
+      "tasks.status.done_count",
+      "tasks.status.total_count"
+    ]
+  }
+]

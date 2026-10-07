@@ -1,0 +1,74 @@
+[
+  {
+    "id": "vi-generation_timeout",
+    "locale": "vi",
+    "scenario": "generation_timeout",
+    "expected": "FALLBACK",
+    "expected_evidence": [
+      "TIMEOUT_DRAFT"
+    ]
+  },
+  {
+    "id": "en-generation_timeout",
+    "locale": "en",
+    "scenario": "generation_timeout",
+    "expected": "FALLBACK",
+    "expected_evidence": [
+      "TIMEOUT_DRAFT"
+    ]
+  },
+  {
+    "id": "vi-semantic_timeout",
+    "locale": "vi",
+    "scenario": "semantic_timeout",
+    "expected": "FALLBACK",
+    "expected_evidence": [
+      "TIMEOUT_SEMANTIC"
+    ]
+  },
+  {
+    "id": "en-semantic_timeout",
+    "locale": "en",
+    "scenario": "semantic_timeout",
+    "expected": "FALLBACK",
+    "expected_evidence": [
+      "TIMEOUT_SEMANTIC"
+    ]
+  },
+  {
+    "id": "vi-budget",
+    "locale": "vi",
+    "scenario": "budget",
+    "expected": "FALLBACK",
+    "expected_evidence": [
+      "BUDGET_ENFORCED"
+    ]
+  },
+  {
+    "id": "en-budget",
+    "locale": "en",
+    "scenario": "budget",
+    "expected": "FALLBACK",
+    "expected_evidence": [
+      "BUDGET_ENFORCED"
+    ]
+  },
+  {
+    "id": "vi-unknown",
+    "locale": "vi",
+    "scenario": "unknown",
+    "expected": "FALLBACK",
+    "expected_evidence": [
+      "METRIC_BASIS_MISMATCH"
+    ]
+  },
+  {
+    "id": "en-unknown",
+    "locale": "en",
+    "scenario": "unknown",
+    "expected": "FALLBACK",
+    "expected_evidence": [
+      "METRIC_BASIS_MISMATCH"
+    ]
+  }
+]

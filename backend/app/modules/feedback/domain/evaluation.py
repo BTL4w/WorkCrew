@@ -187,3 +187,18 @@ class EvaluationReviewDiff(ReportContract):
     origin: Literal["SYNTHETIC", "REDACTED"]
     split: Literal["GOLDEN", "HELD_OUT"]
     case_hash: str
+
+
+class ReportEvaluationResult(ReportContract):
+    dataset_version_id: UUID
+    dataset_hash: str
+    provider: Literal["mock", "hosted"]
+    total: int = Field(ge=0)
+    passed: int = Field(ge=0)
+    failed: int = Field(ge=0)
+    skipped: int = Field(ge=0)
+    gate_passed: bool
+    gate: dict[str, JsonValue]
+    cases: tuple[dict[str, JsonValue], ...]
+    hosted_quality: str
+    limitations: tuple[str, ...]

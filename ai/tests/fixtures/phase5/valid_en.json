@@ -1,0 +1,41 @@
+[
+  {
+    "id": "en-valid",
+    "locale": "en",
+    "scenario": "valid",
+    "expected": "PROPOSAL",
+    "expected_evidence": [
+      "HUMAN_GATE"
+    ],
+    "expected_metric_keys": [
+      "tasks.status.done_count",
+      "tasks.status.total_count"
+    ]
+  },
+  {
+    "id": "en-advice",
+    "locale": "en",
+    "scenario": "advice",
+    "expected": "PROPOSAL",
+    "expected_evidence": [
+      "HUMAN_GATE"
+    ],
+    "expected_metric_keys": [
+      "tasks.status.done_count",
+      "tasks.status.total_count"
+    ]
+  },
+  {
+    "id": "en-numbered_name",
+    "locale": "en",
+    "scenario": "numbered_name",
+    "expected": "PROPOSAL",
+    "expected_evidence": [
+      "HUMAN_GATE"
+    ],
+    "expected_metric_keys": [
+      "tasks.status.done_count",
+      "tasks.status.total_count"
+    ]
+  }
+]

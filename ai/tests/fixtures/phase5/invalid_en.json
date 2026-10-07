@@ -1,0 +1,101 @@
+[
+  {
+    "id": "en-meaning",
+    "locale": "en",
+    "scenario": "meaning",
+    "expected": "FALLBACK",
+    "expected_evidence": [
+      "FACT_MEANING_MISMATCH"
+    ]
+  },
+  {
+    "id": "en-unit",
+    "locale": "en",
+    "scenario": "unit",
+    "expected": "FALLBACK",
+    "expected_evidence": [
+      "METRIC_BASIS_MISMATCH"
+    ]
+  },
+  {
+    "id": "en-period",
+    "locale": "en",
+    "scenario": "period",
+    "expected": "FALLBACK",
+    "expected_evidence": [
+      "METRIC_BASIS_MISMATCH"
+    ]
+  },
+  {
+    "id": "en-denominator",
+    "locale": "en",
+    "scenario": "denominator",
+    "expected": "FALLBACK",
+    "expected_evidence": [
+      "FACT_MEANING_MISMATCH"
+    ]
+  },
+  {
+    "id": "en-words",
+    "locale": "en",
+    "scenario": "words",
+    "expected": "FALLBACK",
+    "expected_evidence": [
+      "UNBOUND_QUANTITY"
+    ]
+  },
+  {
+    "id": "en-foreign_ref",
+    "locale": "en",
+    "scenario": "foreign_ref",
+    "expected": "FALLBACK",
+    "expected_evidence": [
+      "SOURCE_NOT_CAPTURED"
+    ]
+  },
+  {
+    "id": "en-cause",
+    "locale": "en",
+    "scenario": "cause",
+    "expected": "FALLBACK",
+    "expected_evidence": [
+      "SEMANTIC_REJECTED"
+    ]
+  },
+  {
+    "id": "en-forecast",
+    "locale": "en",
+    "scenario": "forecast",
+    "expected": "FALLBACK",
+    "expected_evidence": [
+      "SEMANTIC_REJECTED"
+    ]
+  },
+  {
+    "id": "en-date",
+    "locale": "en",
+    "scenario": "date",
+    "expected": "FALLBACK",
+    "expected_evidence": [
+      "UNBOUND_QUANTITY"
+    ]
+  },
+  {
+    "id": "en-malformed",
+    "locale": "en",
+    "scenario": "malformed",
+    "expected": "FALLBACK",
+    "expected_evidence": [
+      "MODEL_INVALID_OUTPUT"
+    ]
+  },
+  {
+    "id": "en-semantic_reject",
+    "locale": "en",
+    "scenario": "semantic_reject",
+    "expected": "FALLBACK",
+    "expected_evidence": [
+      "SEMANTIC_REJECTED"
+    ]
+  }
+]

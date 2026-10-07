@@ -11,6 +11,7 @@ from ..domain.evaluation import (
     EvaluationCase,
     EvaluationDatasetVersion,
     EvaluationReviewDiff,
+    ReportEvaluationResult,
 )
 from ..domain.feedback import FeedbackCommand, FeedbackResult, TerminalReviewCommand
 from ..domain.outcomes import FeedbackOutcome, OutcomeFacts, OutcomeSourceCommand, ReviewRates
@@ -68,3 +69,11 @@ class CurationTransactionFactory(Protocol):
     def __call__(
         self, actor: AuthenticatedActor
     ) -> AbstractAsyncContextManager[CurationRepository]: ...
+
+
+class EvaluationDatasetReadPort(Protocol):
+    async def load(self, actor: AuthenticatedActor, identity: UUID) -> EvaluationDatasetVersion: ...
+
+
+class EvaluationProviderPort(Protocol):
+    async def evaluate(self, dataset: EvaluationDatasetVersion) -> ReportEvaluationResult: ...
