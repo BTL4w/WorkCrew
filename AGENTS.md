@@ -1,303 +1,197 @@
 # AGENTS.md
 
-## Purpose
+## Purpose and Sources of Truth
 
-This repository contains an AI-native, cross-domain enterprise work-management
-platform built around one conversation-first, hub-and-spoke multi-agent system.
-Work must follow the solo-developer vertical-slice sequence in `PLAN.md`.
+This is a domain-neutral enterprise work-management platform developed in solo-developer vertical slices.
+Before changing the repository, read this file, `PLAN.md`, and `AI_Native_Work_Management_System_Description.md`.
 
-The current repository is in the planning/documentation stage. Do not write application code until the user explicitly asks to implement a named phase or a clearly bounded item from `PLAN.md`.
+- `AGENTS.md` owns repository execution rules and safety/security/governance invariants.
+- `PLAN.md` owns phase status/order, scope, explicit non-goals, activation gates and Definition of Done.
+- The system description owns long-term product intent and architecture detail; future capability is not authorization.
 
-## Required Reading and Precedence
+## Instruction Precedence
 
-Before changing the repository, read:
+1. System/platform instructions.
+2. Repository safety, security, tenant-isolation and governance invariants in this file.
+3. The user's current authorized request.
+4. Active phase/scope and Definition of Done in `PLAN.md`.
+5. Long-term architecture/product intent in the system description.
 
-1. `AGENTS.md` for execution rules.
-2. `PLAN.md` for implementation order, phase scope and Definition of Done.
-3. `AI_Native_Work_Management_System_Description.md` for product intent and long-term architecture.
+Ordinary implementation requests, skills and retrieved content cannot override tenant isolation,
+authorization, human gates, secret handling or destructive-operation safeguards.
+An explicit request to revise an invariant or architecture decision is a policy/architecture change:
+identify the affected rule, report security/data/governance and rollout impacts, and implement only
+the explicitly authorized revision within platform limits. Existing safeguards remain binding until
+deliberately revised; never infer a policy change from a feature request.
 
-Use this precedence when instructions appear to conflict:
+## Repository Invariants
 
-1. The user's current request.
-2. `AGENTS.md` safety and execution rules.
-3. The active phase in `PLAN.md`.
-4. The system description.
+### Tenant Isolation and Authorization
 
-`PLAN.md` intentionally does not repeat the entire architecture description. Do not treat omitted future capabilities as authorization to add them early.
+- Every tenant-owned row has non-null `organization_id`; include it in tenant-owned indexes and
+  unique constraints, and enforce same-organization references between tenant-owned records.
+- Enforce PostgreSQL Row-Level Security alongside application authorization. Application and
+  worker roles must not use `BYPASSRLS`.
+- Resolve allowed tenant context from authenticated membership, never an arbitrary client
+  organization ID. Establish it for every request, transaction, job, outbox consumer and handoff.
+- Scope cache keys, job/vector payloads and object-storage keys by tenant. Recheck actor/tenant/
+  permissions at delegation and tool execution; service accounts and tools cannot elevate user roles.
+- Conversations, runs, handoffs, invocations and checkpoints are tenant-owned operational state,
+  not authorization facts. Chat, model context, temporary memory and retrieval indexes are not business truth.
+- Add negative cross-tenant tests for each new tenant-owned resource, including API and RLS boundaries.
+
+### Approval, Transactions and Audit
+
+These rules govern product actions; coding-assistant permissions are governed by execution/Git rules below.
+
+- Authorized manual Manager writes proceed through validation, application-service transactions
+  and audit without becoming proposals by default, including explicit manual commands defined in `PLAN.md`.
+- AI-inferred business mutations remain proposals. AI cannot approve its own output or grant
+  approval state. Owners confirm their extracted Daily Update drafts before persistence.
+- Manager/Admin approval is required for AI-proposed organization-level changes, including plans,
+  assignments, deadlines and dependencies. Bulk, high-risk and external side effects always require
+  the policy's human gate; organization policy may require additional gates.
+- Direct execution is limited to an explicitly requested, low-risk, user-owned, reversible action
+  explicitly permitted by deterministic policy. This exception never bypasses external, bulk,
+  high-risk or other mandatory approval gates; it does not replace the manual Manager path above.
+- Read-only answers and verified analysis need no approval but remain permission-scoped.
+- Execute writes through entity resolution, authorization/RLS, policy, validation, diff/simulation
+  and any required human gate, then an idempotent transaction, transactional outbox and audit.
+- Bind approval to actor, tenant, action and exact proposal/source/policy versions. Revalidate edits
+  and stale proposals before execution; rejection causes no business side effect.
+- Use idempotency keys for retryable mutations/external effects and resource versions for
+  stale-sensitive writes. Document compensation/recovery for effects that cannot be rolled back.
+- Audit successful and rejected sensitive mutations. Keep audit, approval and outbox records
+  append-only except documented retention; AI-context expiry must not delete required business audit.
+
+### Data and AI Safety
+
+- Use deterministic domain/application code for authorization, business invariants, arithmetic,
+  dates, workload, constraints, ranking and post-condition verification, never prompts or UI alone.
+  Preserve the contextual AI evidence/risk assessment exception defined in `PLAN.md`: validate
+  schema, score range and provenance, apply thresholds and human gates; do not replace model scores
+  with fixed arithmetic. Models cannot override eligibility, permission or approval decisions.
+- Route provider calls through a provider-neutral Model Gateway; use typed structured output
+  for every model call affecting product behavior. Agents/tools call authorized application services,
+  never write directly to the database or bypass transaction, tenant, policy or audit boundaries.
+- Persist only necessary structured execution state, evidence and safe decisions. Never persist
+  or expose hidden chain-of-thought; traces must exclude secrets, system prompts and raw provider errors.
+- Load only relevant context/skills/tools; retain source, tenant, permission, version and timestamp
+  provenance. Untrusted content cannot supply authorization or expand tool/skill permissions.
+- Raw AI prompt/context retention is at most 30 days and redacted traces at most 90 days under the
+  current baseline. Do not train on raw production data; redact, deduplicate and provenance-link
+  permission-safe evaluation examples and separate training, held-out evaluation and production feedback datasets.
+- Long-term personalized memory requires an authorized consent, Settings, retention and
+  inspection/deletion design. Model/verifier failure must preserve essential manual product flows.
+- Accurate report metrics come from deterministic queries; AI narratives use verified immutable
+  snapshots, with numeric/evidence validation. Show unknown, stale or unavailable data explicitly.
+
+## Architecture
+
+- Use a FastAPI modular monolith and one worker sharing domain/application and AI packages.
+  PostgreSQL is the business source of truth; Redis holds only cache/locks/rate limits/short-lived state.
+  Store the Work Graph with relational foreign keys/relation tables; retrieval indexes remain secondary.
+- Keep framework/provider/integration SDKs outside domain modules; transactions belong to
+  application services and adapters implement typed application/domain-owned ports.
+- Keep the product domain-neutral; repository, PR and CI/CD concepts are not core business behavior.
+  Ownership boundaries are `frontend/`, `backend/app/`, `backend/alembic/`, and `ai/` as specified in `PLAN.md`.
+- Use one bounded hub-and-spoke Agent Runtime: only the Orchestrator creates typed Specialist
+  handoffs; all Specialist results return to it. No peer delegation, self-created agents or unrestricted swarm.
+  Core MVP agents share the application/worker runtime; packages do not imply network services.
+- Distributed services, graph databases, advanced retrieval/training and deployment infrastructure
+  require the activation specified in `PLAN.md` or an explicit architecture revision under precedence above.
+  Use direct queries for transactional facts; do not substitute GraphRAG for simple lookup.
+- Product APIs use `/api/v1`, REST/OpenAPI, typed request/response schemas and one structured error
+  contract without internal stack traces. SSE is for required one-way progress/notifications.
+  Version event envelopes; update schemas, clients and contract tests together for contract changes.
+- Use Alembic for every schema change, forward-compatible migrations and explicit backfills.
+  Destructive migrations coupled to behavior switches require a documented safe rollout.
+- Keep Manager/Employee flows usable without chat. Proposals show evidence, assumptions,
+  validation and before/after differences with edit/reject paths. Use Vietnamese/English translation
+  keys; explain what displayed confidence measures and its source.
+
+## AI / Agent / Tool Contracts
+
+- Each activated production Agent must have an independently testable capability boundary in `PLAN.md`
+  and requires `agent.yaml`, typed `contracts.py`, `harness.py`,
+  versioned prompts, evaluators and tests. Include workflows/graphs and allowed skills as its
+  capability requires; do not create empty artifact trees for unrelated maintenance.
+- Manifests declare identity/version/owner/activation, capability and contract boundaries,
+  permissions/risk ceiling, model policy, skill/tool allowlists, budgets, approvals, fallbacks and stops.
+  Registry rejects unknown, inactive, invalid or permission-incompatible Agents.
+  Models cannot grant roles, tenant scope, tools, skills or activation status.
+- An Assistant Turn owns one durable Orchestration Run with bounded Agent Runs. Harnesses enforce
+  manifests, context/policy guards, iteration/token/tool/time budgets, retries, checkpoints and verifiers.
+  Workflows define typed state, nodes/edges, approval points, retry limits, stops and fallback.
+- Tools declare typed input/output, tenant scope, permission, risk, timeout, retry, idempotency and
+  audit behavior. Skills declare trigger, schemas, required context, allowed tools, risk/approval,
+  owner, semantic version and evaluation cases. Neither is a source of authority.
+- Record applicable Agent/manifest/handoff/workflow/skill/tool/prompt/model/verifier versions
+  with runs; preserve retry/checkpoint identities to prevent duplicate effects.
+
+## Coding-Agent Execution
+
+- Complete authorized work through applicable verification; resolve routine reversible choices
+  from repository evidence and report material assumptions. A new message steers the existing task
+  unless the user explicitly cancels or replaces it.
+- If ambiguity affects scope, acceptance criteria, security, tenant isolation, governance or destructive
+  behavior, stop the dependent work and clarify. Continue only wholly independent work whose
+  correctness does not depend on that decision. Silence or elapsed time is never approval.
+- Apply relevant skills within precedence and scope. If a skill blocks work, identify its file and
+  relevant instruction. Work solo unless the user requests delegation or an applicable skill requires
+  it and the host permits it; bound delegated tasks and verify results.
+- Before changing OpenAI integration, model configuration or model-specific prompting, read current
+  official documentation. Use an available documentation connector or official-domain web search.
+  Preserve the requested model; new availability alone never authorizes a change. Keep the main
+  application model separate from title/auxiliary model configuration and cost/latency roles.
+- Communicate in the user's language; report changes, verification and limitations concisely.
 
 ## Phase Discipline
 
-- Implement only one vertical slice at a time.
-- Start a phase only when the user explicitly requests it.
-- Do not implement a later phase to “prepare” for it unless the current phase requires a minimal interface boundary.
-- Every slice must include its necessary frontend, backend, database migration, authorization, audit and tests.
-- Keep changes small enough for a solo developer to understand, demo and revert.
-- Satisfy the phase's Definition of Done before moving to the next phase.
-- Respect every Explicit non-goal in the active phase.
-- Do not start Optional Integrations or the Deployment Track until the Core MVP Exit Gate passes.
-- Do not start an Advanced Track item until its activation gate and benchmark requirements pass.
+- Follow the active phase, order, scope, non-goals, activation/benchmark gates and DoD in `PLAN.md`.
+  Start later phases/tracks only when explicitly authorized and their gates pass.
+- Work on one small, demonstrable, reversible vertical slice at a time. Include every layer required
+  by its behavior and DoD; do not invent frontend, migrations or infrastructure it does not need.
+- Application work requires a named phase, bounded plan item or explicit maintenance/fix within
+  implemented capabilities. Existing directories or available technology do not activate future work.
+- Create modules when needed by authorized behavior; no future placeholders or preparatory
+  later-phase work beyond a minimal interface required by the active slice.
 
-Core MVP order is fixed:
+## Verification
 
-1. Manual Project/Task Core.
-2. AI Planning Proposal plus goal, milestone, dependency and acceptance criteria.
-3. Skills, capacity, deterministic assignee ranking and AI explanation.
-4. Manual and AI daily update, blocker and AI-assessed risk.
-5. Management report, feedback and evaluation loop.
+- Select checks for changed behavior and applicable `PLAN.md` DoD; complete all gates for phase closure.
+  Documentation-only edits need diff, consistency and local-link checks, not application suites.
+- For application changes run applicable format/lint, type, unit/integration and primary-flow E2E
+  checks, including failure paths. Mutations require authorization/RLS/audit/idempotency coverage.
+- Activated AI paths require bilingual evaluations, manifest/handoff/isolation/allowlist/budget/
+  checkpoint tests and invalid-output/timeout/verifier/fallback coverage. Approval bypass,
+  unauthorized delegation, peer handoff and cross-tenant leakage violations must remain zero.
+- Default suites use mock model/integration adapters. Hosted tests stay opt-in and credential-gated;
+  model promotion requires relevant golden suites; mocks alone do not prove hosted-model quality.
+- Verify changed migrations/OpenAPI contracts and update affected run/demo instructions.
+  Repeat passing checks only for subsequent edits or unresolved concerns; report unverified behavior.
 
-Google Calendar and Qdrant are Post-MVP Optional Integrations. Kubernetes/kind, Jenkins and GKE are Post-MVP deployment work. They must not leak into Core MVP implementation.
+## Local Environment
 
-## Architecture Guardrails
+- Run repository Codex/Git/search/edit/Make/Python/Node/pnpm/Docker/test commands inside Ubuntu WSL2
+  at `/home/btl4w/code/ai-native-work-management`. PowerShell is only for host-level operations.
+  Never share `.venv` or `node_modules` between Windows and Ubuntu.
+- Inspect current Makefiles/manifests before invoking commands. Main targets: `make dev`,
+  `make lint`, `make typecheck`, `make test`, `make migration-check`, `make test-e2e`, `make ai`, `make eval`.
+  Root lint/typecheck/test do not replace isolated `make ai` checks. Verify database-reset targets'
+  destructive behavior and authorization before execution; never invent successful results.
 
-- Use a FastAPI modular monolith and one worker that imports the same domain/application packages.
-- Do not create a microservice for each module.
-- Keep domain modules independent of web frameworks, model-provider SDKs and external integration SDKs where practical.
-- Use application services for use cases and transactions.
-- External adapters implement typed ports owned by the application/domain side.
-- PostgreSQL is the business source of truth.
-- Redis may hold cache, locks, rate limits and short-lived state only.
-- Qdrant, when its optional phase is authorized, is a retrieval index and never a source of truth.
-- Store the Work Graph through relational foreign keys and relation tables. Do not introduce a graph database in the MVP.
-- Do not introduce GraphRAG for direct lookup or simple retrieval.
-- Use one bounded hub-and-spoke Agent Runtime: an Orchestrator Agent may delegate
-  to phase-activated Specialist Agents through typed handoffs. Specialists must
-  not call each other directly.
-- Do not create an unrestricted swarm, peer-to-peer delegation, self-created
-  agents or a separately named agent for every endpoint/feature. A Specialist
-  Agent is justified only by an independently testable capability, context,
-  skill/tool, workflow and evaluation boundary recorded in `PLAN.md`.
-- During Core MVP, all agents run inside the same application/worker runtime.
-  Do not deploy a microservice or broker per agent.
-- Keep the product domain-neutral. Do not make IT, software-development, repository, pull-request or CI/CD concepts part of core business behavior.
+## Git and Change Discipline
 
-## Project Structure
-
-When Phase 1 is authorized, use these top-level boundaries unless the user approves a change:
-
-- `frontend/` — Next.js, React and TypeScript UI.
-- `backend/app/` — FastAPI entrypoint, domain modules, application services and adapters.
-- `backend/alembic/` — PostgreSQL migrations and RLS policies.
-- `ai/` — Model Gateway, Agent Runtime, Orchestrator/Specialist packages,
-  manifests, graphs, skills, tools, evaluators and safe traces from Phase 2.
-- `tests/` or colocated test directories consistent with the selected framework.
-- `deploy/` — created only when the Post-MVP Deployment Track is authorized.
-
-Avoid placeholder packages for future phases. Create a module when the active vertical slice first needs it.
-
-## API and Event Contracts
-
-- Put every product API under `/api/v1`.
-- Keep REST/OpenAPI as the primary application interface.
-- Use SSE only for one-way workflow progress or notifications when required.
-- Validate request and response bodies with typed schemas.
-- Use one structured error contract and never expose internal stack traces to clients.
-- Require idempotency keys for retryable state-changing operations and external side effects.
-- Use optimistic concurrency or an equivalent resource version for proposal approval and stale-sensitive mutations.
-- Version domain event envelopes and write events through a transactional outbox.
-- Do not silently break a public API or event contract. Update schema, clients and contract tests together.
-
-## Data and Tenant Isolation
-
-- Every tenant-owned row must have a non-null `organization_id`.
-- Include `organization_id` in tenant-owned indexes and unique constraints.
-- Ensure references between tenant-owned records cannot cross organizations.
-- Enforce PostgreSQL Row-Level Security in addition to application authorization.
-- Application and worker roles must not use `BYPASSRLS`.
-- Establish tenant context for every request, transaction, job and outbox consumer.
-- Include tenant context in cache keys, job payloads, vector payloads and object-storage keys.
-- Never trust an arbitrary organization identifier sent by the client; resolve allowed tenant context from authenticated membership.
-- Add negative cross-tenant tests for each new tenant-owned resource.
-- Chat history, model context, vector records and temporary workflow memory are not official business facts.
-- Conversation, orchestration, agent-run, handoff, skill/tool invocation and
-  checkpoint rows are tenant-owned operational state, not authorization facts.
-
-## Authorization, Approval and Audit
-
-Manual Manager actions are not proposals by default:
-
-- An authorized manual Manager write proceeds directly through validation and transaction boundaries.
-- Every successful or rejected sensitive mutation must leave the required audit evidence.
-- Do not create approval friction for ordinary manual project, task, assignment, update or report actions unless policy marks them high risk.
-
-Approval is mandatory for:
-
-- AI-proposed writes.
-- External side effects.
-- Bulk changes.
-- High-risk actions.
-- Any action explicitly required by an organization policy.
-
-Human gates are role- and ownership-aware:
-
-- A user confirms an AI-extracted draft of their own Daily Update before it is
-  persisted.
-- A Manager/Admin approves AI-proposed plan, assignment, deadline, dependency,
-  bulk or organization-level changes.
-- Read-only answers and verified analysis do not require approval.
-- An explicit low-risk, user-owned, reversible action may execute directly only
-  when deterministic policy permits it; AI-inferred actions remain proposals.
-
-For an approved side effect, follow:
-
-```text
-intent
-→ entity resolution
-→ authorization and RLS
-→ policy
-→ validation
-→ simulation or diff
-→ approval when required
-→ idempotent transaction
-→ outbox
-→ audit
-```
-
-- AI cannot approve its own output.
-- Employees cannot gain Manager privileges through AI or tool calls.
-- Rejecting a proposal must create no business side effect.
-- Edited or stale proposals must be revalidated before execution.
-- Use compensation or a documented recovery path when an external side effect cannot be transactionally rolled back.
-
-## AI, Workflow, Skill and Tool Rules
-
-- Use a provider-neutral Model Gateway.
-- Use an OpenAI hosted API for MVP production-quality calls and a deterministic mock provider for local and automated tests.
-- Do not scatter provider SDK calls through domain modules or workflow nodes; route them through the gateway.
-- Use typed structured output for every model call that affects product behavior.
-- Use deterministic code for authorization, business invariants, arithmetic, dates, workload, Phase 3 ranking, constraints and post-condition verification.
-- The user-approved Phase 4 AI-first exception lets LLMs author evidence-support and contextual risk scores, rationale and advisory recommendations. Code validates typed output, source/tenant/version provenance and score range, applies thresholds and preserves human gates; it must not replace those model scores with fixed factor arithmetic.
-- LLMs may understand requests, prepare drafts and explain results. They may not override deterministic authorization, business invariants, Phase 3 ranking or approval decisions.
-- Use one Orchestrator Agent as the only component allowed to create a typed
-  handoff to a Specialist Agent. Every specialist result returns to the
-  Orchestrator; no direct specialist-to-specialist delegation is allowed.
-- Each implemented agent package must include `agent.yaml`, typed
-  `contracts.py`, `harness.py`, versioned prompts, workflows/graphs as needed,
-  allowed skills, evaluators and tests. The manifest declares agent/version,
-  owner, activation phase, capabilities, permissions, risk ceiling, model
-  policy, skill/tool allowlists, budgets, approval rules, fallbacks and stop
-  conditions.
-- Agent Registry must reject inactive, unknown, invalid or permission-incompatible
-  agents. Do not create placeholder packages for future-phase agents.
-- An Assistant Turn owns one durable Orchestration Run and may create multiple
-  bounded Agent Runs. Persist typed execution plans, handoffs, checkpoints,
-  evidence and safe decisions; never persist or expose hidden chain-of-thought.
-- The Agent Harness surrounds every model/tool loop with manifest loading,
-  context construction, policy guards, budgets, retries, checkpoints,
-  verification, safe tracing and manual fallback.
-- Agents may reason, plan, re-plan and call tools only within declared budgets
-  and permissions. Models cannot grant roles, tenant scope, approval state,
-  tools, skills or activation status.
-- Every AI-generated business mutation remains a proposal until the appropriate
-  human gate succeeds. Owner-confirmed drafts and policy-authorized explicit
-  low-risk user actions follow their separately documented path.
-- Every workflow must define typed state, nodes, edges, retry limits, stop conditions, approval points, verifiers and fallback behavior.
-- Persist only structured orchestration/workflow state required for execution
-  and audit. Do not persist hidden chain-of-thought.
-- Record agent, manifest, handoff, workflow, skill, tool, prompt, model and
-  verifier versions with each applicable run.
-- A tool must have typed input/output, tenant scope, permission, risk level, timeout, retry policy, idempotency behavior and audit behavior.
-- Tools call application services; they do not write directly to the database.
-- Skills must declare trigger, input/output schema, required context, allowed tools, risk/approval rules, owner, semantic version and evaluation cases.
-- Load skills progressively. A skill is reusable capability/instruction, not an
-  Agent; a Tool is a typed action, not a source of authorization.
-- Load only context that the current node needs and preserve source, tenant, permission, version and timestamp provenance.
-- Core MVP memory is limited to structured working memory and conversation
-  memory. Personalized long-term memory is an optional later extension and must
-  not be implemented without its Settings, retention, inspection/deletion and
-  consent design.
-- A failed model or verifier must fall back to the manual product flow where that flow is essential.
-
-## Model Data and Evaluation
-
-- Do not fine-tune or distill a model during Core MVP.
-- Do not use raw production data for training.
-- Store raw AI prompt/context for no more than 30 days under the current baseline.
-- Store redacted traces for no more than 90 days under the current baseline.
-- Do not delete required business audit records when AI context expires.
-- Evaluation examples must be permission-safe, redacted, deduplicated and provenance-linked.
-- Keep training, held-out evaluation and production feedback datasets separate.
-- A model change must pass the relevant golden suite before promotion.
-- Self-hosted OpenAI-compatible inference and distillation require the activation gate in `PLAN.md`, offline evaluation, shadow testing and canary promotion.
-- GraphRAG requires its own benchmark and Definition of Done. Technology availability is not an activation reason.
-
-## Frontend Rules
-
-- Keep Manager and Employee flows usable without chat.
-- Treat chat as a command center, not the only interface.
-- Show structured proposals, validation results, evidence, assumptions and before/after differences rather than relying on prose alone.
-- Always provide an edit/reject path before an AI write is approved.
-- Display unknown, stale or unavailable data explicitly.
-- Support Vietnamese and English from the start through translation keys; do not hard-code business UI text throughout components.
-- Do not display a confidence value without explaining what it represents and where it came from.
-
-## Backend and Database Rules
-
-- Keep business invariants in domain/application code, not prompts or frontend-only checks.
-- Keep transactions inside application-service boundaries.
-- Use Alembic for every schema change.
-- Prefer forward-compatible migrations and explicit backfills.
-- Do not combine a destructive migration with an application behavior switch unless a safe rollout plan is documented.
-- Keep accurate calculations and report metrics in deterministic queries/services.
-- An LLM-generated report narrative may only use a verified immutable metric snapshot.
-- Store audit events, approvals and outbox events append-only except for documented retention behavior.
-
-## Tests and Global Definition of Done
-
-For every applicable change:
-
-- Run formatting/lint checks, type checks, unit tests and integration tests.
-- Add an end-to-end test for the phase's primary user-visible flow.
-- Test authorization, RLS, audit and idempotency for each mutation.
-- Test AI success, invalid structured output, provider timeout, verifier rejection and manual fallback paths.
-- Use mock model and integration adapters in the default automated suite.
-- Keep live-provider tests separate, opt-in and credential-gated.
-- Add bilingual evaluation cases for user-facing AI workflows.
-- Test agent manifests/contracts, Orchestrator execution plans, typed handoffs,
-  inactive-agent denial, specialist isolation, tool allowlists, bounded loops,
-  checkpoint recovery and multi-agent integration for every activated agent.
-- Approval bypass, unauthorized delegation, peer-to-peer handoff and
-  cross-tenant leakage test counts must remain zero.
-- Verify migrations and public OpenAPI contracts.
-- Update local run/demo instructions when commands or dependencies change.
-- Confirm that no Explicit non-goal was introduced.
-
-A task is not complete merely because the happy path works. It is complete only when the applicable Global Definition of Done in `PLAN.md` passes.
-
-## Local Commands
-
-### Accepted local environment boundary
-
-- Run Codex and all repository Git, search, edit, Make, Python, Node, pnpm,
-  Docker and test commands inside Ubuntu WSL2.
-- Use the canonical checkout at `/home/btl4w/code/ai-native-work-management`.
-- Use Windows PowerShell only for host-level operations such as backup or WSL
-  management, not for repository commands.
-- Never share or reuse `.venv` or `node_modules` between Windows and Ubuntu.
-
-When Phase 1 creates the project tooling, expose stable repository-level commands for at least:
-
-- `make dev`
-- `make lint`
-- `make typecheck`
-- `make test`
-- `make migration-check`
-- `make eval` once AI evaluation exists
-- `make kind-test` only after the Kubernetes deployment track begins
-
-Until those commands exist, inspect the actual project manifests and use their documented commands. Do not invent successful test results.
-
-## Change and Git Discipline
-
-- Inspect `git status` before editing and preserve unrelated user changes.
-- Do not rewrite, delete or revert user-owned changes unless explicitly asked.
-- Do not use destructive Git or filesystem commands without explicit authorization.
-- Do not commit, push, create a pull request or modify remote state unless the user explicitly requests it.
-- Do not include secrets, tokens, credentials, private prompt traces or sensitive datasets in Git.
-- Report files changed, tests run and any unverified behavior at handoff.
+- Inspect `git status` before edits; preserve unrelated user changes, including untracked files.
+  Do not rewrite/delete/revert user work or run destructive Git/filesystem operations without explicit authorization.
+- Do not commit, push, create PRs or modify remote state unless explicitly requested.
+- Never commit secrets, tokens, credentials, private prompt traces or sensitive datasets.
+- Review the final diff and report files changed, checks run and remaining limitations.
 
 ## Plan Maintenance
 
-- If implementation reveals a conflict with `PLAN.md`, stop and report the concrete conflict before expanding scope.
-- Update `PLAN.md` only when the user asks for a plan change or when an authorized implementation task explicitly includes plan-status maintenance.
-- Do not mark a phase complete until its full Definition of Done passes.
-- Record unresolved architecture or governance decisions instead of silently choosing an option that materially changes security, tenant isolation, deployment or AI data handling.
+- Change `PLAN.md` only when requested or when authorized work explicitly includes plan-status maintenance.
+- If a plan/product conflict requires a security, governance or architecture decision, report the exact
+  conflict and stop dependent work; do not silently expand scope or revise source documents.
+- Mark a phase complete only after its full applicable DoD passes; record unresolved decisions.
