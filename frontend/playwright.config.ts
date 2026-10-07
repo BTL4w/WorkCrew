@@ -3,6 +3,8 @@ import { defineConfig, devices } from "@playwright/test";
 export default defineConfig({
   testDir: "./e2e",
   fullyParallel: false,
+  // Browser fixtures share one demo organization, capacity and reconciliation worker.
+  workers: 1,
   timeout: 120_000,
   expect: { timeout: 20_000 },
   retries: 0,

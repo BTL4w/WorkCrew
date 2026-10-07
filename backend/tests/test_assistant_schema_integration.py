@@ -81,6 +81,11 @@ async def test_tool_terminal_guard_accepts_evidence_but_keeps_input_immutable() 
                     await connection.execute(
                         text("UPDATE tool_invocations SET typed_input='{}'::jsonb WHERE id=1")
                     )
+            with pytest.raises(DBAPIError):
+                async with connection.begin_nested():
+                    await connection.execute(
+                        text("UPDATE tool_invocations SET typed_output='{}'::jsonb WHERE id=1")
+                    )
             await transaction.rollback()
     finally:
         await engine.dispose()

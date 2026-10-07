@@ -1,0 +1,54 @@
+import { expect, test } from "@playwright/test";
+import { execFileSync } from "node:child_process";
+import { resolve } from "node:path";
+
+for (const locale of ["vi", "en"] as const) {
+  test(`provider-disabled manual Core MVP and metrics publication (${locale})`, async ({ page }) => {
+    test.skip(process.env.APP_AI_PROVIDER !== "disabled", "Runs in the separate provider-disabled lane");
+    const english = locale === "en";
+    await page.goto("/login");
+    await page.getByLabel("Email").fill("manager@example.test");
+    await page.getByLabel("Mật khẩu").fill("WorkDemo123!");
+    await page.getByRole("button", {name: "Đăng nhập", exact: true}).click();
+    await expect(page.getByRole("button", {name: "Đăng xuất"})).toBeVisible();
+    if (english) await page.getByRole("button", {name: "en", exact: true}).click();
+    const name = `Manual disabled ${locale} ${crypto.randomUUID()}`;
+    await page.getByRole("button", {name: english ? "Create project" : "Tạo project", exact: true}).click();
+    await page.getByLabel(english ? "Project name" : "Tên project").fill(name);
+    const created = page.waitForResponse(r => r.url().endsWith("/api/v1/projects") && r.request().method() === "POST");
+    await page.getByRole("button", {name: english ? "Save project" : "Lưu project", exact: true}).click();
+    const project = await (await created).json();
+    const week = await page.request.post(`/api/v1/projects/${project.id}/weeks`, {headers: {"Idempotency-Key": crypto.randomUUID()}, data: {week_number: 1, start_date: "2026-10-05", end_date: "2026-10-11", objective: "Manual delivery"}});
+    expect(week.status()).toBe(201);
+    const backend = resolve(process.cwd(), "../backend");
+    const owned = JSON.parse(execFileSync("uv", ["run", "--directory", backend, "python", resolve(process.cwd(), "e2e/fixtures/reporting-seed.py"), project.id], {env: {...process.env, PYTHONPATH: backend, APP_DATABASE_URL: "postgresql+psycopg://work_management:work_management@localhost:5432/work_management_e2e"}, timeout: 60_000}).toString());
+    await page.reload();
+    await page.getByRole("button", {name: new RegExp(name)}).click();
+    await page.getByRole("button", {name: owned.title, exact: false}).click();
+    const form = page.locator("#daily-update-form");
+    await form.getByLabel(english ? "Reported progress (%)" : "Tiến độ báo cáo (%)", {exact: true}).fill("50");
+    await form.getByLabel(english ? "Work completed" : "Công việc đã làm", {exact: true}).fill("Manual survey completed");
+    await form.getByRole("button", {name: english ? "Review report" : "Xem lại báo cáo", exact: true}).click();
+    await form.getByRole("button", {name: english ? "Confirm report" : "Xác nhận báo cáo", exact: true}).click();
+    await expect(form.getByText(english ? "Report confirmed" : "Đã xác nhận báo cáo", {exact: true})).toBeVisible();
+    const update = await (await page.request.get(`/api/v1/daily-updates?task_id=${owned.id}`)).json();
+    expect(update).toHaveLength(1);
+    expect(Number(update[0].item.reported_percent)).toBe(50);
+    await page.getByRole("button", {name: english ? "← Back" : "← Quay lại", exact: true}).click();
+    await page.getByRole("tab", {name: english ? "Reports" : "Báo cáo", exact: true}).click();
+    await page.getByRole("button", {name: english ? "Create report" : "Tạo báo cáo", exact: true}).click();
+    const generated = page.waitForResponse(r => r.url().endsWith("/api/v1/reports") && r.request().method() === "POST");
+    await page.getByRole("button", {name: english ? "Generate report" : "Tạo báo cáo số liệu", exact: true}).click();
+    const initial = await (await generated).json();
+    await expect(page.getByRole("region", {name: english ? "AI report draft" : "Bản nháp báo cáo AI"}).getByRole("status")).toHaveText(english ? "AI narrative is unavailable. Publish metrics or retry explicitly." : "Không có diễn giải AI. Có thể xuất bản số liệu hoặc chủ động thử lại.");
+    const failed = await (await page.request.get(`/api/v1/reports/${initial.report.id}`)).json();
+    expect(failed.selected_version.narrative).toBeNull();
+    expect(failed.publications).toHaveLength(0);
+    await page.getByRole("button", {name: english ? "Publish metrics only" : "Xuất bản chỉ số liệu", exact: true}).click();
+    await expect(page.getByText(english ? "Current publication" : "Bản xuất bản hiện tại", {exact: true})).toBeVisible();
+    const published = await (await page.request.get(`/api/v1/reports/${initial.report.id}`)).json();
+    expect(published.snapshot).toEqual(initial.snapshot);
+    expect(published.publications[0].report_version_id).toBe(initial.selected_version.id);
+    expect(published.review_rates.reviewed_generation_count).toBe(0);
+  });
+}
