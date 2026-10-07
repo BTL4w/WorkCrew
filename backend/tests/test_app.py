@@ -46,6 +46,8 @@ async def test_openapi_document_is_available() -> None:
         "/api/v1/feedback",
         "/api/v1/feedback/{feedback_id}/outcomes",
         "/api/v1/feedback/rates",
+        "/api/v1/evaluations/runs",
+        "/api/v1/evaluations/runs/{run_id}",
         "/api/v1/automations/daily-summaries",
         "/api/v1/automations/daily-summaries/deliveries",
         "/api/v1/automations/daily-summaries/drafts/{draft_id}",

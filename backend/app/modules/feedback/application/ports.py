@@ -1,3 +1,4 @@
+from collections.abc import Awaitable, Callable
 from contextlib import AbstractAsyncContextManager
 from typing import Protocol
 from uuid import UUID
@@ -13,6 +14,7 @@ from ..domain.evaluation import (
     EvaluationReviewDiff,
     ReportEvaluationResult,
 )
+from ..domain.evaluation_runs import EvaluationRequest, EvaluationRun
 from ..domain.feedback import FeedbackCommand, FeedbackResult, TerminalReviewCommand
 from ..domain.outcomes import FeedbackOutcome, OutcomeFacts, OutcomeSourceCommand, ReviewRates
 
@@ -77,3 +79,50 @@ class EvaluationDatasetReadPort(Protocol):
 
 class EvaluationProviderPort(Protocol):
     async def evaluate(self, dataset: EvaluationDatasetVersion) -> ReportEvaluationResult: ...
+
+
+class EvaluationRepository(Protocol):
+    async def authenticate(self) -> None: ...
+    async def frozen(self, dataset_id: UUID) -> EvaluationDatasetVersion: ...
+    async def replay_run(self, request: EvaluationRequest, key: str) -> EvaluationRun | None: ...
+    async def start(
+        self, request: EvaluationRequest, key: str, config_hash: str, budget: int
+    ) -> EvaluationRun: ...
+    async def read(self, identity: UUID) -> EvaluationRun: ...
+    async def claim(self, worker: str) -> EvaluationRun | None: ...
+    async def fence(self, job: EvaluationRun) -> object: ...
+    async def heartbeat(self, job: EvaluationRun) -> None: ...
+    async def finish(
+        self,
+        job: EvaluationRun,
+        result: ReportEvaluationResult | None,
+        *,
+        failure: str | None = None,
+        code: str | None = None,
+    ) -> None: ...
+    async def evidence(
+        self, operation: str, key: str, identity: UUID | None, code: str | None = None
+    ) -> None: ...
+
+
+class EvaluationTransactionsPort(Protocol):
+    def __call__(
+        self, actor: AuthenticatedActor | UUID
+    ) -> AbstractAsyncContextManager[EvaluationRepository]: ...
+    async def resolve(
+        self, *, organization_id: UUID, membership_id: UUID
+    ) -> AuthenticatedActor | None: ...
+
+
+class EvaluationPolicyPort(Protocol):
+    budget: int
+
+    def fingerprint(self, provider: str) -> str: ...
+    def validate(self, provider: str) -> None: ...
+    def build(
+        self, job: EvaluationRun, authorize: Callable[[], Awaitable[None]]
+    ) -> EvaluationProviderPort: ...
+
+    def verify(
+        self, job: EvaluationRun, dataset: EvaluationDatasetVersion, result: ReportEvaluationResult
+    ) -> ReportEvaluationResult: ...

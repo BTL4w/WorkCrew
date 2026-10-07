@@ -1,5 +1,6 @@
 "use client";
 
+import { EvaluationStatus } from "@/features/evaluations/evaluation-status";
 import { EvidencePicker } from "@/features/daily-updates/evidence-picker";
 import { DailySummaryView } from "@/features/automations/daily-summary-view";
 import { DailySummarySettings } from "@/features/automations/daily-summary-settings";
@@ -47,7 +48,7 @@ import {
 } from "./api";
 import type { Project, ProjectPage, Task, TaskPage, TaskStatus } from "./contracts";
 
-type View = "aiAssistant" | "projects" | "myTasks" | "peopleCapacity";
+type View = "aiAssistant" | "projects" | "myTasks" | "peopleCapacity" | "evaluations";
 type ProjectFormState = { project: Project | null };
 type TaskFormState = { task: Task | null };
 type WorkQueryKey = readonly ["work", string, string];
@@ -197,9 +198,10 @@ export function WorkWorkspace({
     ? t("task.myTitle")
     : view === "peopleCapacity"
     ? t("nav.peopleCapacity")
+    : view === "evaluations" ? t("nav.evaluations")
     : selectedProject?.name ?? t("project.title");
 
-  const workspaceContent = view === "aiAssistant" ? undefined : view === "peopleCapacity" ? (
+  const workspaceContent = view === "aiAssistant" ? undefined : view === "evaluations" ? (<EvaluationStatus organizationId={actor.membership.organization_id} membershipId={actor.membership.id} role={actor.membership.role}/>) : view === "peopleCapacity" ? (
           <PeopleCapacityPanel
             organizationId={actor.membership.organization_id}
             actorMembershipId={actor.membership.id}
@@ -308,6 +310,7 @@ export function WorkWorkspace({
         onOpenProjects={openProjects}
         onOpenMyTasks={openMyTasks}
         onOpenPeopleCapacity={openPeopleCapacity}
+        onOpenEvaluations={actor.membership.role === "ADMIN" ? ()=>setView("evaluations") : undefined}
         onAssignTask={canManage ? openAssignmentFlow : undefined}
         isLoggingOut={isLoggingOut}
         logoutError={logoutError}

@@ -57,6 +57,7 @@ export function AssistantShell({
   onOpenProjects,
   onOpenMyTasks,
   onOpenPeopleCapacity,
+  onOpenEvaluations,
   onAssignTask,
   isLoggingOut = false,
   logoutError = false,
@@ -73,6 +74,7 @@ export function AssistantShell({
   onOpenProjects?: () => void;
   onOpenMyTasks?: () => void;
   onOpenPeopleCapacity?: () => void;
+  onOpenEvaluations?: () => void;
   onAssignTask?: () => void;
   isLoggingOut?: boolean;
   logoutError?: boolean;
@@ -295,6 +297,7 @@ export function AssistantShell({
       onOpenProjects={onOpenProjects}
       onOpenMyTasks={onOpenMyTasks}
       onOpenPeopleCapacity={onOpenPeopleCapacity}
+      onOpenEvaluations={onOpenEvaluations}
       onAssignTask={onAssignTask}
       isLoggingOut={isLoggingOut}
       logoutError={logoutError}

@@ -2817,5 +2817,95 @@
         }
       }
     }
+  },
+  "evaluations": {
+    "paths": {
+      "/api/v1/evaluations/runs": [
+        "post"
+      ],
+      "/api/v1/evaluations/runs/{run_id}": [
+        "get"
+      ]
+    },
+    "schemas": {
+      "EvaluationRequest": {
+        "required": [
+          "dataset_version_id"
+        ],
+        "properties": {
+          "dataset_version_id": "string:uuid",
+          "provider": "literal:mock|hosted"
+        }
+      },
+      "EvaluationRun": {
+        "required": [
+          "id",
+          "organization_id",
+          "requester_membership_id",
+          "dataset_version_id",
+          "dataset_version",
+          "dataset_hash",
+          "dataset_policy_version",
+          "provider",
+          "provider_config_hash",
+          "budget_tokens",
+          "status",
+          "created_at"
+        ],
+        "properties": {
+          "id": "string:uuid",
+          "organization_id": "string:uuid",
+          "requester_membership_id": "string:uuid",
+          "dataset_version_id": "string:uuid",
+          "dataset_version": "integer",
+          "dataset_hash": "string",
+          "dataset_policy_version": "string",
+          "provider": "literal:mock|hosted",
+          "provider_policy_version": "literal:report-eval-provider.v1",
+          "provider_config_hash": "string",
+          "budget_tokens": "integer",
+          "status": "literal:QUEUED|RUNNING|PASSED|FAILED|CANCELLED",
+          "failure_kind": "literal:GATE|WORKER|AUTHORIZATION|POLICY|null",
+          "safe_error_code": "null|string",
+          "fence": "integer",
+          "attempts": "integer",
+          "lease_owner": "null|string",
+          "lease_until": "null|string:date-time",
+          "created_at": "string:date-time",
+          "result": "null|ref:ReportEvaluationResult",
+          "replayed": "boolean"
+        }
+      },
+      "ReportEvaluationResult": {
+        "required": [
+          "dataset_version_id",
+          "dataset_hash",
+          "provider",
+          "total",
+          "passed",
+          "failed",
+          "skipped",
+          "gate_passed",
+          "gate",
+          "cases",
+          "hosted_quality",
+          "limitations"
+        ],
+        "properties": {
+          "dataset_version_id": "string:uuid",
+          "dataset_hash": "string",
+          "provider": "literal:mock|hosted",
+          "total": "integer",
+          "passed": "integer",
+          "failed": "integer",
+          "skipped": "integer",
+          "gate_passed": "boolean",
+          "gate": "object",
+          "cases": "array:object",
+          "hosted_quality": "string",
+          "limitations": "array:string"
+        }
+      }
+    }
   }
 }

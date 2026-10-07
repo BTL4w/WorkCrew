@@ -6,7 +6,7 @@ import { LocaleSwitcher } from "@/shared/i18n/locale-switcher";
 
 import type { AssistantConversation } from "./contracts";
 
-export type AssistantNavigationSection = "assistant" | "projects" | "myTasks" | "peopleCapacity" | "assignTask";
+export type AssistantNavigationSection = "assistant" | "projects" | "myTasks" | "peopleCapacity" | "evaluations" | "assignTask";
 
 type IconName = "new" | "projects" | "tasks" | "people" | "assign" | "collapse" | "expand" | "chat" | "logout";
 
@@ -22,6 +22,7 @@ export function ConversationList({
   onOpenProjects,
   onOpenMyTasks,
   onOpenPeopleCapacity,
+  onOpenEvaluations,
   onAssignTask,
   isLoggingOut = false,
   logoutError = false,
@@ -38,6 +39,7 @@ export function ConversationList({
   onOpenProjects?: () => void;
   onOpenMyTasks?: () => void;
   onOpenPeopleCapacity?: () => void;
+  onOpenEvaluations?: () => void;
   onAssignTask?: () => void;
   isLoggingOut?: boolean;
   logoutError?: boolean;
@@ -59,6 +61,7 @@ export function ConversationList({
       <SidebarAction icon="new" label={t("conversations.new")} collapsed={collapsed} active={activeSection === "assistant" && selectedId === null} onClick={onNew} />
       {onOpenProjects ? <SidebarAction icon="projects" label={t("navigation.projects")} collapsed={collapsed} active={activeSection === "projects"} onClick={onOpenProjects} /> : null}
       {onOpenMyTasks ? <SidebarAction icon="tasks" label={t("navigation.myTasks")} collapsed={collapsed} active={activeSection === "myTasks"} onClick={onOpenMyTasks} /> : null}
+      {onOpenEvaluations ? <SidebarAction icon="people" label={t("navigation.evaluations")} collapsed={collapsed} active={activeSection === "evaluations"} onClick={onOpenEvaluations} /> : null}
       {onOpenPeopleCapacity ? <SidebarAction icon="people" label={t("navigation.peopleCapacity")} collapsed={collapsed} active={activeSection === "peopleCapacity"} onClick={onOpenPeopleCapacity} /> : null}
       {onAssignTask ? <SidebarAction icon="assign" label={t("navigation.assignTask")} collapsed={collapsed} active={activeSection === "assignTask"} onClick={onAssignTask} /> : null}
     </nav>

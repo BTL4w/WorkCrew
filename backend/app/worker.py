@@ -40,7 +40,10 @@ from app.modules.assistant.application.title_service import ConversationTitleSer
 from app.modules.automations.adapters.repository import ScheduleTransactions
 from app.modules.automations.adapters.scheduler import Scheduler
 from app.modules.automations.application.schedule_service import ScheduleService
+from app.modules.feedback.adapters.evaluation_policy import EvaluationPolicy
+from app.modules.feedback.adapters.evaluation_repository import EvaluationTransactions
 from app.modules.feedback.adapters.outbox_consumer import FeedbackOutboxPublisher
+from app.modules.feedback.application.evaluation_service import EvaluationService
 from app.modules.identity.adapters.auth_repository import SqlAlchemyAuthTransactionFactory
 from app.modules.identity.adapters.current_actor import CurrentActorResolver
 from app.modules.identity.application.current_actor_service import CurrentActorService
@@ -138,6 +141,7 @@ async def process_tenant_once(
     risk_job_service: _AssistantRunner | None = None,
     summary_job_service: _AssistantRunner | None = None,
     reporting_job_service: _AssistantRunner | None = None,
+    evaluation_job_service: _AssistantRunner | None = None,
 ) -> bool:
     """Process bounded Task-8 work in fair fixed order."""
     # Separate job filter and task: naming cannot hold up the current answer.
@@ -217,6 +221,18 @@ async def process_tenant_once(
             )
         except Exception:
             logger.exception("Error processing report jobs for organization %s", organization_id)
+    if evaluation_job_service is not None:
+        try:
+            processed = (
+                await evaluation_job_service.run_once(
+                    worker_id=worker_id, organization_id=organization_id
+                )
+                or processed
+            )
+        except Exception:
+            logger.exception(
+                "Error processing evaluation jobs for organization %s", organization_id
+            )
     if title_task is not None:
         try:
             processed = await title_task or processed
@@ -287,6 +303,10 @@ async def _run_worker() -> None:
         ),
         organization_scopes=scopes,
         lease_seconds=settings.worker_lease_seconds,
+    )
+    evaluation_job_service = EvaluationService(
+        EvaluationTransactions(session_factory, settings.reporting_timezone),
+        policy=EvaluationPolicy(settings),
     )
     reporting_job_service = ReportJobService(
         GenerationTransactions(session_factory, settings.reporting_timezone),
@@ -522,6 +542,7 @@ async def _run_worker() -> None:
                     risk_job_service=risk_job_service,
                     summary_job_service=summary_scheduler,
                     reporting_job_service=reporting_job_service,
+                    evaluation_job_service=evaluation_job_service,
                 )
                 or processed_any
             )

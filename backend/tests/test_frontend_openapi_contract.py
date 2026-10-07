@@ -354,3 +354,31 @@ def test_feedback_openapi_matches_frontend_manifest() -> None:
             "required": contract.get("required", []),
             "properties": {k: _describe(v, schemas) for k, v in properties.items()},
         } == expected
+
+
+def test_evaluation_openapi_matches_frontend_manifest() -> None:
+    schema = app.openapi()
+    manifest = json.loads(
+        (
+            Path(__file__).resolve().parents[2] / "frontend/src/features/work/openapi-contract.json"
+        ).read_text()
+    )["evaluations"]
+    schemas = cast(dict[str, object], schema["components"]["schemas"])
+    assert set(manifest["paths"]) == {
+        "/api/v1/evaluations/runs",
+        "/api/v1/evaluations/runs/{run_id}",
+    }
+    for route, methods in manifest["paths"].items():
+        assert set(schema["paths"][route]) == set(methods)
+    post = schema["paths"]["/api/v1/evaluations/runs"]["post"]
+    assert any(p["name"] == "Idempotency-Key" and p["required"] for p in post["parameters"])
+    assert post["responses"]["202"]["content"]["application/json"]["schema"] == {
+        "$ref": "#/components/schemas/EvaluationRun"
+    }
+    for name, expected in manifest["schemas"].items():
+        contract = cast(dict[str, object], schemas[name])
+        properties = cast(dict[str, dict[str, object]], contract["properties"])
+        assert {
+            "required": contract.get("required", []),
+            "properties": {k: _describe(v, schemas) for k, v in properties.items()},
+        } == expected

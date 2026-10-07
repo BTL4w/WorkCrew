@@ -90,6 +90,7 @@ class Settings(BaseSettings):
     frontend_origin: str = "http://localhost:3000"
     ai_provider: Literal["disabled", "mock", "openai"] = "disabled"
     report_evaluation_hosted_enabled: bool = False
+    report_evaluation_budget_tokens: int = Field(default=100000, ge=1, le=1000000)
     ai_model: str = ""
     ai_title_model: str = Field(default="gpt-4o-mini", min_length=1)
     ai_title_timeout_seconds: float = Field(default=3, gt=0, le=10)

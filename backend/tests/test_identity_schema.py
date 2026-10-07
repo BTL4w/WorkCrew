@@ -52,6 +52,8 @@ def test_active_phase_tables_are_registered() -> None:
         "evaluation_case_revisions",
         "evaluation_dataset_versions",
         "evaluation_dataset_cases",
+        "evaluation_runs",
+        "evaluation_results",
         "report_version_verifications",
         "report_metric_snapshots",
         "report_versions",

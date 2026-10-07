@@ -137,7 +137,7 @@
   "work": {
     "product": "Work Management",
     "navigationLabel": "Work navigation",
-    "nav": { "chat": "AI Assistant", "projects": "Projects", "myTasks": "My Tasks", "peopleCapacity": "People & skills", "assignTask": "Assign task" },
+    "nav": { "chat": "AI Assistant", "projects": "Projects", "myTasks": "My Tasks", "evaluations": "AI evaluation", "peopleCapacity": "People & skills", "assignTask": "Assign task" },
     "sidebar": {
       "workspace": "Workspace",
       "account": "Account",
@@ -337,7 +337,7 @@
     "eyebrow": "Conversation workspace",
     "title": "AI Assistant",
     "loading": "Loading conversation…",
-    "navigation": { "label": "Primary navigation", "projects": "Projects", "myTasks": "My Tasks", "peopleCapacity": "People & skills", "assignTask": "Assign task" },
+    "navigation": { "label": "Primary navigation", "projects": "Projects", "myTasks": "My Tasks", "evaluations": "AI evaluation", "peopleCapacity": "People & skills", "assignTask": "Assign task" },
     "conversations": { "label": "Conversation list", "new": "New conversation", "recent": "Recent", "toggle": "Show or hide conversation list", "empty": "No conversations yet.", "untitled": "New conversation" },
     "composer": { "label": "Message the AI Assistant", "placeholder": "Ask about work or request a project plan…", "mode": "Planning", "send": "Send" },
     "empty": { "title": "How can I help?", "description": "Ask about current work or describe a project you want to plan." },
@@ -1137,6 +1137,6 @@
         "RESOLVED": "Resolved"
       }
     }
-  }
-
+  },
+  "evaluations": {"title": "AI evaluation", "description": "Run evaluation against a reviewed, frozen dataset version.", "datasetId": "Dataset version ID", "provider": "Provider", "mock": "Mock (default)", "hosted": "Hosted", "hostedPolicy": "Hosted requires server policy, credentials and a configured budget.", "start": "Run evaluation", "runId": "Evaluation run ID", "open": "Open results", "error": "Unable to proceed. Check the ID, Admin permissions and server configuration.", "version": "Dataset version", "hash": "Dataset hash", "policy": "Policy versions", "cases": "Passed / total cases", "failed": "Failed cases", "skipped": "Skipped cases", "hostedQuality": "Hosted quality", "coverage": "Unmeasured coverage", "complete": "All required coverage measured", "limitations": "Limitations", "statuses": {"QUEUED": "Queued", "RUNNING": "Running", "PASSED": "Gate passed", "FAILED": "Failed", "CANCELLED": "Cancelled"}, "failures": {"GATE": "Gate failed", "WORKER": "Worker could not complete evaluation", "AUTHORIZATION": "Access changed", "POLICY": "Provider policy changed"}}
 }

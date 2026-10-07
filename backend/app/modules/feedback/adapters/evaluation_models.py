@@ -8,6 +8,7 @@ from sqlalchemy import (
     CheckConstraint,
     DateTime,
     ForeignKeyConstraint,
+    Index,
     String,
     UniqueConstraint,
     text,
@@ -158,3 +159,83 @@ class EvaluationDatasetCaseModel(Base):
     case_id: Mapped[UUID]
     case_version: Mapped[int]
     case_hash: Mapped[str] = mapped_column(String(64))
+
+
+class EvaluationRunModel(Base):
+    __tablename__ = "evaluation_runs"
+    __table_args__ = (
+        UniqueConstraint("organization_id", "id"),
+        UniqueConstraint("organization_id", "id", "dataset_version_id"),
+        Index("ix_evaluation_runs_queue", "organization_id", "status", "lease_until", "created_at"),
+        UniqueConstraint("organization_id", "requester_membership_id", "request_key"),
+        ForeignKeyConstraint(
+            ["organization_id", "dataset_version_id"],
+            ["evaluation_dataset_versions.organization_id", "evaluation_dataset_versions.id"],
+        ),
+        ForeignKeyConstraint(
+            ["organization_id", "requester_membership_id"],
+            ["memberships.organization_id", "memberships.id"],
+        ),
+        CheckConstraint(
+            "status IN ('QUEUED','RUNNING','PASSED','FAILED','CANCELLED') AND provider "
+            "IN ('mock','hosted') AND fence>=0 AND attempts>=0 AND attempts<=3 AND "
+            "budget_tokens BETWEEN 1 AND 1000000",
+            name="state",
+        ),
+        CheckConstraint("provider_policy_version='report-eval-provider.v1'", name="policy"),
+    )
+    id: Mapped[UUID] = mapped_column(primary_key=True)
+    organization_id: Mapped[UUID]
+    requester_membership_id: Mapped[UUID]
+    request_key: Mapped[str] = mapped_column(String(128))
+    request_hash: Mapped[str] = mapped_column(String(64))
+    dataset_version_id: Mapped[UUID]
+    dataset_version: Mapped[int]
+    dataset_hash: Mapped[str] = mapped_column(String(64))
+    dataset_policy_version: Mapped[str] = mapped_column(String(32))
+    provider: Mapped[str] = mapped_column(String(16))
+    provider_policy_version: Mapped[str] = mapped_column(String(32))
+    provider_config_hash: Mapped[str] = mapped_column(String(64))
+    budget_tokens: Mapped[int]
+    status: Mapped[str] = mapped_column(String(16))
+    failure_kind: Mapped[str | None] = mapped_column(String(16))
+    safe_error_code: Mapped[str | None] = mapped_column(String(64))
+    fence: Mapped[int] = mapped_column(default=0, server_default=text("0"))
+    attempts: Mapped[int] = mapped_column(default=0, server_default=text("0"))
+    lease_owner: Mapped[str | None] = mapped_column(String(100))
+    lease_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    summary: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
+
+
+class EvaluationResultModel(Base):
+    __tablename__ = "evaluation_results"
+    __table_args__ = (
+        UniqueConstraint("organization_id", "run_id", "case_id", "case_version"),
+        ForeignKeyConstraint(
+            ["organization_id", "run_id", "dataset_version_id"],
+            [
+                "evaluation_runs.organization_id",
+                "evaluation_runs.id",
+                "evaluation_runs.dataset_version_id",
+            ],
+        ),
+        ForeignKeyConstraint(
+            ["organization_id", "dataset_version_id", "case_id", "case_version"],
+            [
+                "evaluation_dataset_cases.organization_id",
+                "evaluation_dataset_cases.dataset_id",
+                "evaluation_dataset_cases.case_id",
+                "evaluation_dataset_cases.case_version",
+            ],
+        ),
+        CheckConstraint("case_version>=1", name="version"),
+    )
+    id: Mapped[UUID] = mapped_column(primary_key=True)
+    organization_id: Mapped[UUID]
+    run_id: Mapped[UUID]
+    dataset_version_id: Mapped[UUID]
+    case_id: Mapped[UUID]
+    case_version: Mapped[int]
+    case_hash: Mapped[str] = mapped_column(String(64))
+    measurement: Mapped[dict[str, Any]] = mapped_column(JSONB)

@@ -355,6 +355,18 @@ def create_app(
         )
     )
     app.include_router(feedback_router, prefix="/api/v1")
+    from app.modules.feedback.adapters.evaluation_policy import EvaluationPolicy
+    from app.modules.feedback.adapters.evaluation_repository import EvaluationTransactions
+    from app.modules.feedback.api.evaluations import router as evaluation_router
+    from app.modules.feedback.application.evaluation_service import EvaluationService
+
+    app.state.evaluation_service = EvaluationService(
+        EvaluationTransactions(
+            create_session_factory(database_engine), resolved_settings.reporting_timezone
+        ),
+        policy=EvaluationPolicy(resolved_settings),
+    )
+    app.include_router(evaluation_router, prefix="/api/v1")
     app.include_router(reporting_router, prefix="/api/v1")
     app.state.digest_service = DigestService(
         DigestTransactions(create_session_factory(database_engine))

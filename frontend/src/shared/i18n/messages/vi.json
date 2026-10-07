@@ -137,7 +137,7 @@
   "work": {
     "product": "Work Management",
     "navigationLabel": "Điều hướng công việc",
-    "nav": { "chat": "Trợ lý AI", "projects": "Projects", "myTasks": "Task của tôi", "peopleCapacity": "Con người & kỹ năng", "assignTask": "Giao task" },
+    "nav": { "chat": "Trợ lý AI", "projects": "Projects", "myTasks": "Task của tôi", "evaluations": "Đánh giá AI", "peopleCapacity": "Con người & kỹ năng", "assignTask": "Giao task" },
     "sidebar": {
       "workspace": "Không gian làm việc",
       "account": "Tài khoản",
@@ -337,7 +337,7 @@
     "eyebrow": "Không gian hội thoại",
     "title": "Trợ lý AI",
     "loading": "Đang tải cuộc trò chuyện…",
-    "navigation": { "label": "Điều hướng chính", "projects": "Projects", "myTasks": "Task của tôi", "peopleCapacity": "Con người & kỹ năng", "assignTask": "Giao task" },
+    "navigation": { "label": "Điều hướng chính", "projects": "Projects", "myTasks": "Task của tôi", "evaluations": "Đánh giá AI", "peopleCapacity": "Con người & kỹ năng", "assignTask": "Giao task" },
     "conversations": { "label": "Danh sách cuộc trò chuyện", "new": "Cuộc trò chuyện mới", "recent": "Gần đây", "toggle": "Ẩn hoặc hiện danh sách cuộc trò chuyện", "empty": "Chưa có cuộc trò chuyện.", "untitled": "Cuộc trò chuyện mới" },
     "composer": { "label": "Nhắn cho Trợ lý AI", "placeholder": "Hỏi về công việc hoặc yêu cầu lập kế hoạch…", "mode": "Planning", "send": "Gửi" },
     "empty": { "title": "Tôi có thể giúp gì cho bạn?", "description": "Hỏi về công việc hiện tại hoặc mô tả project bạn muốn lập kế hoạch." },
@@ -1137,6 +1137,6 @@
         "RESOLVED": "Đã giải quyết"
       }
     }
-  }
-
+  },
+  "evaluations": {"title": "Đánh giá AI", "description": "Chạy bộ đánh giá trên phiên bản dataset đã được duyệt và đóng băng.", "datasetId": "ID phiên bản dataset", "provider": "Nhà cung cấp", "mock": "Mock (mặc định)", "hosted": "Hosted", "hostedPolicy": "Hosted cần policy, thông tin xác thực và ngân sách được cấu hình trên server.", "start": "Chạy đánh giá", "runId": "ID lần đánh giá", "open": "Mở kết quả", "error": "Không thể thực hiện. Kiểm tra ID, quyền Admin và cấu hình server.", "version": "Phiên bản dataset", "hash": "Hash dataset", "policy": "Phiên bản policy", "cases": "Ca đạt / tổng", "failed": "Ca chưa đạt", "skipped": "Ca bỏ qua", "hostedQuality": "Chất lượng hosted", "coverage": "Phạm vi chưa kiểm tra", "complete": "Đã kiểm tra đủ", "limitations": "Giới hạn", "statuses": {"QUEUED": "Đang chờ", "RUNNING": "Đang chạy", "PASSED": "Gate đạt", "FAILED": "Chưa đạt", "CANCELLED": "Đã hủy"}, "failures": {"GATE": "Gate chưa đạt", "WORKER": "Worker không hoàn thành đánh giá", "AUTHORIZATION": "Quyền truy cập đã thay đổi", "POLICY": "Policy nhà cung cấp đã thay đổi"}}
 }
