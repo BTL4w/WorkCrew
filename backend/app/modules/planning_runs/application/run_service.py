@@ -172,7 +172,13 @@ class PlanningRunService:
             run = await repository.get_workflow_run(actor=actor, run_id=run_id)
             if run is None:
                 raise PlanningRunNotFoundError
-            checkpoint = await repository.get_latest_checkpoint(actor=actor, run_id=run_id)
+            checkpoint = (
+                await repository.get_latest_checkpoint(
+                    actor=actor, run_id=run_id, include_state=False
+                )
+                if run.error_message == "CONTEXT_EXPIRED"
+                else await repository.get_latest_checkpoint(actor=actor, run_id=run_id)
+            )
             proposal = await repository.get_proposal_by_run_id(actor=actor, run_id=run_id)
             proposal_version = None
             previous_proposal_version = None

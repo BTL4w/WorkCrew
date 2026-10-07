@@ -11,6 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from app.modules.audit.adapters.database_models import AuditEventModel
 from app.modules.audit.domain.events import AuditOutcome
+from app.modules.feedback.adapters.payload_repository import assert_context_live
 from app.modules.identity.domain.auth import AuthenticatedActor
 from app.modules.planning_runs.adapters.database_models import OutboxEventModel
 from app.modules.work.adapters.database_models import (
@@ -242,6 +243,10 @@ class SQLGenerationRepository:
             or row.deadline <= at
         ):
             raise ReportError("REPORT_GENERATION_LEASE", 409)
+        if row.orchestration_run_id is not None:
+            await assert_context_live(
+                self.session, self.org, "orchestration_runs", row.orchestration_run_id
+            )
         return row
 
     async def context(

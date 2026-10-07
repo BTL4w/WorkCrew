@@ -172,6 +172,9 @@ async def test_model_gateway_records_safe_metadata_after_transaction_free_call()
     class Repo:
         recorded: AgentModelInvocation | None = None
 
+        async def get_agent_run(self, **_: object) -> None:
+            return None
+
         async def append_agent_model_invocation(self, *, invocation: AgentModelInvocation) -> None:
             self.recorded = invocation
 
@@ -247,6 +250,9 @@ async def test_model_gateway_records_specific_safe_failure_kind(
 
     class Repo:
         recorded: AgentModelInvocation | None = None
+
+        async def get_agent_run(self, **_: object) -> None:
+            return None
 
         async def append_agent_model_invocation(self, *, invocation: AgentModelInvocation) -> None:
             self.recorded = invocation

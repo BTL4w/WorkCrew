@@ -487,6 +487,9 @@ async def test_planning_model_call_has_no_active_transaction_and_records_no_prom
     class Repository:
         invocation: ModelInvocation | None = None
 
+        async def assert_execution_context(self, **_: object) -> None:
+            return None
+
         async def record_model_invocation(self, *, invocation: ModelInvocation) -> None:
             self.invocation = invocation
 

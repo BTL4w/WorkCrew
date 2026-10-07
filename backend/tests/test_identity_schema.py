@@ -44,6 +44,7 @@ _MODEL_MODULES = (
 
 def test_active_phase_tables_are_registered() -> None:
     assert set(Base.metadata.tables) == {
+        "ai_retention_payloads",
         "reports",
         "feedback",
         "feedback_outcomes",

@@ -8,6 +8,7 @@ from anyio import CancelScope
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession, AsyncSessionTransaction, async_sessionmaker
 
+from app.core.config import get_settings
 from app.modules.assistant.adapters.repository import PostgreSQLAssistantRepository
 from app.modules.assistant.application.ports import AssistantRepository, AssistantTransaction
 from app.modules.identity.domain.auth import AuthenticatedActor
@@ -44,6 +45,10 @@ class PostgreSQLAssistantTransaction(AssistantTransaction):
         try:
             await self._transaction.__aenter__()
             await self._session.execute(text("SET LOCAL ROLE app_runtime"))
+            await self._session.execute(
+                text("SELECT set_config('app.ai_raw_retention_days',:days,true)"),
+                {"days": str(get_settings().ai_raw_context_retention_days)},
+            )
             await self._session.execute(
                 text("SELECT set_config('app.organization_id', :value, true)"),
                 {"value": str(self._organization_id)},

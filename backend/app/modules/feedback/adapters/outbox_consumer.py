@@ -3,7 +3,7 @@
 from typing import Literal
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 from app.modules.planning_runs.domain.models import OutboxEvent
 from app.modules.reporting.adapters.outbox_consumer import Publisher
@@ -27,11 +27,28 @@ class EvaluationEvent(BaseModel):
     policy_version: Literal["report-eval-provider.v1", "report-eval-dataset.v1"]
 
 
+class RetentionCompleted(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    schema_version: Literal["1.0"]
+    id: UUID
+    policy_version: Literal["ai-retention.v1"]
+    purged: int = Field(ge=1, le=100)
+
+
 class FeedbackOutboxPublisher:
     def __init__(self, delegate: Publisher):
         self.delegate = delegate
 
     async def publish(self, event: OutboxEvent) -> None:
+        if event.event_type == "ai.retention.completed.v1":
+            value = RetentionCompleted.model_validate(event.payload)
+            if (
+                event.envelope_version != "1.0"
+                or event.aggregate_type != "ai_retention"
+                or event.aggregate_id != value.id
+            ):
+                raise ValueError("INVALID_RETENTION_EVENT")
+            return
         if event.event_type in (
             "evaluation.prepare.v1",
             "evaluation.curate.v1",

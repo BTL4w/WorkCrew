@@ -267,6 +267,10 @@ class AgentRecordingModelGateway:
         if scope is None:
             raise RuntimeError("AGENT_MODEL_SCOPE_MISSING")
         organization_id, agent_run_id = scope
+        async with self._transactions(organization_id) as transaction:
+            await transaction.repository.get_agent_run(
+                organization_id=organization_id, run_id=agent_run_id
+            )
         started = monotonic()
         status = InvocationStatus.SUCCEEDED
         safe_error_code = None
@@ -305,6 +309,9 @@ class AgentRecordingModelGateway:
                 safe_error_code=safe_error_code,
             )
             async with self._transactions(organization_id) as transaction:
+                await transaction.repository.get_agent_run(
+                    organization_id=organization_id, run_id=agent_run_id
+                )
                 await transaction.repository.append_agent_model_invocation(invocation=invocation)
                 await transaction.commit()
         return response

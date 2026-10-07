@@ -743,6 +743,10 @@ class WorkflowRecordingModelGateway:
     async def generate_structured[StructuredOutputT: BaseModel](
         self, request: StructuredModelRequest[StructuredOutputT]
     ) -> StructuredModelResponse[StructuredOutputT]:
+        async with self._transactions(self._organization_id) as transaction:
+            await transaction.repository.assert_execution_context(
+                organization_id=self._organization_id, run_id=self._run_id
+            )
         started = monotonic()
         status = "SUCCESS"
         model_ref = "unavailable"
@@ -756,6 +760,9 @@ class WorkflowRecordingModelGateway:
         finally:
             provider, _, model_name = model_ref.partition(":")
             async with self._transactions(self._organization_id) as transaction:
+                await transaction.repository.assert_execution_context(
+                    organization_id=self._organization_id, run_id=self._run_id
+                )
                 await transaction.repository.record_model_invocation(
                     invocation=ModelInvocation(
                         id=uuid4(),
@@ -1322,6 +1329,7 @@ class PlanningFinalizationJobHandler:
             checkpoint = await transaction.repository.get_latest_checkpoint(
                 actor=actor,
                 run_id=run.id,
+                include_state=False,
             )
             expected = {
                 "APPROVE": (ApprovalStatus.APPROVED, ProposalStatus.APPROVED),

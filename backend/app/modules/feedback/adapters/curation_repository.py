@@ -7,6 +7,7 @@ from sqlalchemy import func, select, text
 
 from app.modules.audit.adapters.database_models import AuditEventModel
 from app.modules.audit.domain.events import AuditOutcome
+from app.modules.feedback.adapters.payload_repository import context_expired
 from app.modules.planning_runs.adapters.database_models import OutboxEventModel
 from app.modules.reporting.domain.reports import ReportError, ReportResult
 from app.modules.work.adapters.database_models import IdempotencyRecordModel, IdempotencyState
@@ -75,9 +76,9 @@ class SQLCurationRepository(SQLFeedbackRepository):
 
     async def candidate_source(self, candidate_id: UUID) -> CandidateRow:
         row = await self.session.scalar(
-            select(CandidateRow).where(
-                CandidateRow.organization_id == self.org, CandidateRow.id == candidate_id
-            )
+            select(CandidateRow)
+            .where(CandidateRow.organization_id == self.org, CandidateRow.id == candidate_id)
+            .with_for_update()
         )
         if row is None:
             raise ReportError("RESOURCE_NOT_FOUND", 404)
@@ -85,6 +86,8 @@ class SQLCurationRepository(SQLFeedbackRepository):
         return row
 
     async def candidate(self, candidate_id: UUID) -> EvaluationCandidate:
+        if await context_expired(self.session, self.org, "evaluation_candidates", candidate_id):
+            raise ReportError("EVALUATION_CONTEXT_EXPIRED")
         row = await self.candidate_source(candidate_id)
         if row.context is None or row.expires_at <= await self.captured_at():
             raise ReportError("EVALUATION_CONTEXT_EXPIRED")

@@ -393,6 +393,9 @@ async def test_checkpoint_replay_returns_waiting_daily_card_without_resuming_mod
     )
 
     class Repository:
+        async def load_orchestration_checkpoint(self, **_: object) -> dict[str, object]:
+            return {}
+
         resumed = False
 
         async def get_agent_run(self, *, organization_id: UUID, run_id: UUID) -> AgentRun:

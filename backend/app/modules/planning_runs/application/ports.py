@@ -128,6 +128,8 @@ class PlanningRunRepository(Protocol):
         run_id: UUID,
     ) -> WorkflowRun | None: ...
 
+    async def assert_execution_context(self, *, organization_id: UUID, run_id: UUID) -> None: ...
+
     async def get_workflow_run_by_scope(
         self, *, organization_id: UUID, run_id: UUID
     ) -> WorkflowRun | None: ...
@@ -152,6 +154,7 @@ class PlanningRunRepository(Protocol):
         *,
         actor: AuthenticatedActor,
         run_id: UUID,
+        include_state: bool = True,
     ) -> WorkflowCheckpoint | None: ...
 
     async def create_proposal(

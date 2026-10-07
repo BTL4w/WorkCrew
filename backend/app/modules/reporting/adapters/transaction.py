@@ -7,6 +7,7 @@ from sqlalchemy import text
 from sqlalchemy.exc import DBAPIError
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
+from app.core.config import get_settings
 from app.modules.identity.domain.auth import AuthenticatedActor
 
 from ..application.ports import ReportRepository
@@ -24,6 +25,10 @@ class ReportTransactions:
             async with self.sessions() as session, session.begin():
                 await session.connection(execution_options={"isolation_level": "REPEATABLE READ"})
                 await session.execute(text("SET LOCAL ROLE app_runtime"))
+                await session.execute(
+                    text("SELECT set_config('app.ai_raw_retention_days',:days,true)"),
+                    {"days": str(get_settings().ai_raw_context_retention_days)},
+                )
                 await session.execute(
                     text(
                         "SELECT set_config('app.organization_id',:org,true), "

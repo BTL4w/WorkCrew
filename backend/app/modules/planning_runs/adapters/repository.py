@@ -2,6 +2,7 @@
 
 import hashlib
 import json
+from dataclasses import replace
 from datetime import UTC, date, datetime, timedelta
 from typing import Any, cast
 from uuid import UUID, uuid4
@@ -11,6 +12,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules.audit.adapters.database_models import AuditEventModel
 from app.modules.audit.domain.events import AuditOutcome
+from app.modules.feedback.adapters.payload_repository import (
+    assert_context_live,
+    context_expired,
+    live_payload,
+)
 from app.modules.identity.domain.auth import AuthenticatedActor
 from app.modules.organization.adapters.database_models import MembershipModel
 from app.modules.organization.domain.roles import MembershipRole
@@ -1151,7 +1157,15 @@ class PostgreSQLPlanningRunRepository(PlanningRunRepository):
                 .limit(limit)
             )
         ).all()
-        return tuple(self._run_from_model(model) for model in models)
+        runs: list[WorkflowRun] = []
+        for model in models:
+            run = self._run_from_model(model)
+            if await context_expired(
+                self._session, actor.organization_id, "workflow_runs", model.id
+            ):
+                run = replace(run, input_goal_text="", error_message="CONTEXT_EXPIRED")
+            runs.append(run)
+        return tuple(runs)
 
     @staticmethod
     def _run_from_model(model: WorkflowRunModel) -> WorkflowRun:
@@ -1230,7 +1244,13 @@ class PostgreSQLPlanningRunRepository(PlanningRunRepository):
         model = result.scalar_one_or_none()
         if model is None:
             return None
-        return self._run_from_model(model)
+        run = self._run_from_model(model)
+        if await context_expired(self._session, actor.organization_id, "workflow_runs", run_id):
+            return replace(run, input_goal_text="", error_message="CONTEXT_EXPIRED")
+        return run
+
+    async def assert_execution_context(self, *, organization_id: UUID, run_id: UUID) -> None:
+        await assert_context_live(self._session, organization_id, "workflow_runs", run_id)
 
     async def get_workflow_run_by_scope(
         self, *, organization_id: UUID, run_id: UUID
@@ -1241,7 +1261,12 @@ class PostgreSQLPlanningRunRepository(PlanningRunRepository):
                 WorkflowRunModel.id == run_id,
             )
         )
-        return self._run_from_model(model) if model is not None else None
+        if model is None:
+            return None
+        run = self._run_from_model(model)
+        if await context_expired(self._session, organization_id, "workflow_runs", run_id):
+            return replace(run, input_goal_text="", error_message="CONTEXT_EXPIRED")
+        return run
 
     async def list_active_membership_ids(self, *, organization_id: UUID) -> frozenset[UUID]:
         values = (
@@ -1859,6 +1884,9 @@ class PostgreSQLPlanningRunRepository(PlanningRunRepository):
             for task in _items(typed_content.get("tasks"), "tasks")
         ):
             return None
+        await assert_context_live(
+            self._session, actor.organization_id, "workflow_runs", proposal.workflow_run_id
+        )
         new_version = ProposalVersion(
             id=uuid4(),
             organization_id=actor.organization_id,
@@ -1957,7 +1985,7 @@ class PostgreSQLPlanningRunRepository(PlanningRunRepository):
             )
             .values(
                 status=run.status.value,
-                error_message=run.error_message,
+                error_message=None if run.error_message == "CONTEXT_EXPIRED" else run.error_message,
                 version=run.version,
                 updated_at=run.updated_at,
             )
@@ -2011,7 +2039,10 @@ class PostgreSQLPlanningRunRepository(PlanningRunRepository):
         *,
         actor: AuthenticatedActor,
         run_id: UUID,
+        include_state: bool = True,
     ) -> WorkflowCheckpoint | None:
+        if include_state:
+            await assert_context_live(self._session, actor.organization_id, "workflow_runs", run_id)
         stmt = (
             select(WorkflowCheckpointModel)
             .where(
@@ -2031,7 +2062,7 @@ class PostgreSQLPlanningRunRepository(PlanningRunRepository):
             workflow_run_id=model.workflow_run_id,
             node=model.node,
             sequence=model.sequence,
-            state=model.state,
+            state=model.state if include_state else {},
             created_at=model.created_at,
         )
 
@@ -2593,6 +2624,7 @@ class PostgreSQLPlanningRunRepository(PlanningRunRepository):
                 WorkflowEventModel.workflow_run_id == run_id,
                 WorkflowEventModel.organization_id == actor.organization_id,
                 WorkflowEventModel.sequence > after_sequence,
+                live_payload(WorkflowEventModel, "workflow_events"),
             )
             .order_by(WorkflowEventModel.sequence.asc())
         )
@@ -2923,6 +2955,7 @@ class PostgreSQLPlanningRunRepository(PlanningRunRepository):
                 )
         await self._session.flush()
         conditions = [
+            live_payload(WorkflowJobModel, "workflow_jobs"),
             WorkflowJobModel.attempt_count < WorkflowJobModel.max_attempts,
             (WorkflowJobModel.status == WorkflowJobStatus.QUEUED.value)
             | (

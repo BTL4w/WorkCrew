@@ -171,6 +171,9 @@ async def test_waiting_assignment_agent_run_is_resumed_before_reexecution() -> N
     )
 
     class Repository:
+        async def load_orchestration_checkpoint(self, **_: object) -> dict[str, object]:
+            return {}
+
         resumed: AgentRun | None = None
 
         async def get_agent_run(self, **_):

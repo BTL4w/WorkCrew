@@ -1,6 +1,7 @@
 """Safe structured checkpoint memory without authority or hidden reasoning."""
 
 from copy import deepcopy
+from datetime import datetime
 
 from pydantic import BaseModel, ConfigDict, TypeAdapter
 
@@ -30,16 +31,28 @@ class RuntimeCheckpoint(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
     state: dict[str, JsonValue]
+    expires_at: datetime | None = None
 
 
 class MemoryManager:
-    def checkpoint(self, state: dict[str, JsonValue]) -> RuntimeCheckpoint:
+    def checkpoint(
+        self, state: dict[str, JsonValue], *, expires_at: datetime | None = None
+    ) -> RuntimeCheckpoint:
         self._reject_reserved_keys(state)
         try:
             validated = _JSON_ADAPTER.validate_python(deepcopy(state))
         except ValueError as exc:
             raise RuntimeMemoryError("CHECKPOINT_STATE_INVALID") from exc
-        return RuntimeCheckpoint(state=validated)
+        return RuntimeCheckpoint(state=validated, expires_at=expires_at)
+
+    def restore(self, checkpoint: RuntimeCheckpoint, *, now: datetime) -> dict[str, JsonValue]:
+        if now.tzinfo is None or (
+            checkpoint.expires_at is not None
+            and (checkpoint.expires_at.tzinfo is None or checkpoint.expires_at <= now)
+        ):
+            raise RuntimeMemoryError("CONTEXT_EXPIRED")
+        self._reject_reserved_keys(checkpoint.state)
+        return deepcopy(checkpoint.state)
 
     @classmethod
     def _reject_reserved_keys(cls, value: JsonValue) -> None:

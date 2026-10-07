@@ -52,6 +52,7 @@ from app.modules.assistant.domain.models import (
 )
 from app.modules.audit.adapters.database_models import AuditEventModel
 from app.modules.audit.domain.events import AuditOutcome
+from app.modules.feedback.adapters.payload_repository import assert_context_live, live_payload
 from app.modules.identity.domain.auth import AuthenticatedActor
 from app.modules.planning_runs.adapters.database_models import OutboxEventModel, WorkflowEventModel
 from app.modules.planning_runs.domain.models import WorkflowEvent
@@ -789,6 +790,7 @@ class PostgreSQLAssistantRepository:
             .where(
                 AssistantTurnModel.organization_id == actor.organization_id,
                 AssistantTurnModel.conversation_id == conversation_id,
+                live_payload(AssistantTurnModel, "assistant_turns"),
             )
             .order_by(AssistantTurnModel.created_at, AssistantTurnModel.id)
         )
@@ -800,6 +802,7 @@ class PostgreSQLAssistantRepository:
                 .where(
                     OrchestrationRunModel.organization_id == actor.organization_id,
                     OrchestrationRunModel.turn_id.in_(turn_ids),
+                    live_payload(OrchestrationRunModel, "orchestration_runs"),
                 )
                 .order_by(OrchestrationRunModel.created_at, OrchestrationRunModel.id)
             )
@@ -811,6 +814,7 @@ class PostgreSQLAssistantRepository:
             .where(
                 AssistantEventModel.organization_id == actor.organization_id,
                 AssistantEventModel.conversation_id == conversation_id,
+                live_payload(AssistantEventModel, "assistant_events"),
             )
             .order_by(AssistantEventModel.sequence)
         )
@@ -861,6 +865,7 @@ class PostgreSQLAssistantRepository:
             .where(
                 AssistantEventModel.organization_id == actor.organization_id,
                 AssistantEventModel.conversation_id == conversation_id,
+                live_payload(AssistantEventModel, "assistant_events"),
                 AssistantEventModel.sequence > after_sequence,
             )
             .order_by(AssistantEventModel.sequence)
@@ -909,6 +914,7 @@ class PostgreSQLAssistantRepository:
             .where(
                 AssistantJobModel.organization_id == organization_id,
                 AssistantJobModel.job_type == job_type,
+                live_payload(AssistantJobModel, "assistant_jobs"),
                 AssistantJobModel.attempt_count < AssistantJobModel.max_attempts,
                 AssistantJobModel.available_at <= now,
                 (AssistantJobModel.status == AssistantJobStatus.QUEUED.value)
@@ -932,6 +938,9 @@ class PostgreSQLAssistantRepository:
         return _job(model)
 
     async def begin_orchestration(self, *, job: AssistantJob) -> OrchestrationRun:
+        await assert_context_live(
+            self._session, job.organization_id, "orchestration_runs", job.orchestration_run_id
+        )
         model = await self._session.scalar(
             select(OrchestrationRunModel)
             .where(
@@ -1033,6 +1042,7 @@ class PostgreSQLAssistantRepository:
         return run
 
     async def get_agent_run(self, *, organization_id: UUID, run_id: UUID) -> AgentRun | None:
+        await assert_context_live(self._session, organization_id, "agent_runs", run_id)
         model = await self._session.scalar(
             select(AgentRunModel).where(
                 AgentRunModel.organization_id == organization_id,
@@ -1148,6 +1158,8 @@ class PostgreSQLAssistantRepository:
                     OrchestrationRunModel.organization_id == organization_id,
                     AssistantTurnModel.organization_id == organization_id,
                     WorkflowEventModel.organization_id == organization_id,
+                    live_payload(WorkflowEventModel, "workflow_events"),
+                    live_payload(AgentRunModel, "agent_runs"),
                 )
                 .order_by(AgentRunModel.created_at, AgentRunModel.id, WorkflowEventModel.sequence)
                 .limit(limit)
@@ -1180,6 +1192,12 @@ class PostgreSQLAssistantRepository:
         status: str | None,
         safe_error_code: str | None,
     ) -> bool:
+        await assert_context_live(
+            self._session, item.event.organization_id, "workflow_events", item.event.id
+        )
+        await assert_context_live(
+            self._session, item.agent_run.organization_id, "agent_runs", item.agent_run.id
+        )
         event = item.event
         organization_id = item.agent_run.organization_id
         if (
@@ -1368,6 +1386,7 @@ class PostgreSQLAssistantRepository:
                     .where(
                         OrchestrationRunModel.organization_id == organization_id,
                         OrchestrationRunModel.status == OrchestrationRunStatus.AWAITING_HUMAN.value,
+                        live_payload(OrchestrationRunModel, "orchestration_runs"),
                     )
                     .order_by(OrchestrationRunModel.updated_at, OrchestrationRunModel.id)
                     .limit(min(max(limit, 1), 50))
@@ -1442,6 +1461,7 @@ class PostgreSQLAssistantRepository:
         return resumed
 
     async def assert_job_claim(self, *, job: AssistantJob) -> None:
+        await assert_context_live(self._session, job.organization_id, "assistant_jobs", job.id)
         from app.modules.assistant.domain.models import AssistantJobClaimLost
 
         model = await self._session.scalar(
@@ -1547,6 +1567,9 @@ class PostgreSQLAssistantRepository:
     async def load_orchestration_checkpoint(
         self, *, organization_id: UUID, orchestration_run_id: UUID
     ) -> dict[str, object] | None:
+        await assert_context_live(
+            self._session, organization_id, "orchestration_runs", orchestration_run_id
+        )
         return await self._session.scalar(
             select(OrchestrationRunModel.checkpoint).where(
                 OrchestrationRunModel.organization_id == organization_id,
@@ -1562,6 +1585,9 @@ class PostgreSQLAssistantRepository:
         checkpoint: dict[str, object],
         execution_plan: dict[str, object],
     ) -> None:
+        await assert_context_live(
+            self._session, organization_id, "orchestration_runs", orchestration_run_id
+        )
         result = await self._session.execute(
             update(OrchestrationRunModel)
             .where(
@@ -1652,6 +1678,7 @@ class PostgreSQLAssistantRepository:
     async def get_tool_invocation(
         self, *, organization_id: UUID, agent_run_id: UUID, dedupe_key: str
     ) -> ToolInvocation | None:
+        await assert_context_live(self._session, organization_id, "agent_runs", agent_run_id)
         model = await self._session.scalar(
             select(ToolInvocationModel).where(
                 ToolInvocationModel.organization_id == organization_id,

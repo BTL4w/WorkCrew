@@ -75,6 +75,10 @@ class PostgreSQLExecutionRecorder(ExecutionRecorderPort):
         self._actor = actor
 
     async def check_claim(self, repository: AssistantRepository) -> None:
+        await repository.load_orchestration_checkpoint(
+            organization_id=self._scope.organization_id,
+            orchestration_run_id=self._scope.orchestration_run_id,
+        )
         if self._report_chat_active and self._job is not None:
             await repository.assert_job_claim(job=self._job)
 

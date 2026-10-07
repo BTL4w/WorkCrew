@@ -5,6 +5,7 @@ import contextlib
 import logging
 import signal
 import sys
+from datetime import UTC, datetime
 from typing import NoReturn, Protocol
 from uuid import UUID
 
@@ -43,7 +44,9 @@ from app.modules.automations.application.schedule_service import ScheduleService
 from app.modules.feedback.adapters.evaluation_policy import EvaluationPolicy
 from app.modules.feedback.adapters.evaluation_repository import EvaluationTransactions
 from app.modules.feedback.adapters.outbox_consumer import FeedbackOutboxPublisher
+from app.modules.feedback.adapters.payload_repository import RetentionTransactions
 from app.modules.feedback.application.evaluation_service import EvaluationService
+from app.modules.feedback.application.retention_service import RetentionService
 from app.modules.identity.adapters.auth_repository import SqlAlchemyAuthTransactionFactory
 from app.modules.identity.adapters.current_actor import CurrentActorResolver
 from app.modules.identity.application.current_actor_service import CurrentActorService
@@ -142,8 +145,16 @@ async def process_tenant_once(
     summary_job_service: _AssistantRunner | None = None,
     reporting_job_service: _AssistantRunner | None = None,
     evaluation_job_service: _AssistantRunner | None = None,
+    retention_service: RetentionService | None = None,
 ) -> bool:
     """Process bounded Task-8 work in fair fixed order."""
+    if retention_service is not None:
+        try:
+            await retention_service.purge_once(
+                organization_id=organization_id, now=datetime.now(UTC)
+            )
+        except Exception:
+            logger.exception("Retention cleanup failed for organization %s", organization_id)
     # Separate job filter and task: naming cannot hold up the current answer.
     title_task = (
         asyncio.create_task(
@@ -261,6 +272,7 @@ async def _run_worker() -> None:
         max_overflow=20,
     )
     session_factory = async_sessionmaker(engine, expire_on_commit=False)
+    retention_service = RetentionService(RetentionTransactions(session_factory))
     planning_transaction_factory = PostgreSQLPlanningRunTransactionFactory(
         session_factory, reporting_timezone=settings.reporting_timezone
     )
@@ -543,6 +555,7 @@ async def _run_worker() -> None:
                     summary_job_service=summary_scheduler,
                     reporting_job_service=reporting_job_service,
                     evaluation_job_service=evaluation_job_service,
+                    retention_service=retention_service,
                 )
                 or processed_any
             )

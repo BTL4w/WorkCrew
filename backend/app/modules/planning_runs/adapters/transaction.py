@@ -6,6 +6,7 @@ from uuid import UUID
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession, AsyncSessionTransaction, async_sessionmaker
 
+from app.core.config import get_settings
 from app.modules.identity.domain.auth import AuthenticatedActor
 from app.modules.planning_runs.adapters.repository import PostgreSQLPlanningRunRepository
 from app.modules.planning_runs.application.ports import (
@@ -58,6 +59,10 @@ class PostgreSQLPlanningRunTransaction(PlanningRunTransaction):
         self._transaction = self._session.begin()
         await self._transaction.__aenter__()
         await self._session.execute(text("SET LOCAL ROLE app_runtime"))
+        await self._session.execute(
+            text("SELECT set_config('app.ai_raw_retention_days',:days,true)"),
+            {"days": str(get_settings().ai_raw_context_retention_days)},
+        )
         await self._session.execute(
             text("SELECT set_config('app.organization_id', :org_id, true)"),
             {"org_id": str(self._organization_id)},

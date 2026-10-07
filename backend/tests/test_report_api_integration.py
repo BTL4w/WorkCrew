@@ -129,6 +129,7 @@ async def report_harness() -> AsyncGenerator[ReportHarness]:
         async with engine.begin() as connection:
             await connection.execute(text("SET LOCAL session_replication_role=replica"))
             for table in (
+                "ai_retention_payloads",
                 "daily_summary_deliveries",
                 "daily_summary_snapshots",
                 "daily_summary_triggers",
