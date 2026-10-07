@@ -1,14 +1,21 @@
+from uuid import UUID
+
 from app.modules.identity.domain.auth import AuthenticatedActor
 from app.modules.reporting.domain.reports import ReportCaptureConflict, ReportError
 from app.modules.reporting.domain.snapshots import canonical_hash
 
 from ..domain.feedback import FeedbackCommand, FeedbackResult, TerminalReviewCommand
+from ..domain.outcomes import ReviewRates
 from .ports import FeedbackRepository, FeedbackTransactionFactory
 
 
 class FeedbackService:
     def __init__(self, transactions: FeedbackTransactionFactory):
         self.transactions = transactions
+
+    async def rates(self, *, actor: AuthenticatedActor, project_id: UUID) -> ReviewRates:
+        async with self.transactions(actor) as repo:
+            return await repo.rates(project_id)
 
     @staticmethod
     async def record_terminal(

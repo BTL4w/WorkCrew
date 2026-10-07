@@ -1,4 +1,5 @@
 import { z } from "zod";
+import {feedbackSchema,outcomeSchema,reviewRatesSchema} from "../feedback/contracts";
 
 export const reportKindSchema = z.enum(["DAILY", "WEEKLY"]);
 export const reportSchema = z.object({
@@ -34,6 +35,7 @@ export const narrativeSchema = z.object({ locale: z.enum(["vi","en"]), snapshot_
   z.object({id:z.string(),section:z.string(),kind:z.enum(["INTERPRETATION","RECOMMENDATION","LIMITATION"]),text:z.string(),source_refs:z.array(capturedSourceSchema.omit({observed_at:true,label:true,facts:true})),assumptions:z.array(z.string())})])) });
 export const reportVersionSchema = z.object({ id: z.uuid(), report_id: z.uuid(), snapshot_id: z.uuid(), origin: z.enum(["METRICS_ONLY", "AI_PROPOSED", "AI_EDITED"]), locale: z.enum(["vi", "en"]), created_at: z.string(), narrative: narrativeSchema.nullable().optional(), rendered_facts: z.record(z.string(),z.string()).optional(), block_origins:z.record(z.string(),z.enum(["AI","HUMAN"])).optional(), narrative_access_state:z.enum(["AVAILABLE","UNAVAILABLE"]).optional(), provenance: z.record(z.string(),z.json()).optional(), generation_id:z.uuid().nullable().optional(),base_version_id:z.uuid().nullable().optional() });
 export const reportResultSchema = z.object({
+  feedback:z.array(feedbackSchema).default([]),feedback_outcomes:z.array(outcomeSchema).default([]),review_rates:reviewRatesSchema.nullable().default(null),
   report: reportSchema, snapshot: snapshotSchema,
   selected_version: reportVersionSchema,
   narrative_access_state:z.enum(["AVAILABLE","UNAVAILABLE"]).optional(),

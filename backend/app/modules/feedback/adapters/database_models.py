@@ -116,3 +116,75 @@ class ReportVerificationModel(Base):
     verification_job_id: Mapped[UUID]
     verdict: Mapped[dict[str, Any]] = mapped_column(JSONB)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+
+class FeedbackOutcomeModel(Base):
+    __tablename__ = "feedback_outcomes"
+    __table_args__ = (
+        UniqueConstraint("organization_id", "id"),
+        UniqueConstraint(
+            "organization_id",
+            "feedback_id",
+            "source_type",
+            "source_id",
+            "source_version",
+            name="uq_feedback_outcome_source",
+        ),
+        ForeignKeyConstraint(
+            ["organization_id", "feedback_id"], ["feedback.organization_id", "feedback.id"]
+        ),
+        ForeignKeyConstraint(
+            ["organization_id", "actor_membership_id"],
+            ["memberships.organization_id", "memberships.id"],
+        ),
+        ForeignKeyConstraint(
+            ["organization_id", "task_transition_id"],
+            ["task_status_transitions.organization_id", "task_status_transitions.id"],
+        ),
+        ForeignKeyConstraint(
+            ["organization_id", "actual_task_id"], ["tasks.organization_id", "tasks.id"]
+        ),
+        ForeignKeyConstraint(
+            ["organization_id", "observation_id"],
+            ["task_progress_observations.organization_id", "task_progress_observations.id"],
+        ),
+        ForeignKeyConstraint(
+            ["organization_id", "blocker_transition_id"],
+            ["blocker_transitions.organization_id", "blocker_transitions.id"],
+        ),
+        CheckConstraint(
+            "state IN ('AVAILABLE','UNKNOWN') AND schema_version='feedback-outcome.v1' A"
+            "ND source_version>=0",
+            name="state",
+        ),
+        CheckConstraint(
+            "(source_type='TASK_TRANSITION' AND task_transition_id IS NOT NULL AND sourc"
+            "e_id=task_transition_id AND actual_task_id IS NULL AND blocker_transition_i"
+            "d IS NULL AND observation_id IS NULL) OR (source_type='TASK_ACTUALS' AND ac"
+            "tual_task_id IS NOT NULL AND source_id=actual_task_id AND task_transition_i"
+            "d IS NULL AND blocker_transition_id IS NULL) OR (source_type='BLOCKER_RESOL"
+            "UTION' AND blocker_transition_id IS NOT NULL AND source_id=blocker_transiti"
+            "on_id AND actual_task_id IS NULL AND task_transition_id IS NULL AND observa"
+            "tion_id IS NULL)",
+            name="source",
+        ),
+        Index(
+            "ix_feedback_outcomes_feedback", "organization_id", "feedback_id", "recorded_at", "id"
+        ),
+    )
+    id: Mapped[UUID] = mapped_column(primary_key=True)
+    organization_id: Mapped[UUID]
+    feedback_id: Mapped[UUID]
+    actor_membership_id: Mapped[UUID]
+    schema_version: Mapped[str] = mapped_column(String(32))
+    source_type: Mapped[str] = mapped_column(String(32))
+    source_id: Mapped[UUID]
+    source_version: Mapped[int]
+    task_transition_id: Mapped[UUID | None]
+    actual_task_id: Mapped[UUID | None]
+    observation_id: Mapped[UUID | None]
+    blocker_transition_id: Mapped[UUID | None]
+    state: Mapped[str] = mapped_column(String(16))
+    facts: Mapped[dict[str, Any]] = mapped_column(JSONB)
+    occurred_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    recorded_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))

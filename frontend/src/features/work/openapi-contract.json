@@ -2306,6 +2306,9 @@
           "generation_state"
         ],
         "properties": {
+          "feedback": "array:ref:Feedback",
+          "feedback_outcomes": "array:ref:FeedbackOutcome",
+          "review_rates": "null|ref:ReviewRates",
           "report": "ref:Report",
           "snapshot": "ref:ReportMetricSnapshot",
           "selected_version": "ref:ReportVersion",
@@ -2659,6 +2662,12 @@
     "paths": {
       "/api/v1/feedback": [
         "post"
+      ],
+      "/api/v1/feedback/{feedback_id}/outcomes": [
+        "post"
+      ],
+      "/api/v1/feedback/rates": [
+        "get"
       ]
     },
     "schemas": {
@@ -2712,6 +2721,99 @@
           "reason": "null|string",
           "provenance": "object",
           "created_at": "string:date-time"
+        }
+      },
+      "FeedbackOutcome": {
+        "required": [
+          "id",
+          "feedback_id",
+          "actor_membership_id",
+          "source",
+          "state",
+          "facts",
+          "occurred_at",
+          "recorded_at"
+        ],
+        "properties": {
+          "id": "string:uuid",
+          "feedback_id": "string:uuid",
+          "actor_membership_id": "string:uuid",
+          "schema_version": "literal:feedback-outcome.v1",
+          "source": "ref:OutcomeSourceCommand",
+          "state": "literal:AVAILABLE|UNKNOWN",
+          "facts": "object",
+          "occurred_at": "null|string:date-time",
+          "recorded_at": "string:date-time"
+        }
+      },
+      "OutcomeSourceCommand": {
+        "required": [
+          "source_type",
+          "source_id",
+          "source_version"
+        ],
+        "properties": {
+          "source_type": "literal:TASK_TRANSITION|TASK_ACTUALS|BLOCKER_RESOLUTION",
+          "source_id": "string:uuid",
+          "source_version": "integer"
+        }
+      },
+      "ReviewRates": {
+        "required": [
+          "reviewed_generation_count",
+          "accept_count",
+          "edit_count",
+          "reject_count",
+          "accept_percent",
+          "edit_percent",
+          "reject_percent"
+        ],
+        "properties": {
+          "reviewed_generation_count": "integer",
+          "accept_count": "integer",
+          "edit_count": "integer",
+          "reject_count": "integer",
+          "accept_percent": "null|string",
+          "edit_percent": "null|string",
+          "reject_percent": "null|string",
+          "pending_generation_count": "integer",
+          "failed_generation_count": "integer",
+          "manual_report_count": "integer"
+        }
+      },
+      "OutcomeRequest": {
+        "required": [
+          "source_type",
+          "source_id",
+          "source_version"
+        ],
+        "properties": {
+          "source_type": "literal:TASK_TRANSITION|TASK_ACTUALS|BLOCKER_RESOLUTION",
+          "source_id": "string:uuid",
+          "source_version": "integer"
+        }
+      },
+      "OutcomeResponse": {
+        "required": [
+          "id",
+          "feedback_id",
+          "actor_membership_id",
+          "source",
+          "state",
+          "facts",
+          "occurred_at",
+          "recorded_at"
+        ],
+        "properties": {
+          "id": "string:uuid",
+          "feedback_id": "string:uuid",
+          "actor_membership_id": "string:uuid",
+          "schema_version": "literal:feedback-outcome.v1",
+          "source": "ref:OutcomeSourceCommand",
+          "state": "literal:AVAILABLE|UNKNOWN",
+          "facts": "object",
+          "occurred_at": "null|string:date-time",
+          "recorded_at": "string:date-time"
         }
       }
     }

@@ -342,6 +342,13 @@ def create_app(
             create_session_factory(database_engine), resolved_settings.reporting_timezone
         )
     )
+    from app.modules.feedback.application.outcome_service import OutcomeService
+
+    app.state.feedback_outcome_service = OutcomeService(
+        FeedbackTransactions(
+            create_session_factory(database_engine), resolved_settings.reporting_timezone
+        )
+    )
     app.state.feedback_service = FeedbackService(
         FeedbackTransactions(
             create_session_factory(database_engine), resolved_settings.reporting_timezone

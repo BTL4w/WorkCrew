@@ -1095,7 +1095,48 @@
     "saved": "Feedback saved",
     "ACCEPT": "Accept",
     "EDIT": "Needs edits",
-    "REJECT": "Reject"
+    "REJECT": "Reject",
+    "outcomes": {
+      "title": "Review quality and actual outcomes",
+      "meaning": "Project rates count distinct AI generations with a terminal review. EDIT measures the original AI output; ACCEPT approval publishes the corrected version. Outcomes describe sourced facts and do not prove causality.",
+      "unknown": "Unknown",
+      "rates": "Reviewed generations: {count} · ACCEPT: {accept} · EDIT: {edit} · REJECT: {reject}",
+      "separate": "Pending: {pending} · Failures: {failed} · Manual metrics reports: {manual}",
+      "noOutcome": "Actual outcome: unknown",
+      "advisory": "Advisory feedback",
+      "editedApproved": "Edited output; publication approved",
+      "rejected": "Original AI output rejected",
+      "accepted": "Original AI output accepted without edits",
+      "versions": "Versions: {original} → {corrected}",
+      "reviewedAt": "Reviewed: {at}",
+      "provenance": "Generation provenance",
+      "available": "Actual outcome: available",
+      "source": "Source: {type} · {id} · version {version}",
+      "recordedAt": "Recorded: {at}",
+      "occurredAt": "Occurred: {at}",
+      "TASK_TRANSITION": "Task status transition",
+      "TASK_ACTUALS": "Observed task progress",
+      "BLOCKER_RESOLUTION": "Blocker lifecycle",
+      "facts": {
+        "task_id": "Task",
+        "reported_percent": "Reported progress (%)",
+        "remaining_hours": "Reported remaining hours",
+        "observation_id": "Confirmed observation",
+        "completion_state": "Completion acceptance",
+        "from_status": "Previous status",
+        "to_status": "Resulting status",
+        "blocker_id": "Blocker",
+        "status": "Status"
+      },
+      "status": {
+        "TO_DO": "To do",
+        "IN_PROGRESS": "In progress",
+        "DONE": "Done",
+        "OPEN": "Open",
+        "ACKNOWLEDGED": "Acknowledged",
+        "RESOLVED": "Resolved"
+      }
+    }
   }
 
 }

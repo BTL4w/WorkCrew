@@ -15,6 +15,7 @@ from app.modules.reporting.domain.reports import ReportError, ReportVersion
 from app.modules.work.adapters.database_models import IdempotencyRecordModel, IdempotencyState
 
 from ..domain.feedback import Feedback, FeedbackCommand, FeedbackResult, TerminalReviewCommand
+from ..domain.outcomes import FeedbackOutcome, OutcomeSourceCommand, ReviewRates
 from .database_models import FeedbackModel
 
 
@@ -196,6 +197,175 @@ class SQLFeedbackRepository(SQLReportRepository):
                 outcome=AuditOutcome.REJECTED,
                 resource_type="report",
                 resource_id=command.report_id if command else None,
+                request_id=str(uuid4()),
+                idempotency_key=key,
+                before_data={},
+                after_data={},
+                reason_data={"reason_code": code},
+            )
+        )
+        await self.session.flush()
+
+    async def rates(self, project_id: UUID) -> ReviewRates:
+        from .projection import project_rates
+
+        await self.authenticate()
+        await self.authorize_project(project_id)
+        return await project_rates(self.session, self.org, project_id)
+
+    async def record_outcome(
+        self, feedback_id: UUID, source: OutcomeSourceCommand, key: str, fingerprint: str
+    ) -> FeedbackOutcome:
+        from .database_models import FeedbackOutcomeModel
+        from .outcome_reader import SQLOutcomeReader
+        from .projection import outcome_domain
+
+        await self.authenticate()
+        await self.session.execute(
+            text("SELECT pg_advisory_xact_lock(hashtextextended(:key,0))"),
+            {"key": f"{self.org}:feedback.outcome:{self.actor.membership_id}:{key}"},
+        )
+        # Different keys for the same source serialize before source-version deduplication.
+        await self.session.execute(
+            text("SELECT pg_advisory_xact_lock(hashtextextended(:key,0))"),
+            {
+                "key": (
+                    f"{self.org}:outcome:{feedback_id}:{source.source_type}:"
+                    f"{source.source_id}:{source.source_version}"
+                )
+            },
+        )
+        feedback = await self.session.scalar(
+            select(FeedbackModel).where(
+                FeedbackModel.organization_id == self.org, FeedbackModel.id == feedback_id
+            )
+        )
+        if feedback is None:
+            raise ReportError("RESOURCE_NOT_FOUND", 404)
+        report = await self.get(feedback.report_id)
+        replay = await self.session.scalar(
+            select(IdempotencyRecordModel).where(
+                IdempotencyRecordModel.organization_id == self.org,
+                IdempotencyRecordModel.actor_membership_id == self.actor.membership_id,
+                IdempotencyRecordModel.operation == "feedback.outcome.record",
+                IdempotencyRecordModel.idempotency_key == key,
+            )
+        )
+        if replay and replay.request_fingerprint != fingerprint:
+            raise ReportError("IDEMPOTENCY_KEY_REUSED")
+        existing = await self.session.scalar(
+            select(FeedbackOutcomeModel).where(
+                FeedbackOutcomeModel.organization_id == self.org,
+                FeedbackOutcomeModel.feedback_id == feedback_id,
+                FeedbackOutcomeModel.source_type == source.source_type,
+                FeedbackOutcomeModel.source_id == source.source_id,
+                FeedbackOutcomeModel.source_version == source.source_version,
+            )
+        )
+        if existing:
+            # Current source access is required for every replay. Frozen actuals remain readable
+            # after a later observation; do not require that a historical version stays current.
+            from .projection import outcome_accessible
+
+            if not await outcome_accessible(
+                self.session, self.org, report.report.project_id, existing
+            ):
+                raise ReportError("RESOURCE_NOT_FOUND", 404)
+            result = outcome_domain(existing)
+        else:
+            evidence = await SQLOutcomeReader(self.session).read_outcome(self.actor, source)
+            if evidence.project_id != report.report.project_id:
+                raise ReportError("OUTCOME_SOURCE_PROJECT_MISMATCH", 404)
+            at = await self.captured_at()
+            existing = FeedbackOutcomeModel(
+                id=uuid4(),
+                organization_id=self.org,
+                feedback_id=feedback_id,
+                actor_membership_id=self.actor.membership_id,
+                schema_version="feedback-outcome.v1",
+                source_type=source.source_type,
+                source_id=source.source_id,
+                source_version=source.source_version,
+                task_transition_id=source.source_id
+                if source.source_type == "TASK_TRANSITION"
+                else None,
+                actual_task_id=source.source_id if source.source_type == "TASK_ACTUALS" else None,
+                blocker_transition_id=source.source_id
+                if source.source_type == "BLOCKER_RESOLUTION"
+                else None,
+                observation_id=evidence.observation_id,
+                state=evidence.state,
+                facts=evidence.facts,
+                occurred_at=evidence.occurred_at,
+                recorded_at=at,
+            )
+            self.session.add(existing)
+            await self.session.flush()
+            result = outcome_domain(existing)
+            self.session.add(
+                AuditEventModel(
+                    id=uuid4(),
+                    organization_id=self.org,
+                    actor_membership_id=self.actor.membership_id,
+                    action="feedback.outcome.recorded",
+                    outcome=AuditOutcome.SUCCEEDED,
+                    resource_type="feedback",
+                    resource_id=feedback_id,
+                    request_id=str(uuid4()),
+                    idempotency_key=key,
+                    before_data={},
+                    after_data={
+                        "outcome_id": str(result.id),
+                        "source": source.model_dump(mode="json"),
+                        "state": result.state,
+                    },
+                    reason_data={},
+                )
+            )
+            self.session.add(
+                OutboxEventModel(
+                    id=uuid4(),
+                    organization_id=self.org,
+                    event_id=uuid4(),
+                    event_type="feedback.outcome.recorded.v1",
+                    aggregate_type="feedback",
+                    aggregate_id=feedback_id,
+                    payload={
+                        "schema_version": "1.0",
+                        "feedback_id": str(feedback_id),
+                        "report_id": str(report.report.id),
+                        "outcome_id": str(result.id),
+                    },
+                    status="PENDING",
+                )
+            )
+        if replay is None:
+            self.session.add(
+                IdempotencyRecordModel(
+                    id=uuid4(),
+                    organization_id=self.org,
+                    actor_membership_id=self.actor.membership_id,
+                    operation="feedback.outcome.record",
+                    idempotency_key=key,
+                    request_fingerprint=fingerprint,
+                    state=IdempotencyState.COMPLETED,
+                    response_status=201,
+                    response_body=result.model_dump(mode="json"),
+                    expires_at=(await self.captured_at()) + timedelta(days=7),
+                )
+            )
+        return result
+
+    async def reject_outcome(self, feedback_id: UUID | None, key: str | None, code: str) -> None:
+        self.session.add(
+            AuditEventModel(
+                id=uuid4(),
+                organization_id=self.org,
+                actor_membership_id=self.actor.membership_id,
+                action="feedback.outcome.recorded",
+                outcome=AuditOutcome.REJECTED,
+                resource_type="feedback",
+                resource_id=feedback_id,
                 request_id=str(uuid4()),
                 idempotency_key=key,
                 before_data={},

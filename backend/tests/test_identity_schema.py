@@ -46,6 +46,7 @@ def test_active_phase_tables_are_registered() -> None:
     assert set(Base.metadata.tables) == {
         "reports",
         "feedback",
+        "feedback_outcomes",
         "report_version_verifications",
         "report_metric_snapshots",
         "report_versions",

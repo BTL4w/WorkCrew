@@ -50,5 +50,10 @@ for (const locale of ["vi", "en"] as const) {
     expect(after.publications[0].report_version_id).toBe(first.selected_version.id);
     expect(after.snapshot).toEqual(first.snapshot);
     expect(after.report.project_id).toBe(project.id);
+    // A manual metrics publication is never unedited AI acceptance.
+    expect(after.review_rates.reviewed_generation_count).toBe(0);
+    expect(after.review_rates.accept_percent).toBeNull();
+    expect(after.review_rates.manual_report_count).toBe(1);
+    if(disabled) expect(after.review_rates.failed_generation_count).toBeGreaterThanOrEqual(1);
   });
 }

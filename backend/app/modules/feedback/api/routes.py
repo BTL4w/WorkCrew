@@ -17,11 +17,17 @@ from app.modules.reporting.api.routes import IdempotencyHeader
 from app.modules.reporting.domain.reports import ReportError
 
 from ..domain.feedback import FeedbackCommand
-from .dependencies import FeedbackServiceDependency, get_feedback_service
-from .schemas import FeedbackRequest, FeedbackResponse
+from ..domain.outcomes import ReviewRates
+from .dependencies import (
+    FeedbackServiceDependency,
+    OutcomeServiceDependency,
+    get_feedback_service,
+    get_outcome_service,
+)
+from .schemas import FeedbackRequest, FeedbackResponse, OutcomeRequest, OutcomeResponse
 
 FEEDBACK_ERRORS: dict[int | str, dict[str, Any]] = {
-    n: {"model": ErrorResponse} for n in (400, 401, 403, 404, 409, 422)
+    n: {"model": ErrorResponse} for n in (400, 401, 403, 404, 409, 412, 422)
 }
 
 
@@ -42,6 +48,8 @@ class FeedbackRoute(APIRoute):
         handler = super().get_route_handler()
 
         async def preflight(request: Request) -> Response:
+            if request.method != "POST":
+                return await handler(request)
             override = request.app.dependency_overrides.get(get_authenticated_actor)
             if override:
                 candidate = override()
@@ -52,6 +60,18 @@ class FeedbackRoute(APIRoute):
                     cast(AuthService, request.app.state.auth_service),
                     cast(Settings, request.app.state.settings),
                 )
+            if request.url.path.endswith("/outcomes"):
+                try:
+                    feedback_id = UUID(str(request.path_params.get("feedback_id")))
+                except ValueError:
+                    feedback_id = None
+                request.state.mutation_rejection_audit = partial(
+                    get_outcome_service(request).audit_rejection,
+                    actor=actor,
+                    feedback_id=feedback_id,
+                    key=request.headers.get("Idempotency-Key"),
+                )
+                return await handler(request)
             # Extract only opaque IDs for rejection audit; all other body fields remain untrusted.
             command: FeedbackCommand | None = None
             try:
@@ -96,3 +116,40 @@ async def record_feedback(
     if result.replayed:
         response.headers["Idempotency-Replayed"] = "true"
     return FeedbackResponse.model_validate(result.model_dump())
+
+
+@router.post(
+    "/{feedback_id}/outcomes",
+    response_model=OutcomeResponse,
+    status_code=201,
+    responses=FEEDBACK_ERRORS,
+)
+async def record_outcome(
+    feedback_id: UUID,
+    body: OutcomeRequest,
+    actor: ActorDependency,
+    service: OutcomeServiceDependency,
+    key: IdempotencyHeader,
+    request: Request,
+    response: Response,
+) -> OutcomeResponse:
+    request.state.mutation_rejection_audit = None
+    try:
+        result = await service.record(
+            actor=actor, feedback_id=feedback_id, source=body, idempotency_key=key
+        )
+    except ReportError as exc:
+        raise_feedback_error(exc)
+    response.headers["Cache-Control"] = "private, no-store"
+    return OutcomeResponse.model_validate(result.model_dump())
+
+
+@router.get("/rates", response_model=ReviewRates, responses=FEEDBACK_ERRORS)
+async def rates(
+    project_id: UUID, actor: ActorDependency, service: FeedbackServiceDependency, response: Response
+) -> ReviewRates:
+    response.headers["Cache-Control"] = "private, no-store"
+    try:
+        return await service.rates(actor=actor, project_id=project_id)
+    except ReportError as exc:
+        raise_feedback_error(exc)

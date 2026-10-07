@@ -16,15 +16,23 @@ class FeedbackRecorded(BaseModel):
     report_id: UUID
 
 
+class FeedbackOutcomeRecorded(FeedbackRecorded):
+    outcome_id: UUID
+
+
 class FeedbackOutboxPublisher:
     def __init__(self, delegate: Publisher):
         self.delegate = delegate
 
     async def publish(self, event: OutboxEvent) -> None:
-        if event.event_type != "feedback.recorded.v1":
+        if event.event_type not in ("feedback.recorded.v1", "feedback.outcome.recorded.v1"):
             await self.delegate.publish(event)
             return
-        value = FeedbackRecorded.model_validate(event.payload)
+        value = (
+            FeedbackOutcomeRecorded
+            if event.event_type == "feedback.outcome.recorded.v1"
+            else FeedbackRecorded
+        ).model_validate(event.payload)
         if (
             event.envelope_version != "1.0"
             or event.aggregate_type != "feedback"

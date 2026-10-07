@@ -6,6 +6,9 @@ from uuid import UUID
 
 from pydantic import Field, JsonValue, model_validator
 
+from app.modules.feedback.domain.feedback import Feedback
+from app.modules.feedback.domain.outcomes import FeedbackOutcome, ReviewRates
+
 from .generation import GenerationState
 from .metrics import AggregateReceipt, ReportContract, SourceRef
 from .narrative import NarrativeDocument
@@ -79,6 +82,9 @@ class ReportPublication(ReportContract):
 
 
 class ReportResult(ReportContract):
+    feedback: tuple[Feedback, ...] = ()
+    feedback_outcomes: tuple[FeedbackOutcome, ...] = ()
+    review_rates: ReviewRates | None = None
     report: Report
     snapshot: ReportMetricSnapshot
     selected_version: ReportVersion

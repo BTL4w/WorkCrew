@@ -1095,7 +1095,48 @@
     "saved": "Đã lưu góp ý",
     "ACCEPT": "Chấp nhận",
     "EDIT": "Cần chỉnh sửa",
-    "REJECT": "Từ chối"
+    "REJECT": "Từ chối",
+    "outcomes": {
+      "title": "Chất lượng review và kết quả thực tế",
+      "meaning": "Tỷ lệ của Project đếm các lần sinh AI đã review cuối cùng. EDIT đo chất lượng nội dung AI gốc; quyết định duyệt ACCEPT xuất bản phiên bản đã sửa. Outcome ghi dữ kiện có nguồn, không chứng minh quan hệ nhân quả.",
+      "unknown": "Chưa có dữ liệu",
+      "rates": "Lần sinh đã review: {count} · ACCEPT: {accept} · EDIT: {edit} · REJECT: {reject}",
+      "separate": "Chờ review: {pending} · Lỗi: {failed} · Báo cáo số liệu thủ công: {manual}",
+      "noOutcome": "Kết quả thực tế: chưa có dữ liệu",
+      "advisory": "Feedback tham khảo",
+      "editedApproved": "Đã sửa nội dung; đã duyệt xuất bản",
+      "rejected": "Đã từ chối nội dung AI gốc",
+      "accepted": "Đã chấp nhận nội dung AI gốc không sửa",
+      "versions": "Phiên bản: {original} → {corrected}",
+      "reviewedAt": "Review: {at}",
+      "provenance": "Nguồn gốc lần sinh",
+      "available": "Kết quả thực tế: có dữ liệu",
+      "source": "Nguồn: {type} · {id} · phiên bản {version}",
+      "recordedAt": "Ghi nhận: {at}",
+      "occurredAt": "Diễn ra: {at}",
+      "TASK_TRANSITION": "Chuyển trạng thái công việc",
+      "TASK_ACTUALS": "Tiến độ công việc đã ghi nhận",
+      "BLOCKER_RESOLUTION": "Vòng đời blocker",
+      "facts": {
+        "task_id": "Công việc",
+        "reported_percent": "Tiến độ tự báo cáo (%)",
+        "remaining_hours": "Giờ còn lại tự báo cáo",
+        "observation_id": "Quan sát đã xác nhận",
+        "completion_state": "Nghiệm thu hoàn thành",
+        "from_status": "Trạng thái trước",
+        "to_status": "Trạng thái sau",
+        "blocker_id": "Blocker",
+        "status": "Trạng thái"
+      },
+      "status": {
+        "TO_DO": "Chưa bắt đầu",
+        "IN_PROGRESS": "Đang thực hiện",
+        "DONE": "Hoàn thành",
+        "OPEN": "Đang mở",
+        "ACKNOWLEDGED": "Đã tiếp nhận",
+        "RESOLVED": "Đã giải quyết"
+      }
+    }
   }
 
 }

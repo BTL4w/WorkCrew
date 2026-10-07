@@ -340,6 +340,17 @@ class SQLReportRepository:
         )
 
     async def accessible_result(self, result: ReportResult) -> ReportResult:
+        from app.modules.feedback.adapters.projection import project_rates, report_feedback
+
+        # Idempotency caches business results, never current source-access decisions.
+        await self.authenticate()
+        if result.report.organization_id != self.org:
+            raise ReportError("RESOURCE_NOT_FOUND", 404)
+        await self.authorize_project(result.report.project_id)
+        feedback, outcomes = await report_feedback(
+            self.session, self.org, result.report.id, result.report.project_id
+        )
+        rates = await project_rates(self.session, self.org, result.report.project_id)
         selected = await self.accessible_version(result.selected_version, result.snapshot)
         published = tuple(
             [
@@ -349,6 +360,9 @@ class SQLReportRepository:
         )
         return result.model_copy(
             update={
+                "feedback": feedback,
+                "feedback_outcomes": outcomes,
+                "review_rates": rates,
                 "selected_version": selected,
                 "published_versions": published,
                 "narrative_access_state": selected.narrative_access_state,
