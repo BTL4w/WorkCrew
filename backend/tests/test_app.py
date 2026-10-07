@@ -33,7 +33,7 @@ async def test_openapi_document_is_available() -> None:
     response = await _get(_test_app(), "/openapi.json")
 
     assert response.status_code == 200
-    assert response.json()["info"]["title"] == "Work Management API"
+    assert response.json()["info"]["title"] == "WorkCrew API"
     assert set(response.json()["paths"]) == {
         "/api/v1/reports",
         "/api/v1/reports/defaults",

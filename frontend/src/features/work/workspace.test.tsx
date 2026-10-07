@@ -80,7 +80,7 @@ describe("WorkWorkspace", () => {
     const { container } = renderWithAppProviders(<WorkWorkspace actor={managerActor} />);
 
     expect(await screen.findByText("Kế hoạch ra mắt")).toBeVisible();
-    expect(screen.getByText("Task Management")).toBeVisible();
+    expect(screen.getByText("WorkCrew")).toBeVisible();
     expect(container.querySelectorAll("aside")).toHaveLength(1);
 
     fireEvent.click(screen.getByRole("button", { name: "Task của tôi" }));

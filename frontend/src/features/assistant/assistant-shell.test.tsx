@@ -285,7 +285,7 @@ describe("AssistantShell", () => {
 
     renderWithAppProviders(<AssistantShell actor={managerActor} connectEvents={noEvents} />);
 
-    expect(screen.getByText("Task Management")).toBeVisible();
+    expect(screen.getByText("WorkCrew")).toBeVisible();
     expect(screen.getByRole("navigation", { name: "Điều hướng chính" })).toBeVisible();
     expect(screen.getByText(managerActor.user.display_name)).toBeVisible();
     const composer = await screen.findByRole("textbox", { name: "Nhắn cho Trợ lý AI" });

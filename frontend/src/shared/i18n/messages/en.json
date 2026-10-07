@@ -86,8 +86,8 @@
     "day7": "Sunday"
   },
   "metadata": {
-    "title": "AI-native Work Management",
-    "description": "A secure foundation for managing projects and tasks"
+    "title": "WorkCrew",
+    "description": "AI-native work management with a coordinated crew of agents"
   },
   "common": {
     "loadingSession": "Checking your session…",
@@ -99,7 +99,7 @@
   },
   "auth": {
     "login": {
-      "product": "Work Management",
+      "product": "WorkCrew",
       "heroTitle": "A clear sign-in boundary before every business action.",
       "heroDescription": "Identity, organization, and role are always verified by the backend session. The UI never stores tokens or decides permissions.",
       "localOnly": "Local authentication is for learning and the Phase 1 portfolio demo only.",
@@ -122,7 +122,7 @@
     }
   },
   "home": {
-    "product": "Work Management",
+    "product": "WorkCrew",
     "navigationLabel": "Primary navigation",
     "projectsComingSoon": "Projects · next step",
     "myTasksComingSoon": "My Tasks · not implemented",
@@ -135,7 +135,7 @@
     "logoutError": "We could not sign you out. Please try again."
   },
   "work": {
-    "product": "Work Management",
+    "product": "WorkCrew",
     "navigationLabel": "Work navigation",
     "nav": { "chat": "AI Assistant", "projects": "Projects", "myTasks": "My Tasks", "evaluations": "AI evaluation", "peopleCapacity": "People & skills", "assignTask": "Assign task" },
     "sidebar": {
@@ -333,7 +333,7 @@
       "NOT_APPLICABLE": "Not applicable"
     }
   },
-    "brand": "Task Management",
+    "brand": "WorkCrew",
     "eyebrow": "Conversation workspace",
     "title": "AI Assistant",
     "loading": "Loading conversation…",

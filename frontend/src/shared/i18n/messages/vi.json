@@ -86,8 +86,8 @@
     "day7": "Chủ Nhật"
   },
   "metadata": {
-    "title": "Quản lý công việc AI-native",
-    "description": "Nền tảng an toàn để quản lý project và task"
+    "title": "WorkCrew",
+    "description": "Nền tảng quản lý công việc AI-native với đội ngũ agent phối hợp"
   },
   "common": {
     "loadingSession": "Đang kiểm tra phiên đăng nhập…",
@@ -99,7 +99,7 @@
   },
   "auth": {
     "login": {
-      "product": "Work Management",
+      "product": "WorkCrew",
       "heroTitle": "Một phiên đăng nhập rõ ràng trước mọi hành động nghiệp vụ.",
       "heroDescription": "Danh tính, organization và role luôn được backend xác minh từ session. Giao diện không lưu token và không tự quyết định quyền.",
       "localOnly": "Local authentication chỉ phục vụ học tập và portfolio demo trong Phase 1.",
@@ -122,7 +122,7 @@
     }
   },
   "home": {
-    "product": "Work Management",
+    "product": "WorkCrew",
     "navigationLabel": "Điều hướng chính",
     "projectsComingSoon": "Projects · bước kế tiếp",
     "myTasksComingSoon": "My Tasks · chưa triển khai",
@@ -135,7 +135,7 @@
     "logoutError": "Không thể đăng xuất. Vui lòng thử lại."
   },
   "work": {
-    "product": "Work Management",
+    "product": "WorkCrew",
     "navigationLabel": "Điều hướng công việc",
     "nav": { "chat": "Trợ lý AI", "projects": "Projects", "myTasks": "Task của tôi", "evaluations": "Đánh giá AI", "peopleCapacity": "Con người & kỹ năng", "assignTask": "Giao task" },
     "sidebar": {
@@ -333,7 +333,7 @@
       "NOT_APPLICABLE": "Không áp dụng"
     }
   },
-    "brand": "Task Management",
+    "brand": "WorkCrew",
     "eyebrow": "Không gian hội thoại",
     "title": "Trợ lý AI",
     "loading": "Đang tải cuộc trò chuyện…",

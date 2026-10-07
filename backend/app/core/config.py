@@ -73,7 +73,7 @@ class Settings(BaseSettings):
             raise ValueError("reporting_timezone must be an IANA timezone") from exc
         return value
 
-    name: str = "Work Management API"
+    name: str = "WorkCrew API"
     version: str = "0.1.0"
     environment: Literal["local", "test", "production"] = "local"
     debug: bool = False
