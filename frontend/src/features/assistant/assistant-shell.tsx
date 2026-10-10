@@ -2,7 +2,7 @@
 
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useLocale, useTranslations } from "next-intl";
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 
 import { decideApproval, editProposal } from "@/features/ai-proposals/api";
 import type { ProposalContent } from "@/features/ai-proposals/contracts";
@@ -91,6 +91,7 @@ export function AssistantShell({
   const [selectedId, setSelectedId] = useState<string | null>(initialConversationId);
   const [newConversation, setNewConversation] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
+  const toggleSidebar = useCallback(() => setCollapsed((value) => !value), []);
   const [message, setMessage] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<unknown>(null);
@@ -293,7 +294,7 @@ export function AssistantShell({
       collapsed={collapsed}
       onSelect={(id) => { setSelectedId(id); setNewConversation(false); setError(null); syncConversationLocation(id); onOpenAssistant?.(); }}
       onNew={() => { setSelectedId(null); setNewConversation(true); setMessage(""); setError(null); syncConversationLocation(null); onOpenAssistant?.(); }}
-      onToggle={() => setCollapsed((value) => !value)}
+      onToggle={toggleSidebar}
       onOpenProjects={onOpenProjects}
       onOpenMyTasks={onOpenMyTasks}
       onOpenPeopleCapacity={onOpenPeopleCapacity}

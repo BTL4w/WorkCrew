@@ -338,7 +338,7 @@
     "title": "Trợ lý AI",
     "loading": "Đang tải cuộc trò chuyện…",
     "navigation": { "label": "Điều hướng chính", "projects": "Projects", "myTasks": "Task của tôi", "evaluations": "Đánh giá AI", "peopleCapacity": "Con người & kỹ năng", "assignTask": "Giao task" },
-    "conversations": { "label": "Danh sách cuộc trò chuyện", "new": "Cuộc trò chuyện mới", "recent": "Gần đây", "toggle": "Ẩn hoặc hiện danh sách cuộc trò chuyện", "empty": "Chưa có cuộc trò chuyện.", "untitled": "Cuộc trò chuyện mới" },
+    "conversations": { "close": "Đóng danh sách cuộc trò chuyện", "label": "Danh sách cuộc trò chuyện", "new": "Cuộc trò chuyện mới", "recent": "Gần đây", "toggle": "Ẩn hoặc hiện danh sách cuộc trò chuyện", "empty": "Chưa có cuộc trò chuyện.", "untitled": "Cuộc trò chuyện mới" },
     "composer": { "label": "Nhắn cho Trợ lý AI", "placeholder": "Hỏi về công việc hoặc yêu cầu lập kế hoạch…", "mode": "Planning", "send": "Gửi" },
     "empty": { "title": "Tôi có thể giúp gì cho bạn?", "description": "Hỏi về công việc hiện tại hoặc mô tả project bạn muốn lập kế hoạch." },
     "role": { "you": "Bạn", "assistant": "Trợ lý AI" },

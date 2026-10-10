@@ -1,5 +1,6 @@
 import { useEffect, useRef, type FormEvent } from "react";
 import { useTranslations } from "next-intl";
+import { AssistantIcon } from "./assistant-icon";
 
 export function Composer({ value, disabled, autoFocus, onChange, onSubmit }: {
   value: string;
@@ -35,7 +36,7 @@ export function Composer({ value, disabled, autoFocus, onChange, onSubmit }: {
     <div className="assistant-composer-footer">
       <span className="assistant-composer-mode"><span aria-hidden="true">◇</span>{t("composer.mode")}</span>
       <button aria-label={t("composer.send")} disabled={disabled || !value.trim()} type="submit">
-        <svg aria-hidden="true" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2"><path d="M12 19V5m-6 6 6-6 6 6" /></svg>
+        <AssistantIcon name="send" />
       </button>
     </div>
   </form>;

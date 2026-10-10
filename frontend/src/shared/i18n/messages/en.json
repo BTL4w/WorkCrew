@@ -338,7 +338,7 @@
     "title": "AI Assistant",
     "loading": "Loading conversation…",
     "navigation": { "label": "Primary navigation", "projects": "Projects", "myTasks": "My Tasks", "evaluations": "AI evaluation", "peopleCapacity": "People & skills", "assignTask": "Assign task" },
-    "conversations": { "label": "Conversation list", "new": "New conversation", "recent": "Recent", "toggle": "Show or hide conversation list", "empty": "No conversations yet.", "untitled": "New conversation" },
+    "conversations": { "close": "Close conversation list", "label": "Conversation list", "new": "New conversation", "recent": "Recent", "toggle": "Show or hide conversation list", "empty": "No conversations yet.", "untitled": "New conversation" },
     "composer": { "label": "Message the AI Assistant", "placeholder": "Ask about work or request a project plan…", "mode": "Planning", "send": "Send" },
     "empty": { "title": "How can I help?", "description": "Ask about current work or describe a project you want to plan." },
     "role": { "you": "You", "assistant": "AI Assistant" },

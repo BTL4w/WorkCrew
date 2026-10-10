@@ -1,14 +1,15 @@
 import { useTranslations } from "next-intl";
-import type { ReactNode } from "react";
+import { useEffect, useRef } from "react";
 
 import type { MeResponse } from "@/shared/api/contracts";
 import { LocaleSwitcher } from "@/shared/i18n/locale-switcher";
 
 import type { AssistantConversation } from "./contracts";
+import { AssistantIcon as SidebarIcon, type AssistantIconName } from "./assistant-icon";
 
 export type AssistantNavigationSection = "assistant" | "projects" | "myTasks" | "peopleCapacity" | "evaluations" | "assignTask";
 
-type IconName = "new" | "projects" | "tasks" | "people" | "assign" | "collapse" | "expand" | "chat" | "logout";
+type IconName = AssistantIconName;
 
 export function ConversationList({
   actor,
@@ -48,11 +49,59 @@ export function ConversationList({
   const t = useTranslations("assistant");
   const work = useTranslations("work");
   const home = useTranslations("home");
-  return <aside className={`assistant-conversations ${collapsed ? "is-collapsed" : ""}`} aria-label={t("conversations.label")}>
+  const sidebarRef = useRef<HTMLElement>(null);
+  const toggleRef = useRef<HTMLButtonElement>(null);
+  function dismiss() {
+    onToggle();
+    toggleRef.current?.focus();
+  }
+  useEffect(() => {
+    if (collapsed || !window.matchMedia) return;
+    const media = window.matchMedia("(max-width: 767px)");
+    const sidebar = sidebarRef.current;
+    const pane = sidebar?.parentElement?.querySelector<HTMLElement>(".assistant-main-pane, .assistant-workspace-pane");
+    if (!sidebar || !pane) return;
+    const originalInert = Boolean(pane.inert);
+    function syncViewport() {
+      pane!.inert = media.matches || originalInert;
+      if (media.matches) toggleRef.current?.focus();
+    }
+    function onKeyDown(event: KeyboardEvent) {
+      if (!media.matches) return;
+      if (event.key === "Escape") {
+        event.preventDefault();
+        event.stopPropagation();
+        onToggle();
+        toggleRef.current?.focus();
+      } else if (event.key === "Tab") {
+        const controls = sidebar!.querySelectorAll<HTMLElement>('button:not(:disabled), a[href], input:not(:disabled), select:not(:disabled), textarea:not(:disabled)');
+        const first = controls[0], last = controls[controls.length - 1];
+        if (event.shiftKey && document.activeElement === first) {
+          event.preventDefault(); last?.focus();
+        } else if (!event.shiftKey && document.activeElement === last) {
+          event.preventDefault(); first?.focus();
+        }
+      }
+    }
+    syncViewport();
+    media.addEventListener("change", syncViewport);
+    document.addEventListener("keydown", onKeyDown, true);
+    return () => {
+      pane.inert = originalInert;
+      media.removeEventListener("change", syncViewport);
+      document.removeEventListener("keydown", onKeyDown, true);
+    };
+  }, [collapsed, onToggle, activeSection]);
+  return <><aside ref={sidebarRef} className={`assistant-conversations ${collapsed ? "is-collapsed" : ""}`} aria-label={t("conversations.label")} onKeyDown={(event) => {
+    if (event.key === "Escape" && !collapsed) {
+      event.preventDefault();
+      dismiss();
+    }
+  }}>
     <div className="assistant-sidebar-brand">
-      <span className="assistant-brand-icon" aria-hidden="true"><SidebarIcon name="tasks" /></span>
+      <span className="assistant-brand-icon" aria-hidden="true">w</span>
       {!collapsed ? <span className="assistant-brand-name">{t("brand")}</span> : null}
-      <button className="assistant-sidebar-toggle" aria-expanded={!collapsed} aria-label={t("conversations.toggle")} type="button" onClick={onToggle}>
+      <button ref={toggleRef} className="assistant-sidebar-toggle" aria-expanded={!collapsed} aria-label={t("conversations.toggle")} type="button" onClick={onToggle}>
         <SidebarIcon name={collapsed ? "expand" : "collapse"} />
       </button>
     </div>
@@ -61,7 +110,7 @@ export function ConversationList({
       <SidebarAction icon="new" label={t("conversations.new")} collapsed={collapsed} active={activeSection === "assistant" && selectedId === null} onClick={onNew} />
       {onOpenProjects ? <SidebarAction icon="projects" label={t("navigation.projects")} collapsed={collapsed} active={activeSection === "projects"} onClick={onOpenProjects} /> : null}
       {onOpenMyTasks ? <SidebarAction icon="tasks" label={t("navigation.myTasks")} collapsed={collapsed} active={activeSection === "myTasks"} onClick={onOpenMyTasks} /> : null}
-      {onOpenEvaluations ? <SidebarAction icon="people" label={t("navigation.evaluations")} collapsed={collapsed} active={activeSection === "evaluations"} onClick={onOpenEvaluations} /> : null}
+      {onOpenEvaluations ? <SidebarAction icon="evaluation" label={t("navigation.evaluations")} collapsed={collapsed} active={activeSection === "evaluations"} onClick={onOpenEvaluations} /> : null}
       {onOpenPeopleCapacity ? <SidebarAction icon="people" label={t("navigation.peopleCapacity")} collapsed={collapsed} active={activeSection === "peopleCapacity"} onClick={onOpenPeopleCapacity} /> : null}
       {onAssignTask ? <SidebarAction icon="assign" label={t("navigation.assignTask")} collapsed={collapsed} active={activeSection === "assignTask"} onClick={onAssignTask} /> : null}
     </nav>
@@ -76,7 +125,7 @@ export function ConversationList({
             key={conversation.id}
             type="button"
             onClick={() => onSelect(conversation.id)}
-          ><SidebarIcon name="chat" /><span>{conversation.title ?? t("conversations.untitled")}</span></button>)}
+          ><span>{conversation.title ?? t("conversations.untitled")}</span></button>)}
       </div>
     </section> : null}
 
@@ -100,7 +149,7 @@ export function ConversationList({
         {logoutError ? <p className="assistant-account-error" role="alert">{home("logoutError")}</p> : null}
       </> : null}
     </div>
-  </aside>;
+  </aside>{!collapsed ? <button className="assistant-sidebar-backdrop" type="button" aria-label={t("conversations.close")} onClick={dismiss} /> : null}</>;
 }
 
 function SidebarAction({ icon, label, collapsed, active = false, onClick }: {
@@ -118,21 +167,6 @@ function SidebarAction({ icon, label, collapsed, active = false, onClick }: {
     type="button"
     onClick={onClick}
   ><SidebarIcon name={icon} />{!collapsed ? <span>{label}</span> : null}</button>;
-}
-
-function SidebarIcon({ name }: { name: IconName }) {
-  const paths: Record<IconName, ReactNode> = {
-    new: <><path d="M12 5v14M5 12h14" /><rect x="3" y="3" width="18" height="18" rx="5" /></>,
-    projects: <><rect x="3" y="4" width="18" height="16" rx="4" /><path d="M8 9h8M8 13h5" /></>,
-    tasks: <><rect x="3" y="3" width="18" height="18" rx="5" /><path d="m8 12 2.2 2.2L16.5 8" /></>,
-    people: <><circle cx="9" cy="8" r="3" /><circle cx="17" cy="9" r="2" /><path d="M3.5 20c.5-3.6 2.4-5.5 5.5-5.5s5 1.9 5.5 5.5M14 20c.2-1.8.9-3.1 2.4-3.8" /></>,
-    assign: <><circle cx="9" cy="9" r="3" /><path d="M4 20c.5-3.2 2.2-5 5-5 1.2 0 2.2.3 3 .9M17 12v8M13 16h8" /></>,
-    collapse: <path d="m14 7-5 5 5 5" />,
-    expand: <path d="m10 7 5 5-5 5" />,
-    chat: <><path d="M5 18.5 2.8 21v-4.8A8.2 8.2 0 1 1 5 18.5Z" /><path d="M8 11h.01M12 11h.01M16 11h.01" /></>,
-    logout: <><path d="M10 5H6a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h4M14 8l4 4-4 4M9 12h9" /></>,
-  };
-  return <svg aria-hidden="true" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8">{paths[name]}</svg>;
 }
 
 function initials(name: string) {
