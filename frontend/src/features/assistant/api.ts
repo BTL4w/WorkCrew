@@ -70,3 +70,15 @@ export function postAssistantMessage(
     },
   });
 }
+
+
+export function manageConversation(conversation: AssistantConversation, change: { title: string } | { is_pinned: boolean } | "delete", key: string) {
+  return requestJsonWithMetadata(`/api/v1/ai/conversations/${conversation.id}`, {
+    schema: conversationSchema,
+    init: {
+      method: change === "delete" ? "DELETE" : "PATCH",
+      headers: { ...jsonHeaders, "Idempotency-Key": key, "If-Match": `"${conversation.version}"` },
+      ...(change === "delete" ? {} : { body: JSON.stringify(change) }),
+    },
+  });
+}

@@ -215,6 +215,57 @@ class AssistantService:
             except Exception:
                 raise
 
+    async def manage_conversation(
+        self,
+        *,
+        actor: AuthenticatedActor,
+        conversation_id: UUID,
+        changes: dict[str, object],
+        expected_version: int,
+        request_id: str,
+        idempotency_key: str,
+    ) -> AssistantConversationMutationResult:
+        allowed = {"title", "is_pinned", "status"}
+        if not changes or not changes.keys() <= allowed:
+            raise AssistantServiceError("INVALID_REQUEST")
+        if "title" in changes:
+            title = changes["title"]
+            if not isinstance(title, str) or not 1 <= len(title.strip()) <= 120:
+                raise AssistantServiceError("INVALID_REQUEST")
+            changes = {**changes, "title": title.strip()}
+        if "is_pinned" in changes and not isinstance(changes["is_pinned"], bool):
+            raise AssistantServiceError("INVALID_REQUEST")
+        if "status" in changes and changes != {"status": "ARCHIVED"}:
+            raise AssistantServiceError("INVALID_REQUEST")
+        fingerprint = _fingerprint(str(conversation_id), _canonical(changes), str(expected_version))
+        try:
+            async with self._transactions(actor) as txn:
+                result = await txn.repository.manage_conversation_mutation(
+                    actor=actor,
+                    conversation_id=conversation_id,
+                    changes=changes,
+                    expected_version=expected_version,
+                    request_id=request_id,
+                    idempotency_key=idempotency_key,
+                    request_fingerprint=fingerprint,
+                )
+                await txn.commit()
+                return result
+        except (AssistantDomainLookupError, AssistantIdempotencyKeyReusedError) as error:
+            code = str(error)
+            await self._record_rejection(
+                actor=actor,
+                action="assistant.conversation.manage",
+                resource_id=conversation_id,
+                request_id=request_id,
+                reason_code=code,
+            )
+            if isinstance(error, AssistantIdempotencyKeyReusedError):
+                raise IdempotencyConflictError() from error
+            if code in {"RESOURCE_VERSION_MISMATCH", "CONVERSATION_BUSY"}:
+                raise AssistantServiceError(code) from error
+            raise ResourceNotFoundError() from error
+
     # ------------------------------------------------------------------
     # list_conversations
     # ------------------------------------------------------------------

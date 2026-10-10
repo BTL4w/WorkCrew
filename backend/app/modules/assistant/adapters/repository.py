@@ -1,6 +1,7 @@
 """PostgreSQL repository for durable Assistant transcript and Agent execution state."""
 
-from dataclasses import replace
+import json
+from dataclasses import asdict, replace
 from datetime import UTC, datetime, timedelta
 from typing import Literal, cast
 from uuid import UUID, uuid4
@@ -70,6 +71,7 @@ def _conversation(model: AssistantConversationModel) -> AssistantConversation:
         owner_membership_id=model.owner_membership_id,
         locale=model.locale,  # type: ignore[arg-type]
         title=model.title,
+        is_pinned=model.is_pinned,
         status=ConversationStatus(model.status),
         version=model.version,
         last_message_sequence=model.last_message_sequence,
@@ -502,6 +504,122 @@ class PostgreSQLAssistantRepository:
         await self._session.flush()
         return AssistantConversationMutationResult(conversation=conversation, replayed=False)
 
+    async def manage_conversation_mutation(
+        self,
+        *,
+        actor: AuthenticatedActor,
+        conversation_id: UUID,
+        changes: dict[str, object],
+        expected_version: int,
+        request_id: str,
+        idempotency_key: str,
+        request_fingerprint: str,
+    ) -> AssistantConversationMutationResult:
+        operation = f"assistant.conversation.manage:{conversation_id}"
+        # Lock the owned resource before checking replay, serializing concurrent retries.
+        model = await self._session.scalar(
+            select(AssistantConversationModel)
+            .where(
+                AssistantConversationModel.organization_id == actor.organization_id,
+                AssistantConversationModel.owner_membership_id == actor.membership_id,
+                AssistantConversationModel.id == conversation_id,
+            )
+            .with_for_update()
+        )
+        if model is None:
+            raise AssistantDomainLookupError("ASSISTANT_CONVERSATION_NOT_FOUND")
+        replay = await self._idempotency(
+            actor=actor, operation=operation, key=idempotency_key, fingerprint=request_fingerprint
+        )
+        if replay is not None and replay.response_body is not None:
+            saved = replay.response_body
+            conversation = AssistantConversation(
+                id=UUID(str(saved["id"])),
+                organization_id=actor.organization_id,
+                owner_membership_id=actor.membership_id,
+                locale=cast(Literal["vi", "en"], saved["locale"]),
+                title=cast(str | None, saved["title"]),
+                status=ConversationStatus(str(saved["status"])),
+                version=int(saved["version"]),
+                is_pinned=bool(saved["is_pinned"]),
+                last_message_sequence=int(saved["last_message_sequence"]),
+                last_event_sequence=int(saved["last_event_sequence"]),
+                created_at=datetime.fromisoformat(str(saved["created_at"])),
+                updated_at=datetime.fromisoformat(str(saved["updated_at"])),
+            )
+            return AssistantConversationMutationResult(conversation, True)
+        if model.status != "ACTIVE":
+            raise AssistantDomainLookupError("ASSISTANT_CONVERSATION_NOT_FOUND")
+        if model.version != expected_version:
+            raise AssistantDomainLookupError("RESOURCE_VERSION_MISMATCH")
+        archiving = changes.get("status") == "ARCHIVED"
+        if archiving:
+            busy = await self._session.scalar(
+                select(AssistantTurnModel.id)
+                .where(
+                    AssistantTurnModel.organization_id == actor.organization_id,
+                    AssistantTurnModel.conversation_id == conversation_id,
+                    AssistantTurnModel.status.in_(["QUEUED", "RUNNING"]),
+                )
+                .limit(1)
+            )
+            if busy is not None:
+                raise AssistantDomainLookupError("CONVERSATION_BUSY")
+            model.status = "ARCHIVED"
+            model.is_pinned = False
+        else:
+            if "title" in changes:
+                model.title = str(changes["title"])
+            if "is_pinned" in changes:
+                model.is_pinned = bool(changes["is_pinned"])
+        now = datetime.now(UTC)
+        record = self._new_idempotency(
+            actor=actor,
+            operation=operation,
+            key=idempotency_key,
+            fingerprint=request_fingerprint,
+            now=now,
+        )
+        event = AssistantEvent(
+            id=uuid4(),
+            organization_id=actor.organization_id,
+            conversation_id=conversation_id,
+            sequence=model.last_event_sequence + 1,
+            event_type="assistant.conversation.updated.v1",
+            public_payload={"conversation_id": str(conversation_id)},
+            occurred_at=now,
+        )
+        await self.append_event(event=event)
+        self._audit(
+            actor=actor,
+            action="assistant.conversation.archived"
+            if archiving
+            else "assistant.conversation.updated",
+            resource_type="assistant_conversation",
+            resource_id=conversation_id,
+            request_id=request_id,
+            idempotency_key=idempotency_key,
+        )
+        self._session.add(
+            OutboxEventModel(
+                id=event.id,
+                organization_id=actor.organization_id,
+                event_id=event.id,
+                event_type=event.event_type,
+                aggregate_type="assistant_conversation",
+                aggregate_id=conversation_id,
+                envelope_version="1.0",
+                payload=event.public_payload,
+                occurred_at=now,
+            )
+        )
+        conversation = _conversation(model)
+        record.state = IdempotencyState.COMPLETED
+        record.response_status = 200
+        record.response_body = json.loads(json.dumps(asdict(conversation), default=str))
+        await self._session.flush()
+        return AssistantConversationMutationResult(conversation, False)
+
     async def submit_message_mutation(
         self,
         *,
@@ -772,6 +890,7 @@ class PostgreSQLAssistantRepository:
             select(AssistantConversationModel).where(
                 AssistantConversationModel.organization_id == actor.organization_id,
                 AssistantConversationModel.owner_membership_id == actor.membership_id,
+                AssistantConversationModel.status == "ACTIVE",
                 AssistantConversationModel.id == conversation_id,
             )
         )
@@ -829,14 +948,28 @@ class PostgreSQLAssistantRepository:
     async def list_conversations(
         self, *, actor: AuthenticatedActor, limit: int
     ) -> list[AssistantConversation]:
+        # Metadata events (pin/rename) change updated_at, but not chat recency.
+        # The tenant/conversation/sequence unique key locates the last message.
+        last_message_at = (
+            select(AssistantMessageModel.created_at)
+            .where(
+                AssistantMessageModel.organization_id == AssistantConversationModel.organization_id,
+                AssistantMessageModel.conversation_id == AssistantConversationModel.id,
+                AssistantMessageModel.sequence == AssistantConversationModel.last_message_sequence,
+            )
+            .correlate(AssistantConversationModel)
+            .scalar_subquery()
+        )
         models = await self._session.scalars(
             select(AssistantConversationModel)
             .where(
                 AssistantConversationModel.organization_id == actor.organization_id,
                 AssistantConversationModel.owner_membership_id == actor.membership_id,
+                AssistantConversationModel.status == "ACTIVE",
             )
             .order_by(
-                AssistantConversationModel.updated_at.desc(),
+                AssistantConversationModel.is_pinned.desc(),
+                func.coalesce(last_message_at, AssistantConversationModel.created_at).desc(),
                 AssistantConversationModel.id.desc(),
             )
             .limit(limit)
@@ -855,6 +988,7 @@ class PostgreSQLAssistantRepository:
             select(AssistantConversationModel).where(
                 AssistantConversationModel.organization_id == actor.organization_id,
                 AssistantConversationModel.owner_membership_id == actor.membership_id,
+                AssistantConversationModel.status == "ACTIVE",
                 AssistantConversationModel.id == conversation_id,
             )
         )

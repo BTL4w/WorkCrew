@@ -595,3 +595,32 @@ describe("AssistantShell", () => {
     expect(screen.queryByRole("button", { name: "Nhờ AI chỉnh" })).not.toBeInTheDocument();
   });
 });
+
+it("reuses the original chat mutation identity after a committed response is lost", async () => {
+  let current = { ...conversation, version: 1, is_pinned: false };
+  const requests: Headers[] = [];
+  vi.stubGlobal("fetch", vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+    if (init?.method === "PATCH") {
+      requests.push(new Headers(init.headers));
+      if (requests.length === 1) {
+        current = { ...current, title: "Đã đổi tên", version: 2 };
+        throw new TypeError("Response lost after commit");
+      }
+      return response(current);
+    }
+    return String(input) === "/api/v1/ai/conversations" ? response({ items: [current] }) : response({ conversation: current, messages: [] });
+  }));
+  renderWithAppProviders(<AssistantShell actor={managerActor} connectEvents={noEvents} />);
+  await screen.findByRole("button", { name: conversation.title });
+  fireEvent.click(screen.getByRole("button", { name: "Tùy chọn chat" }));
+  fireEvent.click(screen.getByRole("menuitem", { name: "Đổi tên" }));
+  fireEvent.change(screen.getByLabelText("Tên cuộc trò chuyện"), { target: { value: "Đã đổi tên" } });
+  fireEvent.click(screen.getByRole("button", { name: "Lưu" }));
+  await screen.findByText(/Không thể cập nhật chat/);
+  fireEvent.click(screen.getByRole("button", { name: "Lưu" }));
+  await waitFor(() => expect(screen.queryByLabelText("Tên cuộc trò chuyện")).not.toBeInTheDocument());
+  expect(requests).toHaveLength(2);
+  expect(requests[1].get("Idempotency-Key")).toBe(requests[0].get("Idempotency-Key"));
+  expect(requests[1].get("If-Match")).toBe('"1"');
+  vi.unstubAllGlobals();
+});

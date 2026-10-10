@@ -149,6 +149,8 @@ export const conversationSchema = strict({
   locale: z.enum(["vi", "en"]),
   title: z.string().nullable(),
   status: z.string(),
+  version: z.number().int().positive().default(1),
+  is_pinned: z.boolean().default(false),
   last_message_sequence: z.number().int().nonnegative(),
   last_event_sequence: z.number().int().nonnegative(),
   created_at: z.iso.datetime(),

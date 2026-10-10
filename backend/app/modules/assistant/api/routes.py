@@ -41,6 +41,7 @@ from app.modules.assistant.api.schemas import (
     CreateConversationRequest,
     MessageResponse,
     PostAssistantMessageRequest,
+    UpdateConversationRequest,
 )
 from app.modules.assistant.application.service import (
     AssistantServiceError,
@@ -92,6 +93,12 @@ def _raise_assistant_error(error: Exception) -> NoReturn:
         ) from error
     if isinstance(error, AssistantServiceError):
         code = error.code
+        if code in {"INVALID_REQUEST", "CONVERSATION_BUSY"}:
+            raise ApplicationError(
+                status_code=409 if code == "CONVERSATION_BUSY" else 400,
+                code=code,
+                message_key="common.error.invalidRequest",
+            ) from error
         if code == "IF_MATCH_FORBIDDEN":
             raise ApplicationError(
                 status_code=400,
@@ -310,4 +317,87 @@ async def stream_conversation_events(
         ),
         media_type="text/event-stream",
         headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )
+
+
+async def _manage_conversation(
+    conversation_id: UUID,
+    changes: dict[str, object],
+    request: Request,
+    response: Response,
+    actor: ActorDependency,
+    service: AssistantServiceDependency,
+    idempotency_key: str,
+    if_match: str | None,
+) -> ConversationResponse:
+    version = _expected_version_optional(if_match)
+    try:
+        if version is None:
+            raise AssistantServiceError("IF_MATCH_REQUIRED")
+        result = await service.manage_conversation(
+            actor=actor,
+            conversation_id=conversation_id,
+            changes=changes,
+            expected_version=version,
+            request_id=str(request.state.request_id),
+            idempotency_key=idempotency_key,
+        )
+    except Exception as error:
+        _raise_assistant_error(error)
+    response.headers["ETag"] = f'"{result.conversation.version}"'
+    if result.replayed:
+        response.headers["Idempotency-Replayed"] = "true"
+    return ConversationResponse.from_domain(result.conversation)
+
+
+@router.patch(
+    "/ai/conversations/{conversation_id}",
+    response_model=ConversationResponse,
+    responses=_ERROR_RESPONSES,
+)
+async def update_conversation(
+    conversation_id: UUID,
+    payload: UpdateConversationRequest,
+    request: Request,
+    response: Response,
+    actor: ActorDependency,
+    service: AssistantServiceDependency,
+    idempotency_key: IdempotencyKeyHeader,
+    if_match: IfMatchHeader = None,
+) -> ConversationResponse:
+    return await _manage_conversation(
+        conversation_id,
+        payload.model_dump(exclude_unset=True),
+        request,
+        response,
+        actor,
+        service,
+        idempotency_key,
+        if_match,
+    )
+
+
+@router.delete(
+    "/ai/conversations/{conversation_id}",
+    response_model=ConversationResponse,
+    responses=_ERROR_RESPONSES,
+)
+async def delete_conversation(
+    conversation_id: UUID,
+    request: Request,
+    response: Response,
+    actor: ActorDependency,
+    service: AssistantServiceDependency,
+    idempotency_key: IdempotencyKeyHeader,
+    if_match: IfMatchHeader = None,
+) -> ConversationResponse:
+    return await _manage_conversation(
+        conversation_id,
+        {"status": "ARCHIVED"},
+        request,
+        response,
+        actor,
+        service,
+        idempotency_key,
+        if_match,
     )

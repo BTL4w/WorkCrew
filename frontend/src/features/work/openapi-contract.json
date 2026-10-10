@@ -955,7 +955,9 @@
         "post"
       ],
       "/api/v1/ai/conversations/{conversation_id}": [
-        "get"
+        "get",
+        "patch",
+        "delete"
       ],
       "/api/v1/ai/conversations/{conversation_id}/messages": [
         "post"
@@ -1014,6 +1016,8 @@
           "locale",
           "title",
           "status",
+          "version",
+          "is_pinned",
           "last_message_sequence",
           "last_event_sequence",
           "created_at",
@@ -1024,6 +1028,8 @@
           "locale": "literal:vi|en",
           "title": "null|string",
           "status": "string",
+          "version": "integer",
+          "is_pinned": "boolean",
           "last_message_sequence": "integer",
           "last_event_sequence": "integer",
           "created_at": "string:date-time",
@@ -1178,6 +1184,13 @@
           "resource_type": "string[,100]",
           "resource_id": "string:uuid",
           "version": "integer"
+        }
+      },
+      "UpdateConversationRequest": {
+        "required": [],
+        "properties": {
+          "title": "null|string[1,120]",
+          "is_pinned": "boolean|null"
         }
       }
     }

@@ -338,7 +338,7 @@
     "title": "AI Assistant",
     "loading": "Loading conversation…",
     "navigation": { "label": "Primary navigation", "projects": "Projects", "myTasks": "My Tasks", "evaluations": "AI evaluation", "peopleCapacity": "People & skills", "assignTask": "Assign task" },
-    "conversations": { "close": "Close conversation list", "label": "Conversation list", "new": "New conversation", "recent": "Recent", "toggle": "Show or hide conversation list", "empty": "No conversations yet.", "untitled": "New conversation" },
+    "conversations": {"close": "Close conversation list", "label": "Conversation list", "new": "New conversation", "recent": "Recent", "toggle": "Show or hide conversation list", "empty": "No conversations yet.", "untitled": "New conversation", "pinned": "Pinned", "pin": "Pin chat", "unpin": "Unpin chat", "options": "Chat options", "rename": "Rename", "delete": "Delete chat", "titleLabel": "Conversation title", "cancel": "Cancel", "save": "Save", "saving": "Saving…", "confirmDelete": "Confirm delete", "deleteConfirm": "Remove this chat? Confirmed business records will be retained.", "mutationError": "Could not update chat. It may be processing or changed. Please try again."},
     "composer": { "label": "Message the AI Assistant", "placeholder": "Ask about work or request a project plan…", "mode": "Planning", "send": "Send" },
     "empty": { "title": "How can I help?", "description": "Ask about current work or describe a project you want to plan." },
     "role": { "you": "You", "assistant": "AI Assistant" },

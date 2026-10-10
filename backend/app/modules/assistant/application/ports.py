@@ -75,6 +75,18 @@ class AssistantRepository(Protocol):
         metadata: dict[str, Any],
     ) -> bool: ...
 
+    async def manage_conversation_mutation(
+        self,
+        *,
+        actor: AuthenticatedActor,
+        conversation_id: UUID,
+        changes: dict[str, object],
+        expected_version: int,
+        request_id: str,
+        idempotency_key: str,
+        request_fingerprint: str,
+    ) -> AssistantConversationMutationResult: ...
+
     async def create_conversation_mutation(
         self,
         *,

@@ -11,7 +11,7 @@ import type { CandidateOverrideInput, RecommendationVersion } from "@/features/p
 import type { MeResponse } from "@/shared/api/contracts";
 import { ApiError, isDefinitiveMutationRejection } from "@/shared/api/client";
 
-import { assistantKeys, createConversation, getConversation, listConversations, postAssistantMessage } from "./api";
+import { assistantKeys, createConversation, getConversation, listConversations, manageConversation, postAssistantMessage } from "./api";
 import { Composer } from "./composer";
 import { ConversationList, type AssistantNavigationSection } from "./conversation-list";
 import type { AssistantBlock, AssistantConversation, PostMessageInput } from "./contracts";
@@ -102,6 +102,7 @@ export function AssistantShell({
   const editAttempt = useAttempt();
   const decisionAttempt = useAttempt();
   const teamMutationAttempt = useAttempt();
+  const conversationAttempts = useRef(new Map<string, { conversation: AssistantConversation; key: string }>());
 
   const conversationsKey = assistantKeys.conversations(organizationId, membershipId);
   const conversations = useQuery({
@@ -128,7 +129,7 @@ export function AssistantShell({
     const current = snapshot.data?.conversation;
     if (!current) return;
     queryClient.setQueryData<AssistantConversation[]>(assistantKeys.conversations(organizationId, membershipId), (items) =>
-      items?.map((item) => item.id === current.id && current.last_event_sequence >= item.last_event_sequence
+      items?.map((item) => item.id === current.id && current.version >= item.version
         ? { ...item, ...current } : item),
     );
   }, [snapshot.data?.conversation, queryClient, organizationId, membershipId]);
@@ -290,6 +291,28 @@ export function AssistantShell({
       actor={actor}
       conversations={conversations.data ?? []}
       selectedId={activeConversationId}
+      onManage={async (conversation, change) => {
+        const fingerprint = JSON.stringify({ id: conversation.id, change });
+        const pending = conversationAttempts.current.get(fingerprint) ?? { conversation, key: crypto.randomUUID() };
+        conversationAttempts.current.set(fingerprint, pending);
+        try {
+          await manageConversation(pending.conversation, change, pending.key);
+          conversationAttempts.current.delete(fingerprint);
+          if (change === "delete") {
+            queryClient.setQueryData<AssistantConversation[]>(conversationsKey, (items) => items?.filter((item) => item.id !== conversation.id));
+            queryClient.removeQueries({ queryKey: assistantKeys.conversation(organizationId, membershipId, conversation.id) });
+            if (activeConversationId === conversation.id) {
+              setSelectedId(null); setNewConversation(true); setMessage(""); setError(null); syncConversationLocation(null);
+            }
+          }
+        } catch (error) {
+          if (isDefinitiveMutationRejection(error)) conversationAttempts.current.delete(fingerprint);
+          throw error;
+        } finally {
+          await queryClient.invalidateQueries({ queryKey: conversationsKey });
+          if (change !== "delete") await queryClient.invalidateQueries({ queryKey: assistantKeys.conversation(organizationId, membershipId, conversation.id) });
+        }
+      }}
       activeSection={activeSection}
       collapsed={collapsed}
       onSelect={(id) => { setSelectedId(id); setNewConversation(false); setError(null); syncConversationLocation(id); onOpenAssistant?.(); }}

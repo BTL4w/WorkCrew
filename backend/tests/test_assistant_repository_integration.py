@@ -945,3 +945,278 @@ async def test_exhausted_title_job_does_not_fail_or_add_messages_to_answer() -> 
             assert claimed is not None and claimed.id == first.job.id
     finally:
         await engine.dispose()
+
+
+@pytest.mark.asyncio
+async def test_owner_can_manage_chat_with_versions_replays_and_isolation() -> None:
+    from fastapi import FastAPI
+    from httpx import ASGITransport, AsyncClient
+
+    from app.main import create_app
+    from app.modules.assistant.adapters.database_models import AssistantConversationModel
+    from app.modules.assistant.api.dependencies import get_assistant_service
+    from app.modules.identity.api.dependencies import get_authenticated_actor
+
+    engine = create_database_engine(Settings())
+    org, member, foreign_org, foreign_member = (uuid4() for _ in range(4))
+    owner, foreign = _actor(org, member), _actor(foreign_org, foreign_member)
+    other = _actor(org, uuid4())
+    factory = PostgreSQLAssistantTransactionFactory(create_session_factory(engine))
+    service = AssistantService(
+        transaction_factory=factory,
+        planning_snapshot=_NoPlanningSnapshot(),
+        orchestrator_version="1",
+        orchestrator_fingerprint="test",
+    )
+    app: FastAPI = create_app(Settings())
+    current_actor = owner
+    app.dependency_overrides[get_authenticated_actor] = lambda: current_actor
+    app.dependency_overrides[get_assistant_service] = lambda: service
+    try:
+        async with engine.begin() as connection:
+            await _seed_members(connection, ((org, member), (foreign_org, foreign_member)))
+            await connection.execute(
+                text(
+                    "INSERT INTO users "
+                    "(id, email_normalized, email_display, display_name, password_hash) "
+                    "VALUES (:id, :email, :email, 'Other', 'hash')"
+                ),
+                {"id": other.user_id, "email": other.email},
+            )
+            await connection.execute(
+                text(
+                    "INSERT INTO memberships (id, organization_id, user_id, role) "
+                    "VALUES (:id, :org, :user, 'MANAGER')"
+                ),
+                {"id": other.membership_id, "org": org, "user": other.user_id},
+            )
+        created = await service.create_conversation(
+            actor=owner,
+            locale="vi",
+            title="Original",
+            request_id="create",
+            idempotency_key=uuid4().hex,
+        )
+        cid = created.conversation.id
+        url = f"/api/v1/ai/conversations/{cid}"
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+            assert (
+                await client.patch(
+                    url, json={"title": "Missing header"}, headers={"Idempotency-Key": uuid4().hex}
+                )
+            ).status_code == 428
+            headers = {"Idempotency-Key": uuid4().hex, "If-Match": '"1"'}
+            renamed = await client.patch(url, json={"title": "  Renamed  "}, headers=headers)
+            assert renamed.status_code == 200, renamed.text
+            assert renamed.json()["title"] == "Renamed"
+            assert renamed.json()["version"] == 2
+            replay = await client.patch(url, json={"title": "  Renamed  "}, headers=headers)
+            assert replay.status_code == 200
+            assert replay.headers["Idempotency-Replayed"] == "true"
+            conflict = await client.patch(url, json={"title": "Other"}, headers=headers)
+            assert conflict.status_code == 409
+            stale = await client.patch(
+                url, json={"is_pinned": True}, headers={**headers, "Idempotency-Key": uuid4().hex}
+            )
+            assert stale.status_code == 412
+            invalid = await client.patch(
+                url, json={"title": "   "}, headers={**headers, "If-Match": '"2"'}
+            )
+            assert invalid.status_code == 422
+            current_actor = other
+            assert (
+                await client.patch(
+                    url, json={"title": "Stolen"}, headers={**headers, "If-Match": '"2"'}
+                )
+            ).status_code == 404
+            assert (
+                await client.delete(url, headers={**headers, "If-Match": '"2"'})
+            ).status_code == 404
+            current_actor = foreign
+            denied = await client.patch(
+                url, json={"is_pinned": True}, headers={**headers, "If-Match": '"2"'}
+            )
+            assert denied.status_code == 404
+            denied_delete = await client.delete(url, headers={**headers, "If-Match": '"2"'})
+            assert denied_delete.status_code == 404
+            async with factory(foreign) as txn:
+                hidden = await txn.session.scalar(
+                    select(AssistantConversationModel).where(AssistantConversationModel.id == cid)
+                )
+                assert hidden is None
+            current_actor = owner
+            pinned = await client.patch(
+                url,
+                json={"is_pinned": True},
+                headers={"Idempotency-Key": uuid4().hex, "If-Match": '"2"'},
+            )
+            assert pinned.status_code == 200
+            assert pinned.json()["is_pinned"] is True
+            assert (await client.get("/api/v1/ai/conversations")).json()["items"][0][
+                "is_pinned"
+            ] is True
+            delete_headers = {"Idempotency-Key": uuid4().hex, "If-Match": '"3"'}
+            deleted = await client.delete(url, headers=delete_headers)
+            assert deleted.status_code == 200
+            assert deleted.json()["status"] == "ARCHIVED"
+            replay_delete = await client.delete(url, headers=delete_headers)
+            assert replay_delete.status_code == 200
+            assert replay_delete.headers["Idempotency-Replayed"] == "true"
+            assert (await client.get(url)).status_code == 404
+            assert (
+                await client.post(
+                    url + "/messages",
+                    json={"message": "Continue", "locale": "vi"},
+                    headers={"Idempotency-Key": uuid4().hex},
+                )
+            ).status_code == 404
+            assert (await client.get("/api/v1/ai/conversations")).json()["items"] == []
+        async with factory(owner) as txn:
+            audit = list(
+                await txn.session.scalars(
+                    select(AuditEventModel).where(AuditEventModel.resource_id == cid)
+                )
+            )
+            assert sum(a.outcome.value == "SUCCEEDED" for a in audit) == 4
+            assert sum(a.outcome.value == "REJECTED" for a in audit) >= 2
+            events = list(
+                await txn.session.scalars(
+                    select(OutboxEventModel).where(OutboxEventModel.aggregate_id == cid)
+                )
+            )
+            assert len(events) == 3
+    finally:
+        await engine.dispose()
+
+
+@pytest.mark.asyncio
+async def test_chat_delete_does_not_interrupt_a_queued_turn() -> None:
+    from app.modules.assistant.application.service import AssistantServiceError
+
+    engine = create_database_engine(Settings())
+    actor = _actor(uuid4(), uuid4())
+    factory = PostgreSQLAssistantTransactionFactory(create_session_factory(engine))
+    service = AssistantService(
+        transaction_factory=factory,
+        planning_snapshot=_NoPlanningSnapshot(),
+        orchestrator_version="1",
+        orchestrator_fingerprint="test",
+    )
+    try:
+        async with engine.begin() as connection:
+            await _seed_members(connection, ((actor.organization_id, actor.membership_id),))
+        created = await service.create_conversation(
+            actor=actor,
+            locale="vi",
+            title="Processing",
+            request_id="create",
+            idempotency_key=uuid4().hex,
+        )
+        cid = created.conversation.id
+        await service.post_message(
+            actor=actor,
+            conversation_id=cid,
+            message="My tasks",
+            locale="vi",
+            card_action=None,
+            if_match_version=None,
+            request_id="post",
+            idempotency_key=uuid4().hex,
+        )
+        snapshot = await service.get_conversation(actor=actor, conversation_id=cid)
+        with pytest.raises(AssistantServiceError, match="CONVERSATION_BUSY"):
+            await service.manage_conversation(
+                actor=actor,
+                conversation_id=cid,
+                changes={"status": "ARCHIVED"},
+                expected_version=snapshot.conversation.version,
+                request_id="delete",
+                idempotency_key=uuid4().hex,
+            )
+        kept = await service.get_conversation(actor=actor, conversation_id=cid)
+        assert kept.conversation.status.value == "ACTIVE"
+        assert len(kept.messages) == 1
+    finally:
+        await engine.dispose()
+
+
+@pytest.mark.asyncio
+async def test_pin_unpin_and_rename_preserve_chat_recency_until_a_message_arrives() -> None:
+    engine = create_database_engine(Settings())
+    actor = _actor(uuid4(), uuid4())
+    factory = PostgreSQLAssistantTransactionFactory(create_session_factory(engine))
+    service = AssistantService(
+        transaction_factory=factory,
+        planning_snapshot=_NoPlanningSnapshot(),
+        orchestrator_version="1",
+        orchestrator_fingerprint="test",
+    )
+    try:
+        async with engine.begin() as connection:
+            await _seed_members(connection, ((actor.organization_id, actor.membership_id),))
+        old = AssistantConversation.create(
+            organization_id=actor.organization_id,
+            owner_membership_id=actor.membership_id,
+            locale="vi",
+            title="Old chat",
+            now=datetime.now(UTC) - timedelta(days=2),
+        )
+        async with factory(actor) as txn:
+            await txn.repository.create_conversation_mutation(
+                actor=actor,
+                conversation=old,
+                request_id="old",
+                idempotency_key=uuid4().hex,
+                request_fingerprint="old",
+            )
+            await txn.commit()
+        new = (
+            await service.create_conversation(
+                actor=actor,
+                locale="vi",
+                title="Recent chat",
+                request_id="new",
+                idempotency_key=uuid4().hex,
+            )
+        ).conversation
+        assert [c.id for c in await service.list_conversations(actor=actor)] == [new.id, old.id]
+        pinned = await service.manage_conversation(
+            actor=actor,
+            conversation_id=old.id,
+            changes={"is_pinned": True},
+            expected_version=old.version,
+            request_id="pin",
+            idempotency_key=uuid4().hex,
+        )
+        assert [c.id for c in await service.list_conversations(actor=actor)] == [old.id, new.id]
+        unpinned = await service.manage_conversation(
+            actor=actor,
+            conversation_id=old.id,
+            changes={"is_pinned": False},
+            expected_version=pinned.conversation.version,
+            request_id="unpin",
+            idempotency_key=uuid4().hex,
+        )
+        assert [c.id for c in await service.list_conversations(actor=actor)] == [new.id, old.id]
+        await service.manage_conversation(
+            actor=actor,
+            conversation_id=old.id,
+            changes={"title": "Renamed old chat"},
+            expected_version=unpinned.conversation.version,
+            request_id="rename",
+            idempotency_key=uuid4().hex,
+        )
+        assert [c.id for c in await service.list_conversations(actor=actor)] == [new.id, old.id]
+        await service.post_message(
+            actor=actor,
+            conversation_id=old.id,
+            message="New message",
+            locale="vi",
+            card_action=None,
+            if_match_version=None,
+            request_id="post",
+            idempotency_key=uuid4().hex,
+        )
+        assert [c.id for c in await service.list_conversations(actor=actor)] == [old.id, new.id]
+    finally:
+        await engine.dispose()

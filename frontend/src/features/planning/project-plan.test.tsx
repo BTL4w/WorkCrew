@@ -291,7 +291,7 @@ describe("ProjectPlanPanel", () => {
 
     const summary = await screen.findByRole("alert");
     expect(summary).toHaveTextContent("Dependency không hợp lệ hoặc tạo chu trình.");
-    expect(summary).toHaveFocus();
+    await waitFor(() => expect(summary).toHaveFocus());
   });
 
   it("offers dependency task options beyond the currently visible work page", async () => {

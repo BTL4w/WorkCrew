@@ -6,7 +6,7 @@ from datetime import datetime
 from typing import Annotated, Any, Literal
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field, TypeAdapter
+from pydantic import BaseModel, ConfigDict, Field, TypeAdapter, model_validator
 
 from app.modules.assistant.domain.models import AssistantConversation, AssistantMessage
 from work_management_ai.agents.risk.contracts import RiskCardContent
@@ -21,6 +21,20 @@ class CreateConversationRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
     locale: Literal["vi", "en"]
     title: str | None = Field(default=None, max_length=120)
+
+
+class UpdateConversationRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
+    title: str | None = Field(default=None, min_length=1, max_length=120)
+    is_pinned: bool | None = Field(default=None, strict=True)
+
+    @model_validator(mode="after")
+    def validate_changes(self) -> UpdateConversationRequest:
+        if not self.model_fields_set or any(
+            getattr(self, key) is None for key in self.model_fields_set
+        ):
+            raise ValueError("CONVERSATION_CHANGE_REQUIRED")
+        return self
 
 
 class CardAction(BaseModel):
@@ -221,6 +235,8 @@ class ConversationResponse(BaseModel):
     locale: Literal["vi", "en"]
     title: str | None
     status: str
+    version: int
+    is_pinned: bool
     last_message_sequence: int
     last_event_sequence: int
     created_at: datetime
@@ -232,6 +248,8 @@ class ConversationResponse(BaseModel):
             id=c.id,
             locale=c.locale,
             title=c.title,
+            version=c.version,
+            is_pinned=c.is_pinned,
             status=c.status.value if hasattr(c.status, "value") else str(c.status),
             last_message_sequence=c.last_message_sequence,
             last_event_sequence=c.last_event_sequence,

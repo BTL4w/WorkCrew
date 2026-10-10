@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 
-export type AssistantIconName = "new" | "projects" | "tasks" | "people" | "evaluation" | "assign" | "collapse" | "expand" | "logout" | "send";
+export type AssistantIconName = "new" | "projects" | "tasks" | "people" | "evaluation" | "assign" | "collapse" | "expand" | "logout" | "send" | "pin" | "more" | "edit" | "trash";
 
 const paths: Record<AssistantIconName, ReactNode> = {
   new: <><path d="M12 5v14M5 12h14" /></>,
@@ -12,6 +12,10 @@ const paths: Record<AssistantIconName, ReactNode> = {
   collapse: <><rect x="3" y="4" width="18" height="16" rx="2" /><path d="M9 4v16m7-11-3 3 3 3" /></>,
   expand: <><rect x="3" y="4" width="18" height="16" rx="2" /><path d="M9 4v16m4-11 3 3-3 3" /></>,
   logout: <><path d="M9 4H4v16h5m5-12 4 4-4 4m-6-4h10" /></>,
+  pin: <><path d="m16 3 5 5-4 1-4 4-1 4-5-5 4-1 4-4ZM8 16l-5 5" /></>,
+  more: <><circle cx="5" cy="12" r="1" /><circle cx="12" cy="12" r="1" /><circle cx="19" cy="12" r="1" /></>,
+  edit: <><path d="m16 3 5 5-12 12-6 1 1-6Z M14 5l5 5" /></>,
+  trash: <><path d="M3 6h18M9 6V3h6v3M5 6l1 15h12l1-15M10 10v7m4-7v7" /></>,
   send: <path d="M12 19V5m-6 6 6-6 6 6" />,
 };
 

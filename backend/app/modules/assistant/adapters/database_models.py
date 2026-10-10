@@ -57,6 +57,7 @@ class AssistantConversationModel(Base):
     owner_membership_id: Mapped[UUID]
     locale: Mapped[str] = mapped_column(String(2))
     title: Mapped[str | None] = mapped_column(String(200))
+    is_pinned: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")
     status: Mapped[str] = mapped_column(String(20), default="ACTIVE", server_default="ACTIVE")
     version: Mapped[int] = mapped_column(Integer, default=1, server_default="1")
     last_message_sequence: Mapped[int] = mapped_column(Integer, default=0, server_default="0")

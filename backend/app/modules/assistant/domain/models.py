@@ -135,6 +135,7 @@ class AssistantConversation:
     last_event_sequence: int
     created_at: datetime
     updated_at: datetime
+    is_pinned: bool = False
 
     @classmethod
     def create(

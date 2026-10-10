@@ -203,3 +203,34 @@ verification remains opt-in and credential-gated; it is not claimed by this
 record. Expected local outbox retries remain visible because Phase 2 has no
 external publisher, and no optional integration or deployment track is
 activated.
+
+## Sidebar conversation management
+
+Apply additive migration `0043` before deploying the updated API. It adds an
+unpinned default to existing conversations and grants the runtime update access
+to that column. Keep the additive schema when rolling back the application.
+
+The sidebar scrolls overflowing titles inside their row on hover/focus (respecting
+reduced-motion preferences). Pinned chats appear above the Recent section;
+the three-dot menu supports owner-controlled renaming and confirmed removal.
+Chat ordering follows the last transcript message (creation time for empty chats),
+so pinning, unpinning and renaming preserve recency.
+`PATCH /api/v1/ai/conversations/{id}` accepts `title` (1–120 trimmed characters)
+and/or `is_pinned`. `DELETE` archives a chat from the owner's list and public
+snapshot/event endpoints; confirmed business records and required audit remain.
+Deletion returns a conflict while an assistant turn is queued/running.
+
+Both mutations require `Idempotency-Key` and `If-Match` using the conversation's
+`version`. They enforce authenticated owner/tenant context, RLS, a resource lock,
+version validation, transaction, audit and `assistant.conversation.updated.v1`
+event/outbox. Unknown, foreign and already-archived resources return a
+non-disclosing 404; matching retries replay the original response. The client
+retains the original key/version after uncertain failures, including across
+operations on different chats. Reload to reconcile a stale version before
+submitting a new attempt.
+
+Verify the UI with `frontend/e2e/conversation-management.spec.ts`; it creates its
+own empty conversation, checks persisted pins/renaming, and archives only that
+conversation. It makes no model calls. Repository/API isolation, stale writes,
+replay, busy-turn rejection and audit/outbox checks are in
+`backend/tests/test_assistant_repository_integration.py`.

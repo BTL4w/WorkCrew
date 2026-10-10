@@ -4,6 +4,8 @@ import { useEffect, useRef } from "react";
 import type { MeResponse } from "@/shared/api/contracts";
 import { LocaleSwitcher } from "@/shared/i18n/locale-switcher";
 
+import { ConversationRow, type ManageConversation } from "./conversation-row";
+
 import type { AssistantConversation } from "./contracts";
 import { AssistantIcon as SidebarIcon, type AssistantIconName } from "./assistant-icon";
 
@@ -18,6 +20,7 @@ export function ConversationList({
   activeSection = "assistant",
   collapsed,
   onSelect,
+  onManage,
   onNew,
   onToggle,
   onOpenProjects,
@@ -35,6 +38,7 @@ export function ConversationList({
   activeSection?: AssistantNavigationSection;
   collapsed: boolean;
   onSelect: (id: string) => void;
+  onManage?: ManageConversation;
   onNew: () => void;
   onToggle: () => void;
   onOpenProjects?: () => void;
@@ -51,6 +55,9 @@ export function ConversationList({
   const home = useTranslations("home");
   const sidebarRef = useRef<HTMLElement>(null);
   const toggleRef = useRef<HTMLButtonElement>(null);
+  const ordered = conversations.toSorted((left, right) => Number(Boolean(right.is_pinned)) - Number(Boolean(left.is_pinned)));
+  const hasPinned = ordered.some((item) => item.is_pinned);
+  const hasRecent = ordered.some((item) => !item.is_pinned);
   function dismiss() {
     onToggle();
     toggleRef.current?.focus();
@@ -69,6 +76,7 @@ export function ConversationList({
     function onKeyDown(event: KeyboardEvent) {
       if (!media.matches) return;
       if (event.key === "Escape") {
+        if (event.target instanceof HTMLElement && event.target.closest('[data-conversation-controls="open"]')) return;
         event.preventDefault();
         event.stopPropagation();
         onToggle();
@@ -115,17 +123,23 @@ export function ConversationList({
       {onAssignTask ? <SidebarAction icon="assign" label={t("navigation.assignTask")} collapsed={collapsed} active={activeSection === "assignTask"} onClick={onAssignTask} /> : null}
     </nav>
 
-    {!collapsed ? <section className="assistant-history" aria-labelledby="assistant-history-title">
-      <h2 id="assistant-history-title">{t("conversations.recent")}</h2>
+    {!collapsed ? <section className="assistant-history" aria-labelledby={hasPinned ? "assistant-pinned-title" : "assistant-history-title"}>
       <div className="assistant-conversation-items">
-        {conversations.length === 0 ? <p>{t("conversations.empty")}</p> : conversations.map((conversation) =>
-          <button
-            aria-current={activeSection === "assistant" && conversation.id === selectedId ? "page" : undefined}
-            className={activeSection === "assistant" && conversation.id === selectedId ? "is-active" : ""}
-            key={conversation.id}
-            type="button"
-            onClick={() => onSelect(conversation.id)}
-          ><span>{conversation.title ?? t("conversations.untitled")}</span></button>)}
+        {ordered.flatMap((conversation, index) => [
+          ...(index === 0 || Boolean(ordered[index - 1].is_pinned) !== Boolean(conversation.is_pinned) ? [
+            <h2 key={conversation.is_pinned ? "pinned-heading" : "recent-heading"}
+              id={conversation.is_pinned ? "assistant-pinned-title" : "assistant-history-title"}
+              className="assistant-history-heading">{t(conversation.is_pinned ? "conversations.pinned" : "conversations.recent")}</h2>,
+          ] : []),
+          <ConversationRow key={conversation.id} conversation={conversation}
+            active={activeSection === "assistant" && conversation.id === selectedId} onSelect={onSelect}
+            onManage={onManage ? async (item, change) => {
+              await onManage(item, change);
+              if (change === "delete") sidebarRef.current?.querySelector<HTMLButtonElement>(".assistant-sidebar-navigation button")?.focus();
+            } : undefined} />,
+        ])}
+        {!hasRecent ? <h2 key="recent-heading" id="assistant-history-title" className="assistant-history-heading">{t("conversations.recent")}</h2> : null}
+        {conversations.length === 0 ? <p>{t("conversations.empty")}</p> : null}
       </div>
     </section> : null}
 
