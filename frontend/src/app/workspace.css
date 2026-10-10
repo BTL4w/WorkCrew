@@ -1,0 +1,84 @@
+/* Shared presentation for existing manual pages, forms and project tabs. */
+.assistant-workspace-content {
+  font-size: 14px;
+  line-height: 1.65;
+  color: var(--foreground);
+}
+.assistant-workspace-content > section,
+.people-capacity-panel,
+.work-view { width: min(1120px, 100%); max-width: 1120px; margin-inline: auto; }
+.assistant-workspace-content :is(h2, h3, h4, strong, .font-semibold),
+[role="dialog"] :is(h2, h3, h4, strong, .font-semibold) {
+  font-family: "Inter", "Geist", sans-serif;
+  font-weight: 500;
+}
+.assistant-workspace-content .page-title { font-size: clamp(24px, 3vw, 32px); font-weight: 550; line-height: 1.3; }
+.assistant-workspace-content :is(label, summary, dt),
+[role="dialog"] :is(label, summary, dt) { font-weight: 450; }
+.assistant-workspace-content dt { text-transform: none; letter-spacing: 0; }
+.assistant-workspace-content :is(input, textarea, select):where(:not([type="checkbox"]):not([type="radio"])),
+[role="dialog"] :is(input, textarea, select):where(:not([type="checkbox"]):not([type="radio"])) {
+  width: 100%;
+  min-width: 0;
+  min-height: 40px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  padding: 9px 12px;
+  color: var(--foreground);
+  font-size: 14px;
+  line-height: 1.5;
+}
+.assistant-workspace-content textarea,
+[role="dialog"] textarea { min-height: 96px; resize: vertical; }
+.assistant-workspace-content :is(input, select, textarea):disabled { background: #f5f6f7; color: #737b87; cursor: not-allowed; }
+.assistant-workspace-content :is(input[type="checkbox"], input[type="radio"]) { accent-color: var(--accent); }
+.assistant-workspace-content input[type="file"] { padding: 10px; }
+.assistant-workspace-content input::file-selector-button { border: 0; border-radius: 5px; background: #f0f2f4; padding: 5px 10px; margin-right: 10px; color: #3e4650; cursor: pointer; }
+.assistant-workspace-content :is(button, input, select, textarea, summary, a):focus-visible,
+[role="dialog"] :is(button, input, select, textarea, summary, a):focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+.assistant-workspace-content :is(.primary-button, .secondary-button),
+[role="dialog"] :is(.primary-button, .secondary-button) { min-height: 38px; border-radius: 8px; font-size: 13px; font-weight: 500; box-shadow: none; transform: none; }
+.assistant-workspace-content .primary-button,
+[role="dialog"] .primary-button { background: var(--accent); border-color: var(--accent); }
+.assistant-workspace-content .primary-button:hover:not(:disabled),
+[role="dialog"] .primary-button:hover:not(:disabled) { background: var(--accent-dark); border-color: var(--accent-dark); }
+.assistant-workspace-content :is(.text-button, .secondary-button) { color: #4f5966; }
+.assistant-workspace-content .text-button:hover:not(:disabled) { color: var(--accent-dark); }
+.assistant-workspace-content :is(.rounded-2xl, .rounded-3xl),
+[role="dialog"].rounded-3xl { border-radius: 12px; }
+.assistant-workspace-content :is(.shadow-sm, .shadow-xl) { box-shadow: none; }
+.assistant-workspace-content :is(.people-card, .availability-panel, .work-resource-list) { border-color: var(--border); box-shadow: none; }
+.work-view-heading { padding-bottom: 20px; border-color: var(--border); }
+.work-view-heading > div { min-width: 0; flex: 1; }
+.assistant-workspace-content > details { margin-bottom: 24px; border-color: var(--border); border-radius: 10px; background: #fff; padding: 14px 18px; }
+.work-tabs { min-width: 0; flex-wrap: nowrap; overflow-x: auto; gap: 20px; scrollbar-width: thin; }
+.assistant-workspace-content .work-tabs .secondary-button { flex-shrink: 0; margin-right: 0; border-radius: 0; padding: 12px 2px; font-size: 13px; font-weight: 400; }
+.work-tabs .secondary-button[aria-selected="true"] { color: var(--accent-dark); font-weight: 500; }
+.work-resource-list .resource-card { min-height: 88px; gap: 20px; padding-block: 18px; }
+.work-resource-list .resource-card :is(h3, h4) { font-size: 15px; line-height: 1.5; font-weight: 500; }
+.work-resource-list .resource-card:hover { background: #fafafa; box-shadow: none; }
+.work-resource-list .resource-card p { font-size: 13px; line-height: 1.6; }
+.task-assignment-panel { background: #fff; border-color: var(--border); border-radius: 12px; padding: 24px; }
+.assignment-hint { border-color: var(--border); background: #f5f7f9; color: #5d6570; font-weight: 400; }
+.people-card h4 { font-size: 12px; font-weight: 450; letter-spacing: 0; text-transform: none; }
+.people-card header p, .people-empty, .people-editor-hint,
+.availability-header p, .availability-card header p, .availability-card > p { font-size: 12px; color: #69717d; }
+.availability-card { background: #fafafa; }
+.availability-card.is-overloaded { background: #fff8f8; }
+.availability-allocation span, .availability-entry-list li { font-size: 12px; }
+.evaluation-page { display: grid; gap: 24px; }
+.evaluation-page > h2 { font-size: 28px; font-weight: 550; line-height: 1.3; }
+.evaluation-page > p { margin-top: -12px; color: #69717d; }
+.evaluation-page form { display: grid; gap: 18px; max-width: 640px; border: 1px solid var(--border); border-radius: 12px; padding: 24px; background: #fff; }
+.evaluation-page label { display: grid; gap: 8px; }
+.evaluation-page form button { justify-self: start; }
+.evaluation-page dl { display: grid; gap: 8px; }
+.evaluation-page dd { overflow-wrap: anywhere; color: #69717d; }
+
+@media (max-width: 767px) {
+  .assistant-workspace-content { padding: 24px 16px 40px; }
+  .work-tabs { gap: 18px; }
+  .work-resource-list .resource-card { padding: 16px 40px 16px 16px; }
+  .evaluation-page form, .task-assignment-panel { padding: 18px; }
+}

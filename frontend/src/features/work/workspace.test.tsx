@@ -60,6 +60,28 @@ describe("WorkWorkspace", () => {
     expect(formatCalendarDate("2026-08-12", "en-US")).toBe("8/12/2026");
   });
 
+  it("clears assignment navigation when an Admin opens AI evaluation", async () => {
+    const actor = { ...managerActor, membership: { ...managerActor.membership, role: "ADMIN" as const } };
+    vi.stubGlobal("fetch", vi.fn(async (input: RequestInfo | URL) => {
+      const path = String(input);
+      if (path === "/api/v1/me") return response(actor);
+      if (path === "/api/v1/projects") return response(page([]));
+      if (path === "/api/v1/ai/conversations") return response({ items: [] });
+      throw new Error(`Unexpected request: ${path}`);
+    }));
+    renderWithAppProviders(<WorkWorkspace actor={actor} />);
+    const navigation = screen.getByRole("navigation", { name: "Điều hướng chính" });
+    const assignment = within(navigation).getByRole("button", { name: "Giao task" });
+    const evaluation = within(navigation).getByRole("button", { name: "Đánh giá AI" });
+    fireEvent.click(assignment);
+    expect(assignment).toHaveAttribute("aria-current", "page");
+    fireEvent.click(evaluation);
+    expect(await screen.findByRole("heading", { name: "Đánh giá AI" })).toBeVisible();
+    expect(evaluation).toHaveAttribute("aria-current", "page");
+    expect(assignment).not.toHaveAttribute("aria-current");
+    expect(screen.queryByText("Chọn một project để tạo và giao task mới.")).not.toBeInTheDocument();
+  });
+
   it("keeps the conversation sidebar and history mounted across every workspace view", async () => {
     vi.stubGlobal("fetch", vi.fn(async (input: RequestInfo | URL) => {
       if (String(input) === "/api/v1/projects") return response(page([]));

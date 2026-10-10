@@ -101,11 +101,11 @@ export function TaskAssignmentControl({ task, onAssigned, onOpenTeam, onReloadTa
   const visibleError = error?.taskVersion === task.version ? error.kind : null;
 
   return (
-    <section className="mt-8" aria-label={t("title")} onKeyDown={(event) => { if (event.key === "Escape" && open) close(); }}>
+    <section className="task-assignment mt-8" aria-label={t("title")} onKeyDown={(event) => { if (event.key === "Escape" && open) close(); }}>
       <button ref={trigger} aria-expanded={open} className="secondary-button" type="button" onClick={() => { setOpen(true); setSuccessName(null); }}>
         {t("action.open")}
       </button>
-      {open ? <div className="mt-4 rounded-xl border border-slate-300 p-5">
+      {open ? <div className="task-assignment-panel mt-4 rounded-xl border border-slate-300 p-5">
         {team.isPending || members.isPending || (task.project_week_id !== null && weeks.isPending) ? <p role="status">{t("loading")}</p>
           : team.error || members.error || (task.project_week_id !== null && weeks.error) ? <p className="error-message" role="alert">{t("error.load")}</p>
           : approvedMembers.length === 0 ? <div><p>{t("emptyTeam")}</p><button className="text-button mt-3" type="button" onClick={onOpenTeam}>{t("action.openTeam")}</button></div>

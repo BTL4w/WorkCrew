@@ -4,6 +4,7 @@ import { AppLocaleProvider } from "@/shared/i18n/locale-provider";
 import { getMessages } from "@/shared/i18n/messages";
 
 import "./globals.css";
+import "./workspace.css";
 import { AppProviders } from "./providers";
 
 const configuredLocale = process.env.NEXT_PUBLIC_DEFAULT_LOCALE;

@@ -168,6 +168,14 @@ export function WorkWorkspace({
     setSelectedTask(null);
   }
 
+  function openEvaluations() {
+    clearConversationLocation();
+    setAssignmentMode(false);
+    setView("evaluations");
+    setSelectedProject(null);
+    setSelectedTask(null);
+  }
+
   function openAssignmentFlow() {
     clearConversationLocation();
     setView("projects");
@@ -310,7 +318,7 @@ export function WorkWorkspace({
         onOpenProjects={openProjects}
         onOpenMyTasks={openMyTasks}
         onOpenPeopleCapacity={openPeopleCapacity}
-        onOpenEvaluations={actor.membership.role === "ADMIN" ? ()=>setView("evaluations") : undefined}
+        onOpenEvaluations={actor.membership.role === "ADMIN" ? openEvaluations : undefined}
         onAssignTask={canManage ? openAssignmentFlow : undefined}
         isLoggingOut={isLoggingOut}
         logoutError={logoutError}

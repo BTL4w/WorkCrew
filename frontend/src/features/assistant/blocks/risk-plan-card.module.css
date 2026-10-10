@@ -1,11 +1,11 @@
 .card {
   border: 1px solid #dce3ed;
   background: #fff;
-  border-radius: 18px;
+  border-radius: 12px;
   padding: 26px;
   max-width: 900px;
   color: #172d46;
-  box-shadow: 0 3px 12px #182b4510;
+  box-shadow: none;
 }
 .header {
   display: flex;
@@ -27,7 +27,7 @@
   text-transform: uppercase;
   letter-spacing: 0.06em;
   font-size: 11px;
-  font-weight: 650;
+  font-weight: 500;
   color: #475e7e;
 }
 .badge {
@@ -59,7 +59,7 @@
   text-transform: uppercase;
   letter-spacing: 0.06em;
   color: #61728b;
-  font-weight: 650;
+  font-weight: 500;
 }
 .row {
   border-top: 1px solid #e5eaf1;
@@ -67,7 +67,7 @@
   line-height: 1.6;
 }
 .row strong {
-  font-weight: 600;
+  font-weight: 500;
 }
 .row p {
   margin: 4px 0;
@@ -98,7 +98,7 @@
 .sources summary {
   cursor: pointer;
   color: #334b67;
-  font-weight: 600;
+  font-weight: 500;
 }
 .sources p {
   overflow-wrap: anywhere;

@@ -30,11 +30,11 @@ function AdminStatus({organizationId,membershipId}:Props){
   try{const result=await startEvaluation(parsed.data,attempt.current.key);setStarted(result);setRunId(result.id);setOpenId(result.id);attempt.current=null;}catch{setError(true);}finally{setBusy(false);}
  }
  function open(event:FormEvent){event.preventDefault();if(!/^[0-9a-f-]{36}$/i.test(openId.trim())){setError(true);return;}setStarted(null);if(openId.trim()===runId)void query.refetch();else setRunId(openId.trim());setError(false);}
- return <section><h2>{t("title")}</h2><p>{t("description")}</p>
+ return <section className="evaluation-page"><h2>{t("title")}</h2><p>{t("description")}</p>
  <form onSubmit={e=>void start(e)}><label>{t("datasetId")}<input value={dataset} onChange={e=>setDataset(e.target.value)} required/></label>
  <label>{t("provider")}<select value={provider} onChange={e=>setProvider(e.target.value as "mock"|"hosted")}><option value="mock">{t("mock")}</option><option value="hosted">{t("hosted")}</option></select></label>
- {provider==="hosted"&&<p>{t("hostedPolicy")}</p>}<button disabled={busy} type="submit">{t("start")}</button></form>
- <form onSubmit={open}><label>{t("runId")}<input value={openId} onChange={e=>setOpenId(e.target.value)} required/></label><button type="submit">{t("open")}</button></form>
+ {provider==="hosted"&&<p>{t("hostedPolicy")}</p>}<button className="primary-button" disabled={busy} type="submit">{t("start")}</button></form>
+ <form onSubmit={open}><label>{t("runId")}<input value={openId} onChange={e=>setOpenId(e.target.value)} required/></label><button className="secondary-button" type="submit">{t("open")}</button></form>
  {(error||query.isError)&&<p role="alert">{t("error")}</p>}
  {run&&<div aria-live="polite"><h3>{t(`statuses.${run.status}`)}</h3><dl><dt>{t("runId")}</dt><dd>{run.id}</dd><dt>{t("version")}</dt><dd>{run.dataset_version}</dd><dt>{t("hash")}</dt><dd>{run.dataset_hash}</dd><dt>{t("policy")}</dt><dd>{run.dataset_policy_version} / {run.provider_policy_version}</dd></dl>
  {run.failure_kind&&<p>{t(`failures.${run.failure_kind}`)}</p>}
