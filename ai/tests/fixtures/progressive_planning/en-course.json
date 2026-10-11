@@ -1,0 +1,139 @@
+{
+  "brief": {
+    "objective": {
+      "value": "Launch an online course for 100 learners",
+      "status": "USER_STATED",
+      "source_refs": [
+        "message:prior"
+      ]
+    },
+    "audience": {
+      "value": "Broad audience",
+      "status": "AI_ASSUMPTION",
+      "source_refs": [],
+      "assumption_reason": "No detailed audience supplied"
+    },
+    "expected_outcomes": [
+      {
+        "value": "100 learners",
+        "status": "USER_STATED",
+        "source_refs": [
+          "message:prior"
+        ]
+      }
+    ],
+    "timing": {
+      "value": 42,
+      "status": "AI_ASSUMPTION",
+      "assumption_reason": "Suggested launch duration"
+    }
+  },
+  "duration_days": 42,
+  "phases": [
+    {
+      "ref": "p1",
+      "title": "Prepare course",
+      "start_day": 0,
+      "end_day": 14
+    },
+    {
+      "ref": "p2",
+      "title": "Acquire learners",
+      "start_day": 7,
+      "end_day": 28
+    },
+    {
+      "ref": "p3",
+      "title": "Open enrollment",
+      "start_day": 21,
+      "end_day": 35
+    },
+    {
+      "ref": "p4",
+      "title": "Optimize conversion",
+      "start_day": 28,
+      "end_day": 42
+    }
+  ],
+  "tasks": [
+    {
+      "ref": "t1",
+      "phase_ref": "p1",
+      "title": "Prepare course",
+      "start_day": 0,
+      "end_day": 7,
+      "duration_days": 7,
+      "duration_source": "AI_ASSUMPTION",
+      "acceptance_criteria": [
+        "Output reviewed"
+      ]
+    },
+    {
+      "ref": "t2",
+      "phase_ref": "p2",
+      "title": "Acquire learners",
+      "start_day": 7,
+      "end_day": 14,
+      "duration_days": 7,
+      "duration_source": "AI_ASSUMPTION",
+      "acceptance_criteria": [
+        "Output reviewed"
+      ]
+    },
+    {
+      "ref": "t3",
+      "phase_ref": "p3",
+      "title": "Open enrollment",
+      "start_day": 21,
+      "end_day": 28,
+      "duration_days": 7,
+      "duration_source": "AI_ASSUMPTION",
+      "acceptance_criteria": [
+        "Output reviewed"
+      ]
+    },
+    {
+      "ref": "t4",
+      "phase_ref": "p4",
+      "title": "Optimize conversion",
+      "start_day": 28,
+      "end_day": 35,
+      "duration_days": 7,
+      "duration_source": "AI_ASSUMPTION",
+      "acceptance_criteria": [
+        "Output reviewed"
+      ]
+    }
+  ],
+  "assumptions": [
+    {
+      "value": "Six-week launch",
+      "status": "AI_ASSUMPTION",
+      "assumption_reason": "No launch date supplied"
+    }
+  ],
+  "dependencies": [
+    {
+      "predecessor_ref": "t1",
+      "successor_ref": "t2"
+    },
+    {
+      "predecessor_ref": "t2",
+      "successor_ref": "t3"
+    },
+    {
+      "predecessor_ref": "t3",
+      "successor_ref": "t4"
+    }
+  ],
+  "open_questions": [
+    {
+      "id": "launch-date",
+      "purpose": "FOLLOW_UP",
+      "text": "Do you have a launch date?",
+      "blocking": false,
+      "decision_impact": null,
+      "source_refs": []
+    }
+  ]
+}

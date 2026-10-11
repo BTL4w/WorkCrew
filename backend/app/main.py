@@ -32,11 +32,13 @@ from app.modules.people_capacity.adapters.repository import (
 from app.modules.people_capacity.api.routes import router as people_capacity_router
 from app.modules.people_capacity.application.service import PeopleCapacityService
 from app.modules.planning_runs.adapters.ai_runtime import PlanningAIRuntime, build_model_gateway
+from app.modules.planning_runs.adapters.draft_repository import build_draft_transaction_factory
 from app.modules.planning_runs.adapters.transaction import (
     PostgreSQLPlanningRunTransactionFactory,
 )
 from app.modules.planning_runs.api.routes import router as planning_run_router
 from app.modules.planning_runs.application.approval_service import ApprovalService
+from app.modules.planning_runs.application.draft_service import PlanningDraftService
 from app.modules.planning_runs.application.event_service import WorkflowEventService
 from app.modules.planning_runs.application.proposal_service import ProposalService
 from app.modules.planning_runs.application.run_service import PlanningRunService
@@ -105,6 +107,7 @@ def create_app(
     member_service: MemberService | None = None,
     manual_planning_service: ManualPlanningService | None = None,
     planning_run_service: PlanningRunService | None = None,
+    planning_draft_service: PlanningDraftService | None = None,
     proposal_service: ProposalService | None = None,
     workflow_event_service: WorkflowEventService | None = None,
     approval_service: ApprovalService | None = None,
@@ -187,8 +190,9 @@ def create_app(
             SqlAlchemyEvidenceTransactionFactory(create_session_factory(database_engine)),
             FilesystemEvidenceStorage(resolved_settings.evidence_storage_root),
         )
-    runtime = PlanningAIRuntime()
+    runtime = PlanningAIRuntime(progressive_enabled=resolved_settings.progressive_planning_enabled)
     resolved_planning_run_service = planning_run_service
+    resolved_planning_draft_service = planning_draft_service
     resolved_proposal_service = proposal_service
     resolved_workflow_event_service = workflow_event_service
     resolved_approval_service = approval_service
@@ -197,6 +201,7 @@ def create_app(
         or resolved_proposal_service is None
         or resolved_workflow_event_service is None
         or resolved_approval_service is None
+        or resolved_planning_draft_service is None
     ):
         if database_engine is None:
             database_engine = create_database_engine(resolved_settings)
@@ -204,6 +209,14 @@ def create_app(
             create_session_factory(database_engine),
             reporting_timezone=resolved_settings.reporting_timezone,
         )
+        if resolved_planning_draft_service is None:
+            resolved_planning_draft_service = PlanningDraftService(
+                transaction_factory=build_draft_transaction_factory(
+                    planning_transaction_factory,
+                    runtime=runtime,
+                    timezone=resolved_settings.reporting_timezone,
+                )
+            )
         if resolved_planning_run_service is None:
             resolved_planning_run_service = PlanningRunService(
                 transaction_factory=planning_transaction_factory,
@@ -238,6 +251,7 @@ def create_app(
             )
             resolved_assistant_service = AssistantService(
                 transaction_factory=assistant_transaction_factory,
+                planning_drafts=resolved_planning_draft_service,
                 planning_snapshot=PostgreSQLPlanningSnapshot(
                     PostgreSQLPlanningRunTransactionFactory(
                         create_session_factory(database_engine),
@@ -324,8 +338,17 @@ def create_app(
         ),
         previous=risk_projector,
     )
-    resolved_assistant_service.block_projector = report_projector
-    resolved_assistant_event_service.block_projector = report_projector
+    from app.modules.assistant.adapters.planning_projection import PlanningBlockProjector
+
+    planning_projector = PlanningBlockProjector(
+        drafts=resolved_planning_draft_service,
+        transactions=PostgreSQLPlanningRunTransactionFactory(
+            create_session_factory(database_engine)
+        ),
+        previous=report_projector,
+    )
+    resolved_assistant_service.block_projector = planning_projector
+    resolved_assistant_event_service.block_projector = planning_projector
     app.state.report_generation_service = GenerationService(
         GenerationTransactions(
             create_session_factory(database_engine), resolved_settings.reporting_timezone
@@ -399,6 +422,7 @@ def create_app(
     app.state.explicit_assignment_service = resolved_explicit_assignment_service
     app.state.manual_planning_service = resolved_manual_planning_service
     app.state.planning_run_service = resolved_planning_run_service
+    app.state.planning_draft_service = resolved_planning_draft_service
     app.state.proposal_service = resolved_proposal_service
     app.state.workflow_event_service = resolved_workflow_event_service
     app.state.approval_service = resolved_approval_service

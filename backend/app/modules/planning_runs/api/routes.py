@@ -13,6 +13,7 @@ from app.api.errors import ApplicationError, ErrorResponse
 from app.modules.identity.api.dependencies import ActorDependency
 from app.modules.planning_runs.api.dependencies import (
     ApprovalServiceDependency,
+    PlanningDraftServiceDependency,
     PlanningRunServiceDependency,
     ProposalServiceDependency,
     WorkflowEventServiceDependency,
@@ -21,6 +22,7 @@ from app.modules.planning_runs.api.schemas import (
     ApprovalDecisionRequest,
     ApprovalDecisionResponse,
     ManagerMessageRequest,
+    PlanningDraftResponse,
     PlanningRunCreateRequest,
     ProposalEditRequest,
     ProposalReferenceResponse,
@@ -361,3 +363,46 @@ async def stream_workflow_events(
         media_type="text/event-stream",
         headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
     )
+
+
+async def _draft_snapshot(
+    actor: ActorDependency,
+    service: PlanningDraftServiceDependency,
+    draft_id: UUID,
+    version: int | None = None,
+) -> PlanningDraftResponse:
+    try:
+        snapshot = await service.get_snapshot(actor=actor, draft_id=draft_id, version=version)
+    except PlanningRunDomainError as error:
+        _raise_planning_error(error)
+    return PlanningDraftResponse(
+        draft_id=snapshot.draft_id,
+        workflow_run_id=snapshot.workflow_run_id,
+        draft_version=snapshot.draft_version,
+        current_version=snapshot.current_version,
+        can_prepare=snapshot.can_prepare,
+        suggested_anchor_date=snapshot.suggested_anchor_date,
+        fingerprint=snapshot.fingerprint,
+        content=snapshot.content.content,
+        question=snapshot.content.question,
+        validation=snapshot.content.validation,
+        versions=snapshot.content.versions,
+        change_summary=snapshot.content.change_summary,
+    )
+
+
+@router.get("/planning-drafts/{draft_id}", response_model=PlanningDraftResponse)
+async def get_planning_draft(
+    actor: ActorDependency, service: PlanningDraftServiceDependency, draft_id: UUID
+) -> PlanningDraftResponse:
+    return await _draft_snapshot(actor, service, draft_id)
+
+
+@router.get("/planning-drafts/{draft_id}/versions/{version}", response_model=PlanningDraftResponse)
+async def get_planning_draft_version(
+    actor: ActorDependency,
+    service: PlanningDraftServiceDependency,
+    draft_id: UUID,
+    version: Annotated[int, Path(ge=1)],
+) -> PlanningDraftResponse:
+    return await _draft_snapshot(actor, service, draft_id, version)

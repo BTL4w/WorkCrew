@@ -212,6 +212,8 @@ class PlanningRunService:
         message: str,
         request_id: str,
         idempotency_key: str,
+        draft_id: UUID | None = None,
+        expected_draft_version: int | None = None,
     ) -> WorkflowRunMutationResult:
         await self._require_writer(
             actor=actor,
@@ -224,7 +226,15 @@ class PlanningRunService:
                 raise ValueError("manager message is invalid")
             request_fingerprint = fingerprint(
                 "planning_run.message",
-                {"run_id": str(run_id), "message": normalized},
+                {
+                    "run_id": str(run_id),
+                    "message": normalized,
+                    **(
+                        {"draft_id": str(draft_id), "draft_version": expected_draft_version}
+                        if draft_id
+                        else {}
+                    ),
+                },
             )
             async with self._transaction_factory(actor) as transaction:
                 repository = transaction.repository
@@ -236,13 +246,30 @@ class PlanningRunService:
                 )
                 if replay is not None:
                     return replay
+                if draft_id is not None:
+                    if expected_draft_version is None:
+                        raise ValueError("draft version is required")
+                    await repository.validate_draft_binding(
+                        actor=actor,
+                        run_id=run_id,
+                        draft_id=draft_id,
+                        expected_version=expected_draft_version,
+                    )
                 run = await repository.get_workflow_run(actor=actor, run_id=run_id)
                 if run is None:
                     raise PlanningRunNotFoundError
-                if run.status is not WorkflowRunStatus.NEEDS_INPUT:
+                progressive_update = (
+                    run.workflow_version == "3.0.0"
+                    and draft_id is not None
+                    and run.status
+                    in {WorkflowRunStatus.DRAFT_AVAILABLE, WorkflowRunStatus.WAITING_FOR_DECISION}
+                )
+                if run.status is not WorkflowRunStatus.NEEDS_INPUT and not progressive_update:
                     raise WorkflowRunStateError("run is not awaiting manager input")
                 checkpoint = await repository.get_latest_checkpoint(actor=actor, run_id=run_id)
-                if checkpoint is None or checkpoint.node != "await_manager_input":
+                if checkpoint is None or (
+                    not progressive_update and checkpoint.node != "await_manager_input"
+                ):
                     raise WorkflowRunStateError("checkpoint is not await_manager_input")
                 updated_run = run.mark_running()
                 job = WorkflowJob(
@@ -255,6 +282,8 @@ class PlanningRunService:
                         "instruction": "RESUME_MANAGER_INPUT",
                         "checkpoint_sequence": checkpoint.sequence,
                         "manager_message": normalized,
+                        "draft_id": str(draft_id) if draft_id else None,
+                        "expected_draft_version": expected_draft_version,
                     },
                 )
                 return await repository.resume_planning_run_mutation(

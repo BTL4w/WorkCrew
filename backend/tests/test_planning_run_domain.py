@@ -240,3 +240,23 @@ def test_approval_versioning_and_concurrency() -> None:
         approved.decide_reject(
             decided_by=decided_by, decision_reason="Change mind", decided_at=decided_at
         )
+
+
+def test_available_draft_can_resume_without_approving_business_writes() -> None:
+    from dataclasses import replace
+    from uuid import uuid4
+
+    from app.modules.planning_runs.domain.models import WorkflowRun, WorkflowRunStatus
+
+    run = WorkflowRun.create(
+        organization_id=uuid4(),
+        project_id=None,
+        requested_by_membership_id=uuid4(),
+        workflow_name="project_planning",
+        workflow_version="3.0.0",
+        verifier_version="1.0.0",
+        input_goal_text="Course",
+    )
+    draft = replace(run, status=WorkflowRunStatus.DRAFT_AVAILABLE)
+    assert draft.mark_running().status is WorkflowRunStatus.RUNNING
+    assert draft.mark_running().mark_draft_available().status is WorkflowRunStatus.DRAFT_AVAILABLE

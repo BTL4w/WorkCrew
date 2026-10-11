@@ -59,6 +59,7 @@ class WorkflowRunStatus(StrEnum):
     QUEUED = "QUEUED"
     RUNNING = "RUNNING"
     NEEDS_INPUT = "NEEDS_INPUT"
+    DRAFT_AVAILABLE = "DRAFT_AVAILABLE"
     WAITING_FOR_DECISION = "WAITING_FOR_DECISION"
     COMPLETED = "COMPLETED"
     FAILED = "FAILED"
@@ -175,7 +176,12 @@ class WorkflowRun:
         )
 
     def mark_running(self, now: datetime | None = None) -> "WorkflowRun":
-        if self.status not in (WorkflowRunStatus.QUEUED, WorkflowRunStatus.NEEDS_INPUT):
+        if self.status not in (
+            WorkflowRunStatus.QUEUED,
+            WorkflowRunStatus.NEEDS_INPUT,
+            WorkflowRunStatus.DRAFT_AVAILABLE,
+            WorkflowRunStatus.WAITING_FOR_DECISION,
+        ):
             raise InvalidTransitionError(
                 f"Cannot transition WorkflowRun from {self.status} to RUNNING."
             )
@@ -185,6 +191,16 @@ class WorkflowRun:
             status=WorkflowRunStatus.RUNNING,
             version=self.version + 1,
             updated_at=current_time,
+        )
+
+    def mark_draft_available(self, now: datetime | None = None) -> "WorkflowRun":
+        if self.status is not WorkflowRunStatus.RUNNING:
+            raise InvalidTransitionError("Draft availability requires a running workflow.")
+        return replace(
+            self,
+            status=WorkflowRunStatus.DRAFT_AVAILABLE,
+            version=self.version + 1,
+            updated_at=now or datetime.now(UTC),
         )
 
     def mark_needs_input(self, now: datetime | None = None) -> "WorkflowRun":
@@ -284,6 +300,8 @@ class ProposalVersion:
     schema_version: str = "UNKNOWN"
     model_reference: str = "UNKNOWN"
     verifier_version: str = "UNKNOWN"
+    source_draft_id: UUID | None = None
+    source_draft_version: int | None = None
     creator_type: str = "UNKNOWN"
     created_at: datetime = field(default_factory=_now_utc)
 

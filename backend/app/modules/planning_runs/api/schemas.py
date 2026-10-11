@@ -1,6 +1,6 @@
 """Strict public schemas for asynchronous planning runs and proposals."""
 
-from datetime import datetime
+from datetime import date, datetime
 from typing import Literal, Self
 from uuid import UUID
 
@@ -274,3 +274,18 @@ class ProposalVersionResponse(BaseModel):
             content=version.content,
             creator_type=version.creator_type,
         )
+
+
+class PlanningDraftResponse(BaseModel):
+    draft_id: UUID
+    workflow_run_id: UUID
+    draft_version: int
+    current_version: int
+    can_prepare: bool
+    suggested_anchor_date: date | None
+    fingerprint: str
+    content: dict[str, object]
+    question: dict[str, object] | None
+    validation: dict[str, object]
+    versions: dict[str, str]
+    change_summary: str | None

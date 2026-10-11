@@ -2,6 +2,7 @@ from typing import Literal
 from uuid import uuid4
 
 import pytest
+from pydantic import BaseModel
 
 from work_management_ai.agents.orchestrator.contracts import ActorContextResolverPort
 from work_management_ai.agents.planning.contracts import (
@@ -9,6 +10,10 @@ from work_management_ai.agents.planning.contracts import (
     PlanningOperation,
 )
 from work_management_ai.agents.planning.harness import PlanningAgentHarness
+from work_management_ai.model_gateway.contracts import (
+    StructuredModelRequest,
+    StructuredModelResponse,
+)
 from work_management_ai.model_gateway.mock import MockModelGateway
 from work_management_ai.runtime.contracts import (
     ActorReference,
@@ -397,3 +402,37 @@ async def test_planning_request_for_assignment_returns_requested_handoff() -> No
     assert result.requested_handoff is not None
     assert result.requested_handoff.target_capability == "assignment.recommend"
     assert executor.requests == []
+
+
+@pytest.mark.asyncio
+async def test_progressive_tool_selection_is_deterministic_and_spends_no_model_attempts() -> None:
+    actor = _actor()
+    handoff = _handoff(actor, operation=PlanningOperation.CREATE)
+    handoff = handoff.model_copy(
+        update={"typed_input": {**handoff.typed_input, "progressive": True}}
+    )
+    output = _output(PlanningOperation.CREATE).model_copy(
+        update={
+            "workflow_status": "QUEUED",
+            "proposal_id": None,
+            "proposal_version": None,
+            "approval_id": None,
+            "awaiting": "NONE",
+        }
+    )
+
+    class ForbiddenGateway:
+        async def generate_structured[T: BaseModel](
+            self, request: StructuredModelRequest[T]
+        ) -> StructuredModelResponse[T]:
+            raise AssertionError("progressive tool selection must not call a model")
+
+    tools = RecordingToolExecutor(_tool_result(output))
+    harness = PlanningAgentHarness(
+        model_gateway=ForbiddenGateway(),
+        tool_executor=tools,
+        actor_resolver=StaticActorResolver(actor),
+    )
+    result = await harness.run(handoff)
+    assert result.status is AgentRunStatus.COMPLETED
+    assert len(tools.requests) == 1

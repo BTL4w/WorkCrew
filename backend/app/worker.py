@@ -330,7 +330,17 @@ async def _run_worker() -> None:
         ),
     )
     registry, tool_registry = build_agent_registry()
-    planning_runtime = PlanningAIRuntime()
+    planning_runtime = PlanningAIRuntime(progressive_enabled=settings.progressive_planning_enabled)
+    from app.modules.planning_runs.adapters.draft_repository import build_draft_transaction_factory
+    from app.modules.planning_runs.application.draft_service import PlanningDraftService
+
+    planning_drafts = PlanningDraftService(
+        transaction_factory=build_draft_transaction_factory(
+            planning_transaction_factory,
+            runtime=planning_runtime,
+            timezone=settings.reporting_timezone,
+        )
+    )
     planning_run_service = PlanningRunService(
         transaction_factory=planning_transaction_factory,
         runtime=planning_runtime,
@@ -377,6 +387,7 @@ async def _run_worker() -> None:
             assistant_transaction_factory=assistant_transaction_factory,
             planning_run_service=planning_run_service,
             proposal_service=proposal_service,
+            planning_drafts=planning_drafts,
         ),
     )
     assignment_application = AssignmentApplicationService(
@@ -459,6 +470,11 @@ async def _run_worker() -> None:
             RiskReadService(RiskTransactions(session_factory, settings.reporting_timezone))
         ),
     )
+    from app.modules.assistant.adapters.planning_projection import PlanningBlockProjector
+
+    planning_projector = PlanningBlockProjector(
+        drafts=planning_drafts, transactions=planning_transaction_factory, previous=report_projector
+    )
     turn_executor = AssistantTurnExecutor(
         transaction_factory=assistant_transaction_factory,
         registry=registry,
@@ -478,7 +494,10 @@ async def _run_worker() -> None:
             daily_usage_store=daily_usage,
             daily_image_token_bound=image_token_bound(settings),
         ),
-        block_projector=report_projector,
+        block_projector=planning_projector,
+        planning_drafts=planning_drafts,
+        planning_runs=planning_run_service,
+        progressive_planning_enabled=settings.progressive_planning_enabled,
         daily_update_context_resolver=DailyUpdateContextResolver(
             tasks=task_service, updates=daily_updates
         ),

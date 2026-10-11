@@ -16,6 +16,7 @@ def test_existing_suite_failure_cannot_be_hidden_by_reporting():
             "phase4_risk",
             "phase4_daily_update_risk",
             "phase5_reporting",
+            "progressive_planning",
         )
     }
     assert evaluate_core_gate(suites)

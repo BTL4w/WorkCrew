@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import date, datetime
 from typing import Annotated, Any, Literal
 from uuid import UUID
 
@@ -10,7 +10,11 @@ from pydantic import BaseModel, ConfigDict, Field, TypeAdapter, model_validator
 
 from app.modules.assistant.domain.models import AssistantConversation, AssistantMessage
 from work_management_ai.agents.risk.contracts import RiskCardContent
-from work_management_ai.runtime.contracts import ProjectStatusResponseBlock, ReportResponseBlock
+from work_management_ai.runtime.contracts import (
+    PlanningDraftResponseBlock,
+    ProjectStatusResponseBlock,
+    ReportResponseBlock,
+)
 
 # ---------------------------------------------------------------------------
 # Request schemas
@@ -39,7 +43,17 @@ class UpdateConversationRequest(BaseModel):
 
 class CardAction(BaseModel):
     model_config = ConfigDict(extra="forbid")
-    kind: Literal["PLANNING_INPUT", "PLANNING_REVISE", "TEAM_REVISE"]
+    kind: Literal[
+        "PLANNING_INPUT",
+        "PLANNING_REVISE",
+        "TEAM_REVISE",
+        "PLANNING_DRAFT_UPDATE",
+        "PLANNING_DRAFT_PREPARE",
+    ]
+    schema_version: Literal["1.0"] | None = None
+    draft_id: UUID | None = None
+    draft_version: int | None = Field(default=None, ge=1)
+    anchor_date: date | None = None
     workflow_run_id: UUID | None = None
     proposal_id: UUID | None = None
     recommendation_id: UUID | None = None
@@ -50,7 +64,12 @@ class CardAction(BaseModel):
         return ValueError("CARD_ACTION_REFERENCE_MISSING")
 
     def model_post_init(self, __context: Any) -> None:
-        if self.kind == "TEAM_REVISE":
+        if self.kind in {"PLANNING_DRAFT_UPDATE", "PLANNING_DRAFT_PREPARE"}:
+            if self.workflow_run_id is None or self.draft_id is None or self.draft_version is None:
+                raise self._missing_exact_reference()
+            if self.kind == "PLANNING_DRAFT_PREPARE" and self.anchor_date is None:
+                raise ValueError("ANCHOR_DATE_REQUIRED")
+        elif self.kind == "TEAM_REVISE":
             if self.recommendation_id is None or self.recommendation_version is None:
                 raise self._missing_exact_reference()
         elif self.workflow_run_id is None:
@@ -208,6 +227,7 @@ ContentBlock = Annotated[
     | WorkEvidenceBlock
     | QuestionBlock
     | CapabilityUnavailableBlock
+    | PlanningDraftResponseBlock
     | PlanningRunBlock
     | ProposalBlock
     | DecisionResultBlock
@@ -277,6 +297,8 @@ class MessageResponse(BaseModel):
             if block.get("kind")
             not in {
                 "accepted_card_action",
+                "PLANNING_DRAFT_UPDATE",
+                "PLANNING_DRAFT_PREPARE",
                 "PLANNING_INPUT",
                 "PLANNING_REVISE",
                 "TEAM_REVISE",

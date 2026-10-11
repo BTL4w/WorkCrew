@@ -6,7 +6,7 @@ from work_management_ai.agents.planning.contracts import PlanningAgentInput
 from work_management_ai.model_gateway.contracts import ModelMessage
 from work_management_ai.runtime.contracts import ContextReference
 
-PROMPT_VERSION = "planning-agent-system-v1"
+PROMPT_VERSION = "planning-agent-system-v2"
 
 
 def build_step_plan_messages(
@@ -18,7 +18,7 @@ def build_step_plan_messages(
     context_references: tuple[ContextReference, ...],
 ) -> tuple[ModelMessage, ...]:
     payload = {
-        "planning_input": value.model_dump(mode="json"),
+        "planning_input": value.model_dump(mode="json", exclude_none=True, exclude_defaults=True),
         "selected_skill": selected_skill,
         "selected_skill_instructions": skill_instructions,
         "skill_catalog": [

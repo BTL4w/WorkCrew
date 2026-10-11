@@ -22,13 +22,18 @@ from work_management_ai.agents.planning.workflows.graph import (
     PlanningAgentGraph,
     PlanningAgentState,
 )
-from work_management_ai.model_gateway.contracts import ModelGateway, StructuredModelRequest
+from work_management_ai.model_gateway.contracts import (
+    ModelGateway,
+    ModelRequestLimits,
+    StructuredModelRequest,
+)
 from work_management_ai.model_gateway.errors import ModelGatewayError
 from work_management_ai.runtime.contracts import (
     AgentHandoff,
     AgentId,
     AgentResult,
     AgentRunStatus,
+    InteractionOutcome,
     JsonValue,
     ProposedAction,
     RiskLevel,
@@ -46,6 +51,8 @@ _CAPABILITY_BY_OPERATION = {
     PlanningOperation.RESUME_INPUT: "planning.resume",
     PlanningOperation.REVISE: "planning.revise",
     PlanningOperation.EXPLAIN: "planning.explain",
+    PlanningOperation.UPDATE_DRAFT: "planning.resume",
+    PlanningOperation.PREPARE_ACTION: "planning.resume",
 }
 
 
@@ -159,10 +166,12 @@ class PlanningAgentHarness:
         selected = state["selected_skill"]
         if value is None or selected is None:
             return self._failure("PLANNING_STATE_INVALID")
-        if value.operation is PlanningOperation.REVISE:
+        if value.progressive or value.operation is PlanningOperation.REVISE:
             return {
                 "plan": PlanningStepPlan(
-                    skill_reference="revise_project_plan@1",
+                    skill_reference="revise_project_plan@1"
+                    if selected == "revise_project_plan@1"
+                    else "create_project_plan@1",
                     tool_id="planning.manage_run",
                     tool_input={},
                     requested_handoff=None,
@@ -182,6 +191,10 @@ class PlanningAgentHarness:
                 context_references=state["handoff"].context_references,
             ),
             output_schema=PlanningStepPlan,
+            max_output_tokens=600 if value.progressive else None,
+            limits=ModelRequestLimits(max_text_bytes=4000, max_output_tokens=600)
+            if value.progressive
+            else None,
             timeout_seconds=self._manifest.runtime.timeout_seconds,
         )
         try:
@@ -326,6 +339,14 @@ class PlanningAgentHarness:
         evidence = state["tool_result"].evidence if state["tool_result"] is not None else ()
         return {
             "result": AgentResult(
+                interaction_outcome=(
+                    InteractionOutcome.ACTION_REVIEW_REQUIRED
+                    if output is not None
+                    and output.operation is PlanningOperation.PREPARE_ACTION
+                    and output.proposal_id is not None
+                    and output.approval_id is not None
+                    else None
+                ),
                 agent_id=AgentId.PLANNING,
                 agent_version=self._manifest.agent.version,
                 status=status,

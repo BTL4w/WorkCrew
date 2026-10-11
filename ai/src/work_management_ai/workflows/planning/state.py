@@ -1,7 +1,7 @@
 """Typed, resumable state for the bounded planning graph."""
 
 from collections.abc import Iterable
-from dataclasses import asdict, is_dataclass
+from dataclasses import asdict, dataclass, is_dataclass
 from typing import Literal, TypedDict, cast
 from uuid import UUID
 
@@ -9,6 +9,13 @@ from pydantic import BaseModel
 
 from work_management_ai.prompts.planning import PLANNING_PROMPT_VERSION
 from work_management_ai.schemas.planning import PlanningModelOutput, ProposedTask
+from work_management_ai.schemas.progressive_planning import (
+    DraftBinding,
+    PlanningDecision,
+    PlanningDraft,
+    PlanningQuestion,
+)
+from work_management_ai.workflows.planning.draft_verifier import DraftValidationResult
 from work_management_ai.workflows.planning.verifier import (
     PLANNING_VERIFIER_VERSION,
     PlanningValidationResult,
@@ -137,3 +144,35 @@ def _json_value(value: object) -> object:
     if isinstance(value, (list, tuple, set, frozenset)):
         return [_json_value(item) for item in cast(Iterable[object], value)]
     return value
+
+
+@dataclass(frozen=True, slots=True)
+class ProgressivePlanningState:
+    """Versioned operational state for a bounded relative planning turn."""
+
+    run_id: UUID
+    organization_id: UUID
+    actor_membership_id: UUID
+    actor_role: PlanningActorRole
+    locale: PlanningLocale
+    user_brief: str
+    context_reference_ids: tuple[str, ...] = ()
+    current_draft: PlanningDraft | None = None
+    current_binding: DraftBinding | None = None
+    pending_question: PlanningQuestion | None = None
+    model_calls_used: int = 0
+    max_model_calls: int = 3
+    workflow_version: str = "3.0.0"
+    schema_version: str = "planning-draft.v1"
+    model_reference: str = "unknown"
+    prompt_version: str = "progressive-planning.v1"
+    verifier_version: str = "1.0.0"
+
+
+@dataclass(frozen=True, slots=True)
+class ProgressivePlanningResult:
+    decision: PlanningDecision | None
+    validation: DraftValidationResult
+    binding: DraftBinding | None
+    model_calls_used: int
+    safe_error_code: str | None = None

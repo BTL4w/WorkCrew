@@ -95,6 +95,22 @@ class AssistantProjectionService:
     ) -> tuple[tuple[dict[str, Any], ...], str | None, str | None]:
         event = item.event
         payload = event.public_payload
+        if event.event_type.startswith("planning.draft."):
+            return (
+                (
+                    {
+                        "kind": "planning_draft",
+                        "workflow_run_id": str(event.workflow_run_id),
+                        "draft_id": str(payload["draft_id"]),
+                        "draft_version": int(payload["draft_version"]),
+                        "summary": str(payload.get("summary", "Planning draft")),
+                        "state": payload.get("state", "DRAFT_AVAILABLE"),
+                        "conflicts": payload.get("conflicts", []),
+                    },
+                ),
+                "COMPLETED",
+                None,
+            )
         if event.event_type in {"workflow.needs_input", "manager.input_required"}:
             return (
                 (
@@ -108,6 +124,7 @@ class AssistantProjectionService:
                         ),
                         "response_context": {
                             "workflow_run_id": str(event.workflow_run_id),
+                            **({"progressive": True} if payload.get("progressive") else {}),
                         },
                     },
                 ),

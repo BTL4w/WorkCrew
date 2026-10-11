@@ -15,6 +15,7 @@ from work_management_ai.agents.orchestrator.contracts import (
     OrchestratorSynthesis,
     OrchestratorTriggerInput,
     PendingFollowup,
+    PlanningIntent,
     ScheduleIntent,
     SpecialistRunnerPort,
     StepMode,
@@ -53,7 +54,9 @@ from work_management_ai.runtime.contracts import (
     CapabilityUnavailableResponseBlock,
     DailySummaryResponseBlock,
     DailyUpdateResponseBlock,
+    InteractionOutcome,
     JsonValue,
+    PlanningDraftResponseBlock,
     PlanningRunResponseBlock,
     ProjectStatusResponseBlock,
     PublicEvidenceReference,
@@ -96,6 +99,47 @@ _REVISION_SIGNALS = (
     "update",
     "xóa",
 )
+
+
+def resolve_interaction_outcome(result: AgentResult) -> InteractionOutcome | None:
+    outcome = result.interaction_outcome
+    if outcome is None:
+        return None
+    output = result.typed_output
+    if outcome is InteractionOutcome.FAILED:
+        if result.status not in {AgentRunStatus.FAILED, AgentRunStatus.CANCELLED}:
+            raise ValueError("failed outcome requires failed execution")
+    elif outcome is InteractionOutcome.DRAFT_READY:
+        if (
+            result.agent_id is not AgentId.PLANNING
+            or output.get("awaiting") != "NONE"
+            or output.get("workflow_status") != "DRAFT_AVAILABLE"
+            or result.proposed_actions
+        ):
+            raise ValueError("draft outcome cannot grant an action or block on input")
+        UUID(str(output["workflow_run_id"]))
+        UUID(str(output.get("draft_id")))
+        if (
+            not isinstance(output.get("draft_version"), int)
+            or int(str(output["draft_version"])) < 1
+        ):
+            raise ValueError("draft outcome requires exact persisted binding")
+    elif outcome is InteractionOutcome.ACTION_REVIEW_REQUIRED:
+        if result.agent_id is AgentId.PLANNING:
+            UUID(str(output.get("proposal_id")))
+            UUID(str(output.get("approval_id")))
+            if (
+                not isinstance(output.get("proposal_version"), int)
+                or int(str(output["proposal_version"])) < 1
+            ):
+                raise ValueError("action review requires exact proposal")
+    elif outcome is InteractionOutcome.NEEDS_INPUT and (
+        output.get("draft_id")
+        or output.get("proposal_id")
+        or not isinstance(output.get("question"), str)
+    ):
+        raise ValueError("needs input requires one question without an action")
+    return outcome
 
 
 class OrchestratorHarness:
@@ -310,6 +354,8 @@ class OrchestratorHarness:
         if active is None or active.requested_operation is None:
             return None
         capability = {
+            "UPDATE_DRAFT": "planning.resume",
+            "PREPARE_ACTION": "planning.resume",
             "RESUME_INPUT": "planning.resume",
             "REVISE": "planning.revise",
         }[active.requested_operation]
@@ -451,6 +497,8 @@ class OrchestratorHarness:
             ):
                 return {"route": "repair", "stop_reason": "EXECUTION_PLAN_INVALID"}
             return {"route": "manual_fallback", "stop_reason": "EXECUTION_PLAN_INVALID"}
+        if plan.goal_question is not None:
+            return {"route": "ask_user"}
         if not plan.steps and plan.unavailable_capabilities:
             return {"route": "capability_unavailable"}
         return {"route": "execute", "pending_requested_handoff": None}
@@ -459,6 +507,16 @@ class OrchestratorHarness:
     def _validate_planning_context(plan: ExecutionPlan, value: OrchestratorInput) -> None:
         active = value.active_context.active_planning
         for step in plan.steps:
+            if (
+                plan.planning_intent is PlanningIntent.START_NEW
+                and step.capability == "planning.resume"
+            ):
+                raise ExecutionPlanError("NEW_PLAN_CANNOT_RESUME_DRAFT")
+            if (
+                plan.planning_intent is PlanningIntent.OTHER
+                and step.target_agent_id is AgentId.PLANNING
+            ):
+                raise ExecutionPlanError("OTHER_INTENT_CANNOT_MUTATE_PLANNING")
             if step.capability == "planning.revise":
                 if active is None or active.proposal_id is None or active.proposal_version is None:
                     raise ExecutionPlanError("PLANNING_REVISION_CONTEXT_MISSING")
@@ -467,7 +525,16 @@ class OrchestratorHarness:
                 ):
                     raise ExecutionPlanError("PLANNING_REVISION_INTENT_MISSING")
             elif step.capability == "planning.resume" and (
-                active is None or active.requested_operation != "RESUME_INPUT"
+                active is None
+                or (
+                    active.requested_operation
+                    not in {"RESUME_INPUT", "UPDATE_DRAFT", "PREPARE_ACTION"}
+                    and not (
+                        active.workflow_version == "3.0.0"
+                        and plan.planning_intent
+                        in {PlanningIntent.CONTINUE_DRAFT, PlanningIntent.PREPARE_ACTION}
+                    )
+                )
             ):
                 raise ExecutionPlanError("PLANNING_RESUME_CONTEXT_MISSING")
 
@@ -656,7 +723,20 @@ class OrchestratorHarness:
             return {}
         if step.target_agent_id is not AgentId.PLANNING:
             return step.typed_input
-        base: dict[str, JsonValue] = {"locale": value.locale, "brief": value.message}
+        base: dict[str, JsonValue] = {
+            "locale": value.locale,
+            "brief": value.message,
+            **(
+                {"progressive": True}
+                if value.active_context.progressive_planning_enabled
+                or (
+                    step.capability != "planning.create"
+                    and value.active_context.active_planning is not None
+                    and value.active_context.active_planning.workflow_version == "3.0.0"
+                )
+                else {}
+            ),
+        }
         if step.capability == "planning.revise" and risk_replan is not None:
             return {
                 "operation": "REVISE",
@@ -673,6 +753,19 @@ class OrchestratorHarness:
             "workflow_run_id": str(active.workflow_run_id),
             **base,
         }
+        if step.capability == "planning.resume" and active.draft_id is not None:
+            preparing = (
+                active.requested_operation == "PREPARE_ACTION"
+                or step.typed_input.get("planning_intent") == "PREPARE_ACTION"
+            )
+            return {
+                "operation": "PREPARE_ACTION" if preparing else "UPDATE_DRAFT",
+                **references,
+                "draft_id": str(active.draft_id),
+                "expected_draft_version": active.draft_version,
+                "manager_instruction": value.message,
+                "anchor_date": active.anchor_date.isoformat() if active.anchor_date else None,
+            }
         if step.capability == "planning.resume":
             return {
                 "operation": "RESUME_INPUT",
@@ -695,6 +788,11 @@ class OrchestratorHarness:
 
     async def observe_and_update_plan(self, state: OrchestratorState) -> dict[str, object]:
         results = state["last_batch_results"]
+        try:
+            for result in results:
+                resolve_interaction_outcome(result)
+        except (ValueError, KeyError, TypeError):
+            return self._failure("INTERACTION_OUTCOME_INVALID")
         if not results:
             return self._failure("SPECIALIST_EXECUTION_FAILED")
         if any(
@@ -896,6 +994,21 @@ class OrchestratorHarness:
         return {"status": OrchestratorStatus.COMPLETED, "stop_reason": "COMPLETED"}
 
     async def ask_user(self, state: OrchestratorState) -> dict[str, object]:
+        plan = state["plan"]
+        if plan is not None and plan.goal_question is not None:
+            return {
+                "blocks": (
+                    QuestionResponseBlock(
+                        question=plan.goal_question.question,
+                        response_context={
+                            "conversation_id": str(state["value"].conversation_id),
+                            "turn_id": str(state["value"].turn_id),
+                        },
+                    ),
+                ),
+                "status": OrchestratorStatus.AWAITING_INPUT,
+                "stop_reason": "GOAL_CLARIFICATION_REQUIRED",
+            }
         if state["stop_reason"] == "DAILY_UPDATE_CLARIFICATION_REQUIRED" or any(
             r.agent_id is AgentId.DAILY_UPDATE for r in state["last_batch_results"]
         ):
@@ -1123,6 +1236,19 @@ class OrchestratorHarness:
             if result.agent_id is not AgentId.PLANNING:
                 continue
             try:
+                if resolve_interaction_outcome(result) is InteractionOutcome.DRAFT_READY:
+                    blocks.append(
+                        PlanningDraftResponseBlock(
+                            workflow_run_id=UUID(str(result.typed_output["workflow_run_id"])),
+                            draft_id=UUID(str(result.typed_output["draft_id"])),
+                            draft_version=int(str(result.typed_output["draft_version"])),
+                            summary=str(
+                                result.typed_output.get("public_summary", "Planning draft")
+                            ),
+                            state="DRAFT_AVAILABLE",
+                        )
+                    )
+                    continue
                 blocks.append(
                     PlanningRunResponseBlock(
                         workflow_run_id=UUID(str(result.typed_output["workflow_run_id"])),

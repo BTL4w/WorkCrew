@@ -31,6 +31,8 @@ from app.modules.assistant.domain.models import (
     OrchestrationRun,
 )
 from app.modules.identity.domain.auth import AuthenticatedActor
+from app.modules.planning_runs.application.draft_service import PlanningDraftService
+from app.modules.planning_runs.domain.models import PlanningRunDomainError
 
 # ---------------------------------------------------------------------------
 # Error hierarchy
@@ -143,6 +145,7 @@ class AssistantService:
         *,
         transaction_factory: Any,
         planning_snapshot: PlanningSnapshotPort,
+        planning_drafts: PlanningDraftService | None = None,
         team_recommendation_snapshot: TeamRecommendationSnapshotPort | None = None,
         block_projector: Any = None,
         orchestrator_version: str,
@@ -151,6 +154,7 @@ class AssistantService:
         self._transactions = transaction_factory
         self.block_projector = block_projector
         self._planning_snapshot = planning_snapshot
+        self._planning_drafts = planning_drafts
         self._team_recommendation_snapshot = team_recommendation_snapshot
         self._orchestrator_version = orchestrator_version
         self._orchestrator_fingerprint = orchestrator_fingerprint
@@ -336,6 +340,32 @@ class AssistantService:
         # Plain message: If-Match FORBIDDEN
         if card_kind is None and if_match_version is not None:
             raise AssistantServiceError("IF_MATCH_FORBIDDEN")
+
+        if card_kind in {"PLANNING_DRAFT_UPDATE", "PLANNING_DRAFT_PREPARE"}:
+            if if_match_version is None:
+                raise AssistantServiceError("IF_MATCH_REQUIRED")
+            if self._planning_drafts is None or card_action is None:
+                raise AssistantServiceError("ASSISTANT_UNAVAILABLE")
+            if card_action.get("draft_version") != if_match_version:
+                raise AssistantServiceError("RESOURCE_VERSION_MISMATCH")
+            try:
+                draft = await self._planning_drafts.get_snapshot(
+                    actor=actor, draft_id=UUID(str(card_action["draft_id"]))
+                )
+            except PlanningRunDomainError as error:
+                raise ResourceNotFoundError() from error
+            if draft.workflow_run_id != UUID(str(card_action["workflow_run_id"])):
+                raise ResourceNotFoundError()
+            if draft.current_version != if_match_version:
+                raise AssistantServiceError("RESOURCE_VERSION_MISMATCH")
+            snapshot = await self.get_conversation(actor=actor, conversation_id=conversation_id)
+            if not any(
+                block.get("kind") == "planning_draft"
+                and str(block.get("draft_id")) == str(draft.draft_id)
+                for msg in snapshot.messages
+                for block in msg.content_blocks
+            ):
+                raise ResourceNotFoundError()
 
         # PLANNING_REVISE: proposal_id and If-Match both REQUIRED
         if card_kind == "PLANNING_REVISE":

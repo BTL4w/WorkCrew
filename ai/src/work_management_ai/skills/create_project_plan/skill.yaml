@@ -1,8 +1,8 @@
 schema_version: "1.0"
 name: create_project_plan
-version: "1.0.0"
+version: "1.1.0"
 owner: planning-agent
-description: Create, resume, or explain an immutable Manager-reviewed Planning proposal.
+description: Create and refine operational drafts or prepare an exact Manager-reviewed proposal.
 runnable_by_agents: [planning]
 allowed_tools: [planning.manage_run@1]
 risk_level: PROPOSAL_ONLY

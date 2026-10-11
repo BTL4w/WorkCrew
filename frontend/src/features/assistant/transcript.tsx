@@ -1,3 +1,4 @@
+import { PlanningDraftBlock } from "./blocks/planning-draft-block";
 import { ReportBlock } from "./blocks/report-block";
 import { DailySummaryBlock } from "./blocks/daily-summary-block";
 import { RiskBlock } from "./blocks/risk-block";
@@ -24,7 +25,7 @@ type TranscriptEntry =
   | { kind: "message"; message: AssistantMessage }
   | { kind: "activity_group"; id: string; blocks: ActivityBlockData[] };
 
-export function Transcript({ messages, canManage, onEdit, onRevise, onApprove, onReject, onTeamRevise, onTeamManualRevise, onTeamDecide, onContinueManually }: {
+export function Transcript({ messages, canManage, onEdit, onRevise, onApprove, onReject, onTeamRevise, onTeamManualRevise, onTeamDecide, onContinueManually, onPrepareDraft }: {
   messages: AssistantMessage[];
   canManage: boolean;
   onEdit: (block: ProposalBlock, content: ProposalContent) => Promise<boolean>;
@@ -35,10 +36,13 @@ export function Transcript({ messages, canManage, onEdit, onRevise, onApprove, o
   onTeamManualRevise?: (recommendation: RecommendationVersion, overrides: CandidateOverrideInput[]) => Promise<RecommendationVersion | null>;
   onTeamDecide?: (recommendation: RecommendationVersion, action: "approve" | "reject", reason: string | null) => Promise<RecommendationVersion | null>;
   onContinueManually?: () => void;
+  onPrepareDraft?: (block:Extract<AssistantBlock,{kind:"planning_draft"}>,anchorDate:string)=>void;
 }) {
   const t = useTranslations("assistant");
   const ordered = messages.toSorted((left, right) => left.sequence - right.sequence);
-  const visibleMessages = collapseProposalBlocks(ordered);
+  const seenDrafts=new Set<string>();
+  const deduped=ordered.map(message=>({...message,content_blocks:message.content_blocks.filter(block=>{if(block.kind!=="planning_draft")return true;const key=`${block.draft_id}:${block.draft_version}`;if(seenDrafts.has(key))return false;seenDrafts.add(key);return true;})})).filter(message=>message.content_blocks.length);
+  const visibleMessages = collapseProposalBlocks(deduped);
   const entries = groupConsecutiveActivities(visibleMessages);
   const latestTeamVersions = latestRecommendationVersions(visibleMessages);
   return <div className="assistant-transcript" aria-live="polite">
@@ -63,6 +67,7 @@ export function Transcript({ messages, canManage, onEdit, onRevise, onApprove, o
         onTeamDecide={onTeamDecide}
         latestTeamVersions={latestTeamVersions}
         onContinueManually={onContinueManually}
+        onPrepareDraft={onPrepareDraft}
       />)}</div>
     </article>)}
   </div>;
@@ -167,7 +172,7 @@ function sharedWorkflowRunId(blocks: ActivityBlockData[]): string | null {
     : null;
 }
 
-function BlockView({ block, canManage, onEdit, onRevise, onApprove, onReject, onTeamRevise, onTeamManualRevise, onTeamDecide, latestTeamVersions, onContinueManually }: {
+function BlockView({ block, canManage, onEdit, onRevise, onApprove, onReject, onTeamRevise, onTeamManualRevise, onTeamDecide, latestTeamVersions, onContinueManually, onPrepareDraft }: {
   block: AssistantBlock;
   canManage: boolean;
   onEdit: (block: ProposalBlock, content: ProposalContent) => Promise<boolean>;
@@ -179,6 +184,7 @@ function BlockView({ block, canManage, onEdit, onRevise, onApprove, onReject, on
   onTeamDecide?: (recommendation: RecommendationVersion, action: "approve" | "reject", reason: string | null) => Promise<RecommendationVersion | null>;
   latestTeamVersions: Map<string, number>;
   onContinueManually?: () => void;
+  onPrepareDraft?: (block:Extract<AssistantBlock,{kind:"planning_draft"}>,anchorDate:string)=>void;
 }) {
   const t = useTranslations("assistant");
   switch (block.kind) {
@@ -190,6 +196,7 @@ function BlockView({ block, canManage, onEdit, onRevise, onApprove, onReject, on
     case "work_evidence": return <WorkEvidenceBlock block={block} />;
     case "question": return <section className="assistant-block assistant-question"><h3>{t("question.title")}</h3><p>{block.question}</p></section>;
     case "capability_unavailable": return <UnavailableBlock block={block} />;
+    case "planning_draft": return <PlanningDraftBlock block={block} canManage={canManage} onPrepare={onPrepareDraft}/>;
     case "planning_run": return <section className="assistant-block assistant-activity"><p>{t("planning.status", { status: block.status })}</p></section>;
     case "proposal": return <PlanningBlock block={block} canManage={canManage} onEdit={onEdit} onRevise={onRevise} onApprove={onApprove} onReject={onReject} />;
     case "decision_result": return <section className="assistant-block assistant-decision" role="status"><h3>{t("decision.title")}</h3><p>{t(`decision.${block.decision}`)} · v{block.proposal_version}</p></section>;

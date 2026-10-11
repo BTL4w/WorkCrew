@@ -37,6 +37,7 @@ export const planningRunBlockSchema = strict({
   workflow_run_id: uuid,
   status: z.string(),
 });
+export const planningDraftBlockSchema = strict({kind:z.literal("planning_draft"),workflow_run_id:uuid,draft_id:uuid,draft_version:z.number().int().positive(),summary:z.string(),state:z.enum(["DRAFT_AVAILABLE","CONFLICTED"]),conflicts:z.array(z.string()).default([])});
 export const proposalBlockSchema = strict({
   kind: z.literal("proposal"),
   workflow_run_id: uuid,
@@ -131,6 +132,7 @@ export const assistantBlockSchema = z.discriminatedUnion("kind", [
   questionBlockSchema,
   capabilityUnavailableBlockSchema,
   planningRunBlockSchema,
+  planningDraftBlockSchema,
   proposalBlockSchema,
   decisionResultBlockSchema,
   teamRecommendationBlockSchema,
@@ -177,6 +179,8 @@ export const assistantTurnAcceptedSchema = strict({
 });
 
 const cardActionSchema = z.discriminatedUnion("kind", [
+  strict({kind:z.literal("PLANNING_DRAFT_UPDATE"),schema_version:z.literal("1.0").optional(),workflow_run_id:uuid,draft_id:uuid,draft_version:z.number().int().positive()}),
+  strict({kind:z.literal("PLANNING_DRAFT_PREPARE"),schema_version:z.literal("1.0").optional(),workflow_run_id:uuid,draft_id:uuid,draft_version:z.number().int().positive(),anchor_date:z.iso.date()}),
   strict({ kind: z.literal("PLANNING_INPUT"), workflow_run_id: uuid }),
   strict({ kind: z.literal("PLANNING_REVISE"), workflow_run_id: uuid, proposal_id: uuid }),
   strict({

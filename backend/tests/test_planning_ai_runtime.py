@@ -18,3 +18,11 @@ def test_validated_proposal_content_is_json_serializable() -> None:
     assert project["start_date"] == "2026-08-10"
     assert project["due_date"] == "2026-09-30"
     assert json.loads(json.dumps(normalized))["project"] == project
+
+
+def test_progressive_entry_is_versioned_and_opt_in_for_legacy_compatibility() -> None:
+    from app.core.config import Settings
+
+    assert Settings(environment="test").progressive_planning_enabled is False
+    assert PlanningAIRuntime(progressive_enabled=True).workflow_version == "3.0.0"
+    assert PlanningAIRuntime().workflow_version == "2.0.0"

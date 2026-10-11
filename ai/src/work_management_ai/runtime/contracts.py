@@ -111,8 +111,17 @@ class VerifierResult(_StrictFrozenModel):
     safe_codes: tuple[str, ...] = ()
 
 
+class InteractionOutcome(StrEnum):
+    NEEDS_INPUT = "NEEDS_INPUT"
+    DRAFT_READY = "DRAFT_READY"
+    RESULT_READY = "RESULT_READY"
+    ACTION_REVIEW_REQUIRED = "ACTION_REVIEW_REQUIRED"
+    FAILED = "FAILED"
+
+
 class AgentResult(_StrictFrozenModel):
     schema_version: Literal["1.0"] = "1.0"
+    interaction_outcome: InteractionOutcome | None = None
     agent_id: AgentId
     agent_version: str = Field(min_length=1, max_length=64)
     status: AgentRunStatus
@@ -194,6 +203,16 @@ class PlanningRunResponseBlock(_StrictFrozenModel):
     kind: Literal["planning_run"] = "planning_run"
     workflow_run_id: UUID
     status: str = Field(min_length=1, max_length=100)
+
+
+class PlanningDraftResponseBlock(_StrictFrozenModel):
+    kind: Literal["planning_draft"] = "planning_draft"
+    workflow_run_id: UUID
+    draft_id: UUID
+    draft_version: int = Field(ge=1)
+    summary: str = Field(min_length=1, max_length=4000)
+    state: Literal["DRAFT_AVAILABLE", "CONFLICTED"]
+    conflicts: tuple[str, ...] = Field(default=(), max_length=20)
 
 
 class ProposalResponseBlock(_StrictFrozenModel):
@@ -330,6 +349,7 @@ type ResponseBlock = Annotated[
     | QuestionResponseBlock
     | CapabilityUnavailableResponseBlock
     | PlanningRunResponseBlock
+    | PlanningDraftResponseBlock
     | ProposalResponseBlock
     | TeamRecommendationResponseBlock
     | TeamDecisionResultResponseBlock

@@ -140,7 +140,7 @@ async def test_ai_planning_tables_force_rls_and_runtime_has_proper_grants() -> N
                         "('ck_approvals_ck_approvals_status', "
                         "'ck_approvals_ck_approvals_version', "
                         "'ck_workflow_runs_ck_workflow_runs_verifier_version', "
-                        "'ck_workflow_runs_ck_workflow_runs_status', "
+                        "'ck_workflow_runs_status', "
                         "'ck_proposals_ck_proposals_status', "
                         "'ck_outbox_events_ck_outbox_events_status', "
                         "'ck_proposal_versions_ck_proposal_versions_creator_type', "
@@ -148,7 +148,7 @@ async def test_ai_planning_tables_force_rls_and_runtime_has_proper_grants() -> N
                     )
                 )
             }
-            assert "ck_workflow_runs_ck_workflow_runs_status" in constraints
+            assert "DRAFT_AVAILABLE" in constraints["ck_workflow_runs_status"]
             assert "ck_proposals_ck_proposals_status" in constraints
             assert "ck_outbox_events_ck_outbox_events_status" in constraints
             assert "ck_proposal_versions_ck_proposal_versions_creator_type" in constraints

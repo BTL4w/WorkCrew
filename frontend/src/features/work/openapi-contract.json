@@ -983,7 +983,8 @@
       "team_decision_result": "#/components/schemas/TeamDecisionResultBlock",
       "team_recommendation": "#/components/schemas/TeamRecommendationBlock",
       "text": "#/components/schemas/TextBlock",
-      "work_evidence": "#/components/schemas/WorkEvidenceBlock"
+      "work_evidence": "#/components/schemas/WorkEvidenceBlock",
+      "planning_draft": "#/components/schemas/PlanningDraftResponseBlock"
     },
     "schemas": {
       "DailySummaryBlock": {

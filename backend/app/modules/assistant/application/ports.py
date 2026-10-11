@@ -164,6 +164,10 @@ class AssistantRepository(Protocol):
         self, *, organization_id: UUID, run_id: UUID
     ) -> tuple[AgentRun, UUID] | None: ...
 
+    async def has_planning_conversation_link(
+        self, *, actor: AuthenticatedActor, turn_id: UUID, workflow_run_id: UUID
+    ) -> bool: ...
+
     async def get_accepted_planning_action(
         self, *, organization_id: UUID, turn_id: UUID
     ) -> dict[str, Any] | None: ...

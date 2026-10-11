@@ -1,0 +1,211 @@
+"""Synthetic local demo fixtures; semantic interpretation in hosted mode remains model-owned."""
+
+import re
+from copy import deepcopy
+from typing import Any, cast
+
+
+def progressive_fixture(payload: dict[str, object], locale: str) -> dict[str, Any]:
+    vi = locale == "vi"
+    message = str(payload.get("user_message", "")).casefold()
+    refs = cast(list[str], payload.get("permitted_source_refs", []))
+    facts = cast(dict[str, object], payload.get("permitted_facts", {}))
+    source = str(
+        facts.get("current_message_ref")
+        or next((ref for ref in refs if ref.startswith("message:")), refs[0] if refs else "")
+    )
+    current = payload.get("current_draft")
+
+    def question(purpose: str, text: str, impact: str | None = None) -> dict[str, Any]:
+        return {
+            "id": purpose.casefold(),
+            "purpose": purpose,
+            "text": text,
+            "blocking": purpose != "FOLLOW_UP",
+            "decision_impact": impact,
+            "source_refs": [],
+        }
+
+    if current is None and message.strip(" .?!") in {
+        "tạo plan cho tôi",
+        "create a plan for me",
+        "tạo kế hoạch cho tôi",
+        "ừ",
+        "yeah",
+    }:
+        return {
+            "decision": {
+                "kind": "ASK_GOAL",
+                "question": question(
+                    "GOAL",
+                    "Bạn muốn lập kế hoạch cho mục tiêu gì?"
+                    if vi
+                    else "What goal would you like to plan for?",
+                ),
+                "draft": None,
+            },
+            "change_assessment": None,
+        }
+    if current is None and message.strip(" .?!") in {"tổ chức hội thảo", "organize a workshop"}:
+        return {
+            "decision": {
+                "kind": "ASK_DECISIVE",
+                "question": question(
+                    "DECISIVE",
+                    "Bạn muốn tổ chức trực tuyến hay trực tiếp?"
+                    if vi
+                    else "Will the workshop be online or in person?",
+                    "Online requires streaming; in-person requires a venue and on-site logistics.",
+                ),
+                "draft": None,
+            },
+            "change_assessment": None,
+        }
+
+    def stated(value: object) -> dict[str, Any]:
+        return {"value": value, "status": "USER_STATED", "source_refs": [source]}
+
+    def assumed(value: object, reason: str) -> dict[str, Any]:
+        return {
+            "value": value,
+            "status": "AI_ASSUMPTION",
+            "source_refs": [],
+            "assumption_reason": reason,
+        }
+
+    followup = question(
+        "FOLLOW_UP",
+        "Bạn đã có ngày ra mắt cụ thể chưa, hay muốn giữ lịch dự kiến 6 tuần?"
+        if vi
+        else "Do you have a launch date, or should we keep the proposed six weeks?",
+    )
+    assessment = None
+    if isinstance(current, dict):
+        draft = deepcopy(cast(dict[str, Any], current))
+        paths: list[str] = []
+        tasks: list[str] = []
+        money = re.search(r"(\d+)\s*(?:triệu|million)", message)
+        if money:
+            amount = int(money.group(1)) * 1000000
+            draft["brief"]["budget"] = {
+                "amount": amount,
+                "currency": "VND",
+                "status": "USER_STATED",
+                "source_refs": [source],
+                "assumption_reason": None,
+            }
+            paths.append("brief.budget")
+            draft["tasks"][1]["title"] = (
+                (
+                    "Thu hút người học qua kênh tiết kiệm"
+                    if vi
+                    else "Acquire learners through cost-conscious channels"
+                )
+                if amount <= 10000000
+                else ("Marketing và thu hút người học" if vi else "Market and acquire learners")
+            )
+            tasks.append(draft["tasks"][1]["ref"])
+        weeks = re.search(r"(\d+)\s*(?:tuần|weeks?)", message)
+        if "six weeks" in message:
+            days = 42
+        elif weeks:
+            days = int(weeks.group(1)) * 7
+        elif "two weeks" in message:
+            days = 14
+        else:
+            days = None
+        if days:
+            draft["duration_days"] = days
+            draft["brief"]["timing"] = stated(days)
+            paths.extend(["brief.timing", "duration_days"])
+        assessment = {
+            "affected_field_paths": paths,
+            "affected_phase_refs": [],
+            "affected_task_refs": tasks,
+            "source_refs": [source],
+            "reason": "Update only constraints supplied in this message.",
+        }
+    else:
+        recruitment = any(word in message for word in ("tuyển dụng", "recruitment"))
+        objective = (
+            ("Tuyển dụng nhân sự" if vi else "Recruit employees")
+            if recruitment
+            else (
+                "Ra mắt khóa học online cho 100 người học"
+                if vi
+                else "Launch an online course for 100 learners"
+            )
+        )
+        titles = (
+            ["Chuẩn bị khóa học", "Marketing và thu hút", "Mở đăng ký", "Tối ưu và chốt đăng ký"]
+            if vi
+            else [
+                "Prepare course",
+                "Marketing and acquisition",
+                "Open enrollment",
+                "Optimize conversion",
+            ]
+        )
+        if recruitment:
+            titles = (
+                ["Xác định nhu cầu", "Thu hút ứng viên", "Phỏng vấn", "Hoàn tất tuyển dụng"]
+                if vi
+                else ["Define roles", "Source candidates", "Interview", "Complete hiring"]
+            )
+        starts, ends = [0, 7, 21, 28], [14, 28, 35, 42]
+        draft = {
+            "schema_version": "planning-draft.v1",
+            "brief": {
+                "objective": stated(objective),
+                "audience": stated("Người đi làm" if vi else "Working adults")
+                if any(word in message for word in ("người đi làm", "working adults"))
+                else assumed(
+                    "Đối tượng rộng, cần xác nhận" if vi else "Broad audience, to confirm",
+                    "No detailed audience supplied",
+                ),
+                "timing": assumed(42, "No launch date supplied; six weeks is a proposed duration"),
+                "expected_outcomes": [stated("100 học viên" if vi else "100 learners")]
+                if not recruitment
+                else [],
+                "scope_in": [],
+                "scope_out": [],
+                "constraints": [],
+                "budget": None,
+            },
+            "duration_days": 42,
+            "phases": [
+                {"ref": f"p{i + 1}", "title": title, "start_day": starts[i], "end_day": ends[i]}
+                for i, title in enumerate(titles)
+            ],
+            "tasks": [
+                {
+                    "ref": f"t{i + 1}",
+                    "phase_ref": f"p{i + 1}",
+                    "title": title,
+                    "description": None,
+                    "start_day": starts[i],
+                    "end_day": starts[i] + 7,
+                    "duration_days": 7,
+                    "duration_source": "AI_ASSUMPTION",
+                    "duration_source_refs": [],
+                    "estimated_effort_hours": 8,
+                    "required_skill_labels": [],
+                    "acceptance_criteria": ["Kết quả được kiểm tra" if vi else "Output reviewed"],
+                }
+                for i, title in enumerate(titles)
+            ],
+            "dependencies": [
+                {"predecessor_ref": f"t{i}", "successor_ref": f"t{i + 1}"} for i in range(1, 4)
+            ],
+            "assumptions": [
+                assumed(
+                    "Thời gian triển khai dự kiến 6 tuần" if vi else "Proposed six-week launch",
+                    "No timeline supplied",
+                )
+            ],
+            "open_questions": [followup],
+        }
+    return {
+        "decision": {"kind": "DRAFT", "question": followup, "draft": draft},
+        "change_assessment": assessment,
+    }

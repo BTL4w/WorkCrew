@@ -5,6 +5,7 @@ from typing import Annotated, cast
 from fastapi import Depends, Request
 
 from app.modules.planning_runs.application.approval_service import ApprovalService
+from app.modules.planning_runs.application.draft_service import PlanningDraftService
 from app.modules.planning_runs.application.event_service import WorkflowEventService
 from app.modules.planning_runs.application.proposal_service import ProposalService
 from app.modules.planning_runs.application.run_service import PlanningRunService
@@ -32,3 +33,12 @@ WorkflowEventServiceDependency = Annotated[
     WorkflowEventService, Depends(get_workflow_event_service)
 ]
 ApprovalServiceDependency = Annotated[ApprovalService, Depends(get_approval_service)]
+
+
+def get_planning_draft_service(request: Request) -> PlanningDraftService:
+    return cast(PlanningDraftService, request.app.state.planning_draft_service)
+
+
+PlanningDraftServiceDependency = Annotated[
+    PlanningDraftService, Depends(get_planning_draft_service)
+]

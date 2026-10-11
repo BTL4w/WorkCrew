@@ -15,7 +15,7 @@ permissions:
   tenant_scope: actor_membership
   risk_ceiling: PROPOSAL_ONLY
 runtime:
-  workflow: planning-agent.v1
+  workflow: planning-agent.v2
   max_iterations: 8
   max_tool_calls: 12
   max_handoffs: 0

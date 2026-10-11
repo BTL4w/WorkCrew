@@ -1,0 +1,2886 @@
+[
+  {
+    "case_id": "ask-goal-vi",
+    "scenario": "ask-goal",
+    "locale": "vi",
+    "message": "Tạo Plan cho tôi",
+    "expected": "ASK_GOAL",
+    "layer": "GRAPH",
+    "active": false,
+    "base": null,
+    "candidate": {
+      "decision": {
+        "kind": "ASK_GOAL",
+        "question": {
+          "id": "goal",
+          "purpose": "GOAL",
+          "text": "Bạn muốn lập kế hoạch cho mục tiêu gì?",
+          "blocking": true,
+          "decision_impact": null,
+          "source_refs": []
+        },
+        "draft": null
+      },
+      "change_assessment": null
+    }
+  },
+  {
+    "case_id": "course-draft-vi",
+    "scenario": "course-draft",
+    "locale": "vi",
+    "message": "Ra mắt khóa học online cho 100 người học",
+    "expected": "DRAFT",
+    "layer": "GRAPH",
+    "active": false,
+    "base": null,
+    "candidate": {
+      "decision": {
+        "kind": "DRAFT",
+        "question": {
+          "id": "launch-date",
+          "purpose": "FOLLOW_UP",
+          "text": "Bạn đã có ngày ra mắt cụ thể chưa?",
+          "blocking": false,
+          "decision_impact": null,
+          "source_refs": []
+        },
+        "draft": {
+          "brief": {
+            "objective": {
+              "value": "Ra mắt khóa học online cho 100 người học",
+              "status": "USER_STATED",
+              "source_refs": [
+                "message:prior"
+              ]
+            },
+            "audience": {
+              "value": "Đối tượng rộng",
+              "status": "AI_ASSUMPTION",
+              "source_refs": [],
+              "assumption_reason": "No detailed audience supplied"
+            },
+            "expected_outcomes": [
+              {
+                "value": "100 learners",
+                "status": "USER_STATED",
+                "source_refs": [
+                  "message:prior"
+                ]
+              }
+            ],
+            "timing": {
+              "value": 42,
+              "status": "AI_ASSUMPTION",
+              "assumption_reason": "Suggested launch duration"
+            }
+          },
+          "duration_days": 42,
+          "phases": [
+            {
+              "ref": "p1",
+              "title": "Chuẩn bị khóa học",
+              "start_day": 0,
+              "end_day": 14
+            },
+            {
+              "ref": "p2",
+              "title": "Thu hút người học",
+              "start_day": 7,
+              "end_day": 28
+            },
+            {
+              "ref": "p3",
+              "title": "Mở đăng ký",
+              "start_day": 21,
+              "end_day": 35
+            },
+            {
+              "ref": "p4",
+              "title": "Tối ưu chuyển đổi",
+              "start_day": 28,
+              "end_day": 42
+            }
+          ],
+          "tasks": [
+            {
+              "ref": "t1",
+              "phase_ref": "p1",
+              "title": "Chuẩn bị khóa học",
+              "start_day": 0,
+              "end_day": 7,
+              "duration_days": 7,
+              "duration_source": "AI_ASSUMPTION",
+              "acceptance_criteria": [
+                "Output reviewed"
+              ]
+            },
+            {
+              "ref": "t2",
+              "phase_ref": "p2",
+              "title": "Thu hút người học",
+              "start_day": 7,
+              "end_day": 14,
+              "duration_days": 7,
+              "duration_source": "AI_ASSUMPTION",
+              "acceptance_criteria": [
+                "Output reviewed"
+              ]
+            },
+            {
+              "ref": "t3",
+              "phase_ref": "p3",
+              "title": "Mở đăng ký",
+              "start_day": 21,
+              "end_day": 28,
+              "duration_days": 7,
+              "duration_source": "AI_ASSUMPTION",
+              "acceptance_criteria": [
+                "Output reviewed"
+              ]
+            },
+            {
+              "ref": "t4",
+              "phase_ref": "p4",
+              "title": "Tối ưu chuyển đổi",
+              "start_day": 28,
+              "end_day": 35,
+              "duration_days": 7,
+              "duration_source": "AI_ASSUMPTION",
+              "acceptance_criteria": [
+                "Output reviewed"
+              ]
+            }
+          ],
+          "assumptions": [
+            {
+              "value": "Six-week launch",
+              "status": "AI_ASSUMPTION",
+              "assumption_reason": "No launch date supplied"
+            }
+          ],
+          "dependencies": [
+            {
+              "predecessor_ref": "t1",
+              "successor_ref": "t2"
+            },
+            {
+              "predecessor_ref": "t2",
+              "successor_ref": "t3"
+            },
+            {
+              "predecessor_ref": "t3",
+              "successor_ref": "t4"
+            }
+          ],
+          "open_questions": [
+            {
+              "id": "launch-date",
+              "purpose": "FOLLOW_UP",
+              "text": "Bạn đã có ngày ra mắt cụ thể chưa?",
+              "blocking": false,
+              "decision_impact": null,
+              "source_refs": []
+            }
+          ]
+        }
+      },
+      "change_assessment": null
+    }
+  },
+  {
+    "case_id": "decisive-vi",
+    "scenario": "decisive",
+    "locale": "vi",
+    "message": "Tổ chức hội thảo",
+    "expected": "ASK_DECISIVE",
+    "layer": "GRAPH",
+    "active": false,
+    "base": null,
+    "candidate": {
+      "decision": {
+        "kind": "ASK_DECISIVE",
+        "question": {
+          "id": "decisive",
+          "purpose": "DECISIVE",
+          "text": "Trực tuyến hay trực tiếp?",
+          "blocking": true,
+          "decision_impact": "In-person requires a venue and logistics; online requires a streaming setup.",
+          "source_refs": []
+        },
+        "draft": null
+      },
+      "change_assessment": null
+    }
+  },
+  {
+    "case_id": "update-budget-vi",
+    "scenario": "update-budget",
+    "locale": "vi",
+    "message": "Giữ 6 tuần, ngân sách 20 triệu",
+    "expected": "DRAFT",
+    "layer": "GRAPH",
+    "active": true,
+    "base": {
+      "brief": {
+        "objective": {
+          "value": "Ra mắt khóa học online cho 100 người học",
+          "status": "USER_STATED",
+          "source_refs": [
+            "message:prior"
+          ]
+        },
+        "audience": {
+          "value": "Đối tượng rộng",
+          "status": "AI_ASSUMPTION",
+          "source_refs": [],
+          "assumption_reason": "No detailed audience supplied"
+        },
+        "expected_outcomes": [
+          {
+            "value": "100 learners",
+            "status": "USER_STATED",
+            "source_refs": [
+              "message:prior"
+            ]
+          }
+        ],
+        "timing": {
+          "value": 42,
+          "status": "AI_ASSUMPTION",
+          "assumption_reason": "Suggested launch duration"
+        }
+      },
+      "duration_days": 42,
+      "phases": [
+        {
+          "ref": "p1",
+          "title": "Chuẩn bị khóa học",
+          "start_day": 0,
+          "end_day": 14
+        },
+        {
+          "ref": "p2",
+          "title": "Thu hút người học",
+          "start_day": 7,
+          "end_day": 28
+        },
+        {
+          "ref": "p3",
+          "title": "Mở đăng ký",
+          "start_day": 21,
+          "end_day": 35
+        },
+        {
+          "ref": "p4",
+          "title": "Tối ưu chuyển đổi",
+          "start_day": 28,
+          "end_day": 42
+        }
+      ],
+      "tasks": [
+        {
+          "ref": "t1",
+          "phase_ref": "p1",
+          "title": "Chuẩn bị khóa học",
+          "start_day": 0,
+          "end_day": 7,
+          "duration_days": 7,
+          "duration_source": "AI_ASSUMPTION",
+          "acceptance_criteria": [
+            "Output reviewed"
+          ]
+        },
+        {
+          "ref": "t2",
+          "phase_ref": "p2",
+          "title": "Thu hút người học",
+          "start_day": 7,
+          "end_day": 14,
+          "duration_days": 7,
+          "duration_source": "AI_ASSUMPTION",
+          "acceptance_criteria": [
+            "Output reviewed"
+          ]
+        },
+        {
+          "ref": "t3",
+          "phase_ref": "p3",
+          "title": "Mở đăng ký",
+          "start_day": 21,
+          "end_day": 28,
+          "duration_days": 7,
+          "duration_source": "AI_ASSUMPTION",
+          "acceptance_criteria": [
+            "Output reviewed"
+          ]
+        },
+        {
+          "ref": "t4",
+          "phase_ref": "p4",
+          "title": "Tối ưu chuyển đổi",
+          "start_day": 28,
+          "end_day": 35,
+          "duration_days": 7,
+          "duration_source": "AI_ASSUMPTION",
+          "acceptance_criteria": [
+            "Output reviewed"
+          ]
+        }
+      ],
+      "assumptions": [
+        {
+          "value": "Six-week launch",
+          "status": "AI_ASSUMPTION",
+          "assumption_reason": "No launch date supplied"
+        }
+      ],
+      "dependencies": [
+        {
+          "predecessor_ref": "t1",
+          "successor_ref": "t2"
+        },
+        {
+          "predecessor_ref": "t2",
+          "successor_ref": "t3"
+        },
+        {
+          "predecessor_ref": "t3",
+          "successor_ref": "t4"
+        }
+      ],
+      "open_questions": [
+        {
+          "id": "launch-date",
+          "purpose": "FOLLOW_UP",
+          "text": "Bạn đã có ngày ra mắt cụ thể chưa?",
+          "blocking": false,
+          "decision_impact": null,
+          "source_refs": []
+        }
+      ]
+    },
+    "candidate": {
+      "decision": {
+        "kind": "DRAFT",
+        "question": {
+          "id": "launch-date",
+          "purpose": "FOLLOW_UP",
+          "text": "Bạn đã có ngày ra mắt cụ thể chưa?",
+          "blocking": false,
+          "decision_impact": null,
+          "source_refs": []
+        },
+        "draft": {
+          "brief": {
+            "objective": {
+              "value": "Ra mắt khóa học online cho 100 người học",
+              "status": "USER_STATED",
+              "source_refs": [
+                "message:prior"
+              ]
+            },
+            "audience": {
+              "value": "Đối tượng rộng",
+              "status": "AI_ASSUMPTION",
+              "source_refs": [],
+              "assumption_reason": "No detailed audience supplied"
+            },
+            "expected_outcomes": [
+              {
+                "value": "100 learners",
+                "status": "USER_STATED",
+                "source_refs": [
+                  "message:prior"
+                ]
+              }
+            ],
+            "timing": {
+              "value": 42,
+              "status": "USER_STATED",
+              "source_refs": [
+                "message:edit"
+              ]
+            },
+            "budget": {
+              "amount": 20000000,
+              "currency": "VND",
+              "status": "USER_STATED",
+              "source_refs": [
+                "message:edit"
+              ]
+            }
+          },
+          "duration_days": 42,
+          "phases": [
+            {
+              "ref": "p1",
+              "title": "Chuẩn bị khóa học",
+              "start_day": 0,
+              "end_day": 14
+            },
+            {
+              "ref": "p2",
+              "title": "Thu hút người học",
+              "start_day": 7,
+              "end_day": 28
+            },
+            {
+              "ref": "p3",
+              "title": "Mở đăng ký",
+              "start_day": 21,
+              "end_day": 35
+            },
+            {
+              "ref": "p4",
+              "title": "Tối ưu chuyển đổi",
+              "start_day": 28,
+              "end_day": 42
+            }
+          ],
+          "tasks": [
+            {
+              "ref": "t1",
+              "phase_ref": "p1",
+              "title": "Chuẩn bị khóa học",
+              "start_day": 0,
+              "end_day": 7,
+              "duration_days": 7,
+              "duration_source": "AI_ASSUMPTION",
+              "acceptance_criteria": [
+                "Output reviewed"
+              ]
+            },
+            {
+              "ref": "t2",
+              "phase_ref": "p2",
+              "title": "Thu hút người học",
+              "start_day": 7,
+              "end_day": 14,
+              "duration_days": 7,
+              "duration_source": "AI_ASSUMPTION",
+              "acceptance_criteria": [
+                "Output reviewed"
+              ]
+            },
+            {
+              "ref": "t3",
+              "phase_ref": "p3",
+              "title": "Mở đăng ký",
+              "start_day": 21,
+              "end_day": 28,
+              "duration_days": 7,
+              "duration_source": "AI_ASSUMPTION",
+              "acceptance_criteria": [
+                "Output reviewed"
+              ]
+            },
+            {
+              "ref": "t4",
+              "phase_ref": "p4",
+              "title": "Tối ưu chuyển đổi",
+              "start_day": 28,
+              "end_day": 35,
+              "duration_days": 7,
+              "duration_source": "AI_ASSUMPTION",
+              "acceptance_criteria": [
+                "Output reviewed"
+              ]
+            }
+          ],
+          "assumptions": [
+            {
+              "value": "Six-week launch",
+              "status": "AI_ASSUMPTION",
+              "assumption_reason": "No launch date supplied"
+            }
+          ],
+          "dependencies": [
+            {
+              "predecessor_ref": "t1",
+              "successor_ref": "t2"
+            },
+            {
+              "predecessor_ref": "t2",
+              "successor_ref": "t3"
+            },
+            {
+              "predecessor_ref": "t3",
+              "successor_ref": "t4"
+            }
+          ],
+          "open_questions": [
+            {
+              "id": "launch-date",
+              "purpose": "FOLLOW_UP",
+              "text": "Bạn đã có ngày ra mắt cụ thể chưa?",
+              "blocking": false,
+              "decision_impact": null,
+              "source_refs": []
+            }
+          ]
+        }
+      },
+      "change_assessment": {
+        "affected_field_paths": [
+          "brief.budget",
+          "brief.timing"
+        ],
+        "affected_task_refs": [
+          "t2"
+        ],
+        "affected_phase_refs": [],
+        "source_refs": [
+          "message:edit"
+        ],
+        "reason": "Update the supplied budget and acquisition activity."
+      }
+    }
+  },
+  {
+    "case_id": "reduce-budget-vi",
+    "scenario": "reduce-budget",
+    "locale": "vi",
+    "message": "Đổi ngân sách thành 10 triệu",
+    "expected": "DRAFT",
+    "layer": "GRAPH",
+    "active": true,
+    "base": {
+      "brief": {
+        "objective": {
+          "value": "Ra mắt khóa học online cho 100 người học",
+          "status": "USER_STATED",
+          "source_refs": [
+            "message:prior"
+          ]
+        },
+        "audience": {
+          "value": "Đối tượng rộng",
+          "status": "AI_ASSUMPTION",
+          "source_refs": [],
+          "assumption_reason": "No detailed audience supplied"
+        },
+        "expected_outcomes": [
+          {
+            "value": "100 learners",
+            "status": "USER_STATED",
+            "source_refs": [
+              "message:prior"
+            ]
+          }
+        ],
+        "timing": {
+          "value": 42,
+          "status": "USER_STATED",
+          "source_refs": [
+            "message:prior"
+          ]
+        },
+        "budget": {
+          "amount": 20000000,
+          "currency": "VND",
+          "status": "USER_STATED",
+          "source_refs": [
+            "message:prior"
+          ]
+        }
+      },
+      "duration_days": 42,
+      "phases": [
+        {
+          "ref": "p1",
+          "title": "Chuẩn bị khóa học",
+          "start_day": 0,
+          "end_day": 14
+        },
+        {
+          "ref": "p2",
+          "title": "Thu hút người học",
+          "start_day": 7,
+          "end_day": 28
+        },
+        {
+          "ref": "p3",
+          "title": "Mở đăng ký",
+          "start_day": 21,
+          "end_day": 35
+        },
+        {
+          "ref": "p4",
+          "title": "Tối ưu chuyển đổi",
+          "start_day": 28,
+          "end_day": 42
+        }
+      ],
+      "tasks": [
+        {
+          "ref": "t1",
+          "phase_ref": "p1",
+          "title": "Chuẩn bị khóa học",
+          "start_day": 0,
+          "end_day": 7,
+          "duration_days": 7,
+          "duration_source": "AI_ASSUMPTION",
+          "acceptance_criteria": [
+            "Output reviewed"
+          ]
+        },
+        {
+          "ref": "t2",
+          "phase_ref": "p2",
+          "title": "Thu hút người học",
+          "start_day": 7,
+          "end_day": 14,
+          "duration_days": 7,
+          "duration_source": "AI_ASSUMPTION",
+          "acceptance_criteria": [
+            "Output reviewed"
+          ]
+        },
+        {
+          "ref": "t3",
+          "phase_ref": "p3",
+          "title": "Mở đăng ký",
+          "start_day": 21,
+          "end_day": 28,
+          "duration_days": 7,
+          "duration_source": "AI_ASSUMPTION",
+          "acceptance_criteria": [
+            "Output reviewed"
+          ]
+        },
+        {
+          "ref": "t4",
+          "phase_ref": "p4",
+          "title": "Tối ưu chuyển đổi",
+          "start_day": 28,
+          "end_day": 35,
+          "duration_days": 7,
+          "duration_source": "AI_ASSUMPTION",
+          "acceptance_criteria": [
+            "Output reviewed"
+          ]
+        }
+      ],
+      "assumptions": [
+        {
+          "value": "Six-week launch",
+          "status": "AI_ASSUMPTION",
+          "assumption_reason": "No launch date supplied"
+        }
+      ],
+      "dependencies": [
+        {
+          "predecessor_ref": "t1",
+          "successor_ref": "t2"
+        },
+        {
+          "predecessor_ref": "t2",
+          "successor_ref": "t3"
+        },
+        {
+          "predecessor_ref": "t3",
+          "successor_ref": "t4"
+        }
+      ],
+      "open_questions": [
+        {
+          "id": "launch-date",
+          "purpose": "FOLLOW_UP",
+          "text": "Bạn đã có ngày ra mắt cụ thể chưa?",
+          "blocking": false,
+          "decision_impact": null,
+          "source_refs": []
+        }
+      ]
+    },
+    "candidate": {
+      "decision": {
+        "kind": "DRAFT",
+        "question": {
+          "id": "launch-date",
+          "purpose": "FOLLOW_UP",
+          "text": "Bạn đã có ngày ra mắt cụ thể chưa?",
+          "blocking": false,
+          "decision_impact": null,
+          "source_refs": []
+        },
+        "draft": {
+          "brief": {
+            "objective": {
+              "value": "Ra mắt khóa học online cho 100 người học",
+              "status": "USER_STATED",
+              "source_refs": [
+                "message:prior"
+              ]
+            },
+            "audience": {
+              "value": "Đối tượng rộng",
+              "status": "AI_ASSUMPTION",
+              "source_refs": [],
+              "assumption_reason": "No detailed audience supplied"
+            },
+            "expected_outcomes": [
+              {
+                "value": "100 learners",
+                "status": "USER_STATED",
+                "source_refs": [
+                  "message:prior"
+                ]
+              }
+            ],
+            "timing": {
+              "value": 42,
+              "status": "USER_STATED",
+              "source_refs": [
+                "message:prior"
+              ]
+            },
+            "budget": {
+              "amount": 10000000,
+              "currency": "VND",
+              "status": "USER_STATED",
+              "source_refs": [
+                "message:edit"
+              ]
+            }
+          },
+          "duration_days": 42,
+          "phases": [
+            {
+              "ref": "p1",
+              "title": "Chuẩn bị khóa học",
+              "start_day": 0,
+              "end_day": 14
+            },
+            {
+              "ref": "p2",
+              "title": "Thu hút người học",
+              "start_day": 7,
+              "end_day": 28
+            },
+            {
+              "ref": "p3",
+              "title": "Mở đăng ký",
+              "start_day": 21,
+              "end_day": 35
+            },
+            {
+              "ref": "p4",
+              "title": "Tối ưu chuyển đổi",
+              "start_day": 28,
+              "end_day": 42
+            }
+          ],
+          "tasks": [
+            {
+              "ref": "t1",
+              "phase_ref": "p1",
+              "title": "Chuẩn bị khóa học",
+              "start_day": 0,
+              "end_day": 7,
+              "duration_days": 7,
+              "duration_source": "AI_ASSUMPTION",
+              "acceptance_criteria": [
+                "Output reviewed"
+              ]
+            },
+            {
+              "ref": "t2",
+              "phase_ref": "p2",
+              "title": "Acquire learners through organic channels",
+              "start_day": 7,
+              "end_day": 14,
+              "duration_days": 7,
+              "duration_source": "AI_ASSUMPTION",
+              "acceptance_criteria": [
+                "Output reviewed"
+              ]
+            },
+            {
+              "ref": "t3",
+              "phase_ref": "p3",
+              "title": "Mở đăng ký",
+              "start_day": 21,
+              "end_day": 28,
+              "duration_days": 7,
+              "duration_source": "AI_ASSUMPTION",
+              "acceptance_criteria": [
+                "Output reviewed"
+              ]
+            },
+            {
+              "ref": "t4",
+              "phase_ref": "p4",
+              "title": "Tối ưu chuyển đổi",
+              "start_day": 28,
+              "end_day": 35,
+              "duration_days": 7,
+              "duration_source": "AI_ASSUMPTION",
+              "acceptance_criteria": [
+                "Output reviewed"
+              ]
+            }
+          ],
+          "assumptions": [
+            {
+              "value": "Six-week launch",
+              "status": "AI_ASSUMPTION",
+              "assumption_reason": "No launch date supplied"
+            }
+          ],
+          "dependencies": [
+            {
+              "predecessor_ref": "t1",
+              "successor_ref": "t2"
+            },
+            {
+              "predecessor_ref": "t2",
+              "successor_ref": "t3"
+            },
+            {
+              "predecessor_ref": "t3",
+              "successor_ref": "t4"
+            }
+          ],
+          "open_questions": [
+            {
+              "id": "launch-date",
+              "purpose": "FOLLOW_UP",
+              "text": "Bạn đã có ngày ra mắt cụ thể chưa?",
+              "blocking": false,
+              "decision_impact": null,
+              "source_refs": []
+            }
+          ]
+        }
+      },
+      "change_assessment": {
+        "affected_field_paths": [
+          "brief.budget"
+        ],
+        "affected_task_refs": [
+          "t2"
+        ],
+        "affected_phase_refs": [],
+        "source_refs": [
+          "message:edit"
+        ],
+        "reason": "Update the supplied budget and acquisition activity."
+      }
+    }
+  },
+  {
+    "case_id": "new-plan-vi",
+    "scenario": "new-plan",
+    "locale": "vi",
+    "message": "Tạo kế hoạch khác về tuyển dụng",
+    "expected": "DRAFT",
+    "layer": "GRAPH",
+    "active": true,
+    "base": {
+      "brief": {
+        "objective": {
+          "value": "Ra mắt khóa học online cho 100 người học",
+          "status": "USER_STATED",
+          "source_refs": [
+            "message:prior"
+          ]
+        },
+        "audience": {
+          "value": "Đối tượng rộng",
+          "status": "AI_ASSUMPTION",
+          "source_refs": [],
+          "assumption_reason": "No detailed audience supplied"
+        },
+        "expected_outcomes": [
+          {
+            "value": "100 learners",
+            "status": "USER_STATED",
+            "source_refs": [
+              "message:prior"
+            ]
+          }
+        ],
+        "timing": {
+          "value": 42,
+          "status": "AI_ASSUMPTION",
+          "assumption_reason": "Suggested launch duration"
+        }
+      },
+      "duration_days": 42,
+      "phases": [
+        {
+          "ref": "p1",
+          "title": "Chuẩn bị khóa học",
+          "start_day": 0,
+          "end_day": 14
+        },
+        {
+          "ref": "p2",
+          "title": "Thu hút người học",
+          "start_day": 7,
+          "end_day": 28
+        },
+        {
+          "ref": "p3",
+          "title": "Mở đăng ký",
+          "start_day": 21,
+          "end_day": 35
+        },
+        {
+          "ref": "p4",
+          "title": "Tối ưu chuyển đổi",
+          "start_day": 28,
+          "end_day": 42
+        }
+      ],
+      "tasks": [
+        {
+          "ref": "t1",
+          "phase_ref": "p1",
+          "title": "Chuẩn bị khóa học",
+          "start_day": 0,
+          "end_day": 7,
+          "duration_days": 7,
+          "duration_source": "AI_ASSUMPTION",
+          "acceptance_criteria": [
+            "Output reviewed"
+          ]
+        },
+        {
+          "ref": "t2",
+          "phase_ref": "p2",
+          "title": "Thu hút người học",
+          "start_day": 7,
+          "end_day": 14,
+          "duration_days": 7,
+          "duration_source": "AI_ASSUMPTION",
+          "acceptance_criteria": [
+            "Output reviewed"
+          ]
+        },
+        {
+          "ref": "t3",
+          "phase_ref": "p3",
+          "title": "Mở đăng ký",
+          "start_day": 21,
+          "end_day": 28,
+          "duration_days": 7,
+          "duration_source": "AI_ASSUMPTION",
+          "acceptance_criteria": [
+            "Output reviewed"
+          ]
+        },
+        {
+          "ref": "t4",
+          "phase_ref": "p4",
+          "title": "Tối ưu chuyển đổi",
+          "start_day": 28,
+          "end_day": 35,
+          "duration_days": 7,
+          "duration_source": "AI_ASSUMPTION",
+          "acceptance_criteria": [
+            "Output reviewed"
+          ]
+        }
+      ],
+      "assumptions": [
+        {
+          "value": "Six-week launch",
+          "status": "AI_ASSUMPTION",
+          "assumption_reason": "No launch date supplied"
+        }
+      ],
+      "dependencies": [
+        {
+          "predecessor_ref": "t1",
+          "successor_ref": "t2"
+        },
+        {
+          "predecessor_ref": "t2",
+          "successor_ref": "t3"
+        },
+        {
+          "predecessor_ref": "t3",
+          "successor_ref": "t4"
+        }
+      ],
+      "open_questions": [
+        {
+          "id": "launch-date",
+          "purpose": "FOLLOW_UP",
+          "text": "Bạn đã có ngày ra mắt cụ thể chưa?",
+          "blocking": false,
+          "decision_impact": null,
+          "source_refs": []
+        }
+      ]
+    },
+    "candidate": {
+      "decision": {
+        "kind": "DRAFT",
+        "question": {
+          "id": "launch-date",
+          "purpose": "FOLLOW_UP",
+          "text": "Bạn đã có ngày ra mắt cụ thể chưa?",
+          "blocking": false,
+          "decision_impact": null,
+          "source_refs": []
+        },
+        "draft": {
+          "brief": {
+            "objective": {
+              "value": "Tuyển dụng nhân sự",
+              "status": "USER_STATED",
+              "source_refs": [
+                "message:edit"
+              ]
+            },
+            "audience": {
+              "value": "Đối tượng rộng",
+              "status": "AI_ASSUMPTION",
+              "source_refs": [],
+              "assumption_reason": "No detailed audience supplied"
+            },
+            "expected_outcomes": [],
+            "timing": {
+              "value": 42,
+              "status": "AI_ASSUMPTION",
+              "assumption_reason": "Suggested launch duration"
+            }
+          },
+          "duration_days": 42,
+          "phases": [
+            {
+              "ref": "p1",
+              "title": "Giai đoạn tuyển dụng",
+              "start_day": 0,
+              "end_day": 14
+            },
+            {
+              "ref": "p2",
+              "title": "Giai đoạn tuyển dụng",
+              "start_day": 7,
+              "end_day": 28
+            },
+            {
+              "ref": "p3",
+              "title": "Giai đoạn tuyển dụng",
+              "start_day": 21,
+              "end_day": 35
+            },
+            {
+              "ref": "p4",
+              "title": "Giai đoạn tuyển dụng",
+              "start_day": 28,
+              "end_day": 42
+            }
+          ],
+          "tasks": [
+            {
+              "ref": "t1",
+              "phase_ref": "p1",
+              "title": "Giai đoạn tuyển dụng",
+              "start_day": 0,
+              "end_day": 7,
+              "duration_days": 7,
+              "duration_source": "AI_ASSUMPTION",
+              "acceptance_criteria": [
+                "Output reviewed"
+              ]
+            },
+            {
+              "ref": "t2",
+              "phase_ref": "p2",
+              "title": "Giai đoạn tuyển dụng",
+              "start_day": 7,
+              "end_day": 14,
+              "duration_days": 7,
+              "duration_source": "AI_ASSUMPTION",
+              "acceptance_criteria": [
+                "Output reviewed"
+              ]
+            },
+            {
+              "ref": "t3",
+              "phase_ref": "p3",
+              "title": "Giai đoạn tuyển dụng",
+              "start_day": 21,
+              "end_day": 28,
+              "duration_days": 7,
+              "duration_source": "AI_ASSUMPTION",
+              "acceptance_criteria": [
+                "Output reviewed"
+              ]
+            },
+            {
+              "ref": "t4",
+              "phase_ref": "p4",
+              "title": "Giai đoạn tuyển dụng",
+              "start_day": 28,
+              "end_day": 35,
+              "duration_days": 7,
+              "duration_source": "AI_ASSUMPTION",
+              "acceptance_criteria": [
+                "Output reviewed"
+              ]
+            }
+          ],
+          "assumptions": [
+            {
+              "value": "Six-week launch",
+              "status": "AI_ASSUMPTION",
+              "assumption_reason": "No launch date supplied"
+            }
+          ],
+          "dependencies": [
+            {
+              "predecessor_ref": "t1",
+              "successor_ref": "t2"
+            },
+            {
+              "predecessor_ref": "t2",
+              "successor_ref": "t3"
+            },
+            {
+              "predecessor_ref": "t3",
+              "successor_ref": "t4"
+            }
+          ],
+          "open_questions": [
+            {
+              "id": "launch-date",
+              "purpose": "FOLLOW_UP",
+              "text": "Bạn đã có ngày ra mắt cụ thể chưa?",
+              "blocking": false,
+              "decision_impact": null,
+              "source_refs": []
+            }
+          ]
+        }
+      },
+      "change_assessment": null
+    }
+  },
+  {
+    "case_id": "conflict-vi",
+    "scenario": "conflict",
+    "locale": "vi",
+    "message": "Rút xuống 2 tuần",
+    "expected": "DRAFT",
+    "layer": "GRAPH",
+    "active": true,
+    "base": {
+      "brief": {
+        "objective": {
+          "value": "Ra mắt khóa học online cho 100 người học",
+          "status": "USER_STATED",
+          "source_refs": [
+            "message:prior"
+          ]
+        },
+        "audience": {
+          "value": "Đối tượng rộng",
+          "status": "AI_ASSUMPTION",
+          "source_refs": [],
+          "assumption_reason": "No detailed audience supplied"
+        },
+        "expected_outcomes": [
+          {
+            "value": "100 learners",
+            "status": "USER_STATED",
+            "source_refs": [
+              "message:prior"
+            ]
+          }
+        ],
+        "timing": {
+          "value": 42,
+          "status": "AI_ASSUMPTION",
+          "assumption_reason": "Suggested launch duration"
+        }
+      },
+      "duration_days": 42,
+      "phases": [
+        {
+          "ref": "p1",
+          "title": "Launch",
+          "start_day": 0,
+          "end_day": 21
+        }
+      ],
+      "tasks": [
+        {
+          "ref": "t1",
+          "phase_ref": "p1",
+          "title": "Chuẩn bị khóa học",
+          "start_day": 0,
+          "end_day": 7,
+          "duration_days": 7,
+          "duration_source": "AI_ASSUMPTION",
+          "acceptance_criteria": [
+            "Output reviewed"
+          ]
+        },
+        {
+          "ref": "t2",
+          "phase_ref": "p1",
+          "title": "Chuẩn bị khóa học",
+          "start_day": 7,
+          "end_day": 14,
+          "duration_days": 7,
+          "duration_source": "AI_ASSUMPTION",
+          "acceptance_criteria": [
+            "Output reviewed"
+          ]
+        },
+        {
+          "ref": "t3",
+          "phase_ref": "p1",
+          "title": "Chuẩn bị khóa học",
+          "start_day": 14,
+          "end_day": 21,
+          "duration_days": 7,
+          "duration_source": "AI_ASSUMPTION",
+          "acceptance_criteria": [
+            "Output reviewed"
+          ]
+        }
+      ],
+      "assumptions": [
+        {
+          "value": "Six-week launch",
+          "status": "AI_ASSUMPTION",
+          "assumption_reason": "No launch date supplied"
+        }
+      ],
+      "dependencies": [
+        {
+          "predecessor_ref": "t1",
+          "successor_ref": "t2"
+        },
+        {
+          "predecessor_ref": "t2",
+          "successor_ref": "t3"
+        }
+      ],
+      "open_questions": [
+        {
+          "id": "launch-date",
+          "purpose": "FOLLOW_UP",
+          "text": "Bạn đã có ngày ra mắt cụ thể chưa?",
+          "blocking": false,
+          "decision_impact": null,
+          "source_refs": []
+        }
+      ]
+    },
+    "candidate": {
+      "decision": {
+        "kind": "DRAFT",
+        "question": {
+          "id": "launch-date",
+          "purpose": "FOLLOW_UP",
+          "text": "Bạn đã có ngày ra mắt cụ thể chưa?",
+          "blocking": false,
+          "decision_impact": null,
+          "source_refs": []
+        },
+        "draft": {
+          "brief": {
+            "objective": {
+              "value": "Ra mắt khóa học online cho 100 người học",
+              "status": "USER_STATED",
+              "source_refs": [
+                "message:prior"
+              ]
+            },
+            "audience": {
+              "value": "Đối tượng rộng",
+              "status": "AI_ASSUMPTION",
+              "source_refs": [],
+              "assumption_reason": "No detailed audience supplied"
+            },
+            "expected_outcomes": [
+              {
+                "value": "100 learners",
+                "status": "USER_STATED",
+                "source_refs": [
+                  "message:prior"
+                ]
+              }
+            ],
+            "timing": {
+              "value": 14,
+              "status": "USER_STATED",
+              "source_refs": [
+                "message:edit"
+              ]
+            }
+          },
+          "duration_days": 14,
+          "phases": [
+            {
+              "ref": "p1",
+              "title": "Launch",
+              "start_day": 0,
+              "end_day": 21
+            }
+          ],
+          "tasks": [
+            {
+              "ref": "t1",
+              "phase_ref": "p1",
+              "title": "Chuẩn bị khóa học",
+              "start_day": 0,
+              "end_day": 7,
+              "duration_days": 7,
+              "duration_source": "AI_ASSUMPTION",
+              "acceptance_criteria": [
+                "Output reviewed"
+              ]
+            },
+            {
+              "ref": "t2",
+              "phase_ref": "p1",
+              "title": "Chuẩn bị khóa học",
+              "start_day": 7,
+              "end_day": 14,
+              "duration_days": 7,
+              "duration_source": "AI_ASSUMPTION",
+              "acceptance_criteria": [
+                "Output reviewed"
+              ]
+            },
+            {
+              "ref": "t3",
+              "phase_ref": "p1",
+              "title": "Chuẩn bị khóa học",
+              "start_day": 14,
+              "end_day": 21,
+              "duration_days": 7,
+              "duration_source": "AI_ASSUMPTION",
+              "acceptance_criteria": [
+                "Output reviewed"
+              ]
+            }
+          ],
+          "assumptions": [
+            {
+              "value": "Six-week launch",
+              "status": "AI_ASSUMPTION",
+              "assumption_reason": "No launch date supplied"
+            }
+          ],
+          "dependencies": [
+            {
+              "predecessor_ref": "t1",
+              "successor_ref": "t2"
+            },
+            {
+              "predecessor_ref": "t2",
+              "successor_ref": "t3"
+            }
+          ],
+          "open_questions": [
+            {
+              "id": "launch-date",
+              "purpose": "FOLLOW_UP",
+              "text": "Bạn đã có ngày ra mắt cụ thể chưa?",
+              "blocking": false,
+              "decision_impact": null,
+              "source_refs": []
+            }
+          ]
+        }
+      },
+      "change_assessment": {
+        "affected_field_paths": [
+          "brief.timing",
+          "duration_days"
+        ],
+        "affected_task_refs": [],
+        "affected_phase_refs": [],
+        "source_refs": [
+          "message:edit"
+        ],
+        "reason": "Keep dependencies and report the requested horizon conflict."
+      }
+    }
+  },
+  {
+    "case_id": "refresh-vi",
+    "scenario": "refresh",
+    "locale": "vi",
+    "message": "Refresh giữa quá trình lập kế hoạch",
+    "expected": "RESTORE",
+    "layer": "POSTGRES",
+    "active": false,
+    "base": null,
+    "candidate": null
+  },
+  {
+    "case_id": "stale-approval-vi",
+    "scenario": "stale-approval",
+    "locale": "vi",
+    "message": "Confirm proposal cũ sau khi draft đã thay đổi",
+    "expected": "REJECT_STALE",
+    "layer": "POSTGRES",
+    "active": false,
+    "base": null,
+    "candidate": null
+  },
+  {
+    "case_id": "permissions-vi",
+    "scenario": "permissions",
+    "locale": "vi",
+    "message": "User không có quyền đọc dữ liệu liên quan",
+    "expected": "EXCLUDE",
+    "layer": "POSTGRES",
+    "active": false,
+    "base": null,
+    "candidate": null
+  },
+  {
+    "case_id": "ask-goal-en",
+    "scenario": "ask-goal",
+    "locale": "en",
+    "message": "Create a plan for me",
+    "expected": "ASK_GOAL",
+    "layer": "GRAPH",
+    "active": false,
+    "base": null,
+    "candidate": {
+      "decision": {
+        "kind": "ASK_GOAL",
+        "question": {
+          "id": "goal",
+          "purpose": "GOAL",
+          "text": "What goal should the plan achieve?",
+          "blocking": true,
+          "decision_impact": null,
+          "source_refs": []
+        },
+        "draft": null
+      },
+      "change_assessment": null
+    }
+  },
+  {
+    "case_id": "course-draft-en",
+    "scenario": "course-draft",
+    "locale": "en",
+    "message": "Launch an online course for 100 learners",
+    "expected": "DRAFT",
+    "layer": "GRAPH",
+    "active": false,
+    "base": null,
+    "candidate": {
+      "decision": {
+        "kind": "DRAFT",
+        "question": {
+          "id": "launch-date",
+          "purpose": "FOLLOW_UP",
+          "text": "Do you have a launch date?",
+          "blocking": false,
+          "decision_impact": null,
+          "source_refs": []
+        },
+        "draft": {
+          "brief": {
+            "objective": {
+              "value": "Launch an online course for 100 learners",
+              "status": "USER_STATED",
+              "source_refs": [
+                "message:prior"
+              ]
+            },
+            "audience": {
+              "value": "Broad audience",
+              "status": "AI_ASSUMPTION",
+              "source_refs": [],
+              "assumption_reason": "No detailed audience supplied"
+            },
+            "expected_outcomes": [
+              {
+                "value": "100 learners",
+                "status": "USER_STATED",
+                "source_refs": [
+                  "message:prior"
+                ]
+              }
+            ],
+            "timing": {
+              "value": 42,
+              "status": "AI_ASSUMPTION",
+              "assumption_reason": "Suggested launch duration"
+            }
+          },
+          "duration_days": 42,
+          "phases": [
+            {
+              "ref": "p1",
+              "title": "Prepare course",
+              "start_day": 0,
+              "end_day": 14
+            },
+            {
+              "ref": "p2",
+              "title": "Acquire learners",
+              "start_day": 7,
+              "end_day": 28
+            },
+            {
+              "ref": "p3",
+              "title": "Open enrollment",
+              "start_day": 21,
+              "end_day": 35
+            },
+            {
+              "ref": "p4",
+              "title": "Optimize conversion",
+              "start_day": 28,
+              "end_day": 42
+            }
+          ],
+          "tasks": [
+            {
+              "ref": "t1",
+              "phase_ref": "p1",
+              "title": "Prepare course",
+              "start_day": 0,
+              "end_day": 7,
+              "duration_days": 7,
+              "duration_source": "AI_ASSUMPTION",
+              "acceptance_criteria": [
+                "Output reviewed"
+              ]
+            },
+            {
+              "ref": "t2",
+              "phase_ref": "p2",
+              "title": "Acquire learners",
+              "start_day": 7,
+              "end_day": 14,
+              "duration_days": 7,
+              "duration_source": "AI_ASSUMPTION",
+              "acceptance_criteria": [
+                "Output reviewed"
+              ]
+            },
+            {
+              "ref": "t3",
+              "phase_ref": "p3",
+              "title": "Open enrollment",
+              "start_day": 21,
+              "end_day": 28,
+              "duration_days": 7,
+              "duration_source": "AI_ASSUMPTION",
+              "acceptance_criteria": [
+                "Output reviewed"
+              ]
+            },
+            {
+              "ref": "t4",
+              "phase_ref": "p4",
+              "title": "Optimize conversion",
+              "start_day": 28,
+              "end_day": 35,
+              "duration_days": 7,
+              "duration_source": "AI_ASSUMPTION",
+              "acceptance_criteria": [
+                "Output reviewed"
+              ]
+            }
+          ],
+          "assumptions": [
+            {
+              "value": "Six-week launch",
+              "status": "AI_ASSUMPTION",
+              "assumption_reason": "No launch date supplied"
+            }
+          ],
+          "dependencies": [
+            {
+              "predecessor_ref": "t1",
+              "successor_ref": "t2"
+            },
+            {
+              "predecessor_ref": "t2",
+              "successor_ref": "t3"
+            },
+            {
+              "predecessor_ref": "t3",
+              "successor_ref": "t4"
+            }
+          ],
+          "open_questions": [
+            {
+              "id": "launch-date",
+              "purpose": "FOLLOW_UP",
+              "text": "Do you have a launch date?",
+              "blocking": false,
+              "decision_impact": null,
+              "source_refs": []
+            }
+          ]
+        }
+      },
+      "change_assessment": null
+    }
+  },
+  {
+    "case_id": "decisive-en",
+    "scenario": "decisive",
+    "locale": "en",
+    "message": "Organize a workshop",
+    "expected": "ASK_DECISIVE",
+    "layer": "GRAPH",
+    "active": false,
+    "base": null,
+    "candidate": {
+      "decision": {
+        "kind": "ASK_DECISIVE",
+        "question": {
+          "id": "decisive",
+          "purpose": "DECISIVE",
+          "text": "Online or in person?",
+          "blocking": true,
+          "decision_impact": "In-person requires a venue and logistics; online requires a streaming setup.",
+          "source_refs": []
+        },
+        "draft": null
+      },
+      "change_assessment": null
+    }
+  },
+  {
+    "case_id": "update-budget-en",
+    "scenario": "update-budget",
+    "locale": "en",
+    "message": "Keep six weeks, with a budget of VND 20 million",
+    "expected": "DRAFT",
+    "layer": "GRAPH",
+    "active": true,
+    "base": {
+      "brief": {
+        "objective": {
+          "value": "Launch an online course for 100 learners",
+          "status": "USER_STATED",
+          "source_refs": [
+            "message:prior"
+          ]
+        },
+        "audience": {
+          "value": "Broad audience",
+          "status": "AI_ASSUMPTION",
+          "source_refs": [],
+          "assumption_reason": "No detailed audience supplied"
+        },
+        "expected_outcomes": [
+          {
+            "value": "100 learners",
+            "status": "USER_STATED",
+            "source_refs": [
+              "message:prior"
+            ]
+          }
+        ],
+        "timing": {
+          "value": 42,
+          "status": "AI_ASSUMPTION",
+          "assumption_reason": "Suggested launch duration"
+        }
+      },
+      "duration_days": 42,
+      "phases": [
+        {
+          "ref": "p1",
+          "title": "Prepare course",
+          "start_day": 0,
+          "end_day": 14
+        },
+        {
+          "ref": "p2",
+          "title": "Acquire learners",
+          "start_day": 7,
+          "end_day": 28
+        },
+        {
+          "ref": "p3",
+          "title": "Open enrollment",
+          "start_day": 21,
+          "end_day": 35
+        },
+        {
+          "ref": "p4",
+          "title": "Optimize conversion",
+          "start_day": 28,
+          "end_day": 42
+        }
+      ],
+      "tasks": [
+        {
+          "ref": "t1",
+          "phase_ref": "p1",
+          "title": "Prepare course",
+          "start_day": 0,
+          "end_day": 7,
+          "duration_days": 7,
+          "duration_source": "AI_ASSUMPTION",
+          "acceptance_criteria": [
+            "Output reviewed"
+          ]
+        },
+        {
+          "ref": "t2",
+          "phase_ref": "p2",
+          "title": "Acquire learners",
+          "start_day": 7,
+          "end_day": 14,
+          "duration_days": 7,
+          "duration_source": "AI_ASSUMPTION",
+          "acceptance_criteria": [
+            "Output reviewed"
+          ]
+        },
+        {
+          "ref": "t3",
+          "phase_ref": "p3",
+          "title": "Open enrollment",
+          "start_day": 21,
+          "end_day": 28,
+          "duration_days": 7,
+          "duration_source": "AI_ASSUMPTION",
+          "acceptance_criteria": [
+            "Output reviewed"
+          ]
+        },
+        {
+          "ref": "t4",
+          "phase_ref": "p4",
+          "title": "Optimize conversion",
+          "start_day": 28,
+          "end_day": 35,
+          "duration_days": 7,
+          "duration_source": "AI_ASSUMPTION",
+          "acceptance_criteria": [
+            "Output reviewed"
+          ]
+        }
+      ],
+      "assumptions": [
+        {
+          "value": "Six-week launch",
+          "status": "AI_ASSUMPTION",
+          "assumption_reason": "No launch date supplied"
+        }
+      ],
+      "dependencies": [
+        {
+          "predecessor_ref": "t1",
+          "successor_ref": "t2"
+        },
+        {
+          "predecessor_ref": "t2",
+          "successor_ref": "t3"
+        },
+        {
+          "predecessor_ref": "t3",
+          "successor_ref": "t4"
+        }
+      ],
+      "open_questions": [
+        {
+          "id": "launch-date",
+          "purpose": "FOLLOW_UP",
+          "text": "Do you have a launch date?",
+          "blocking": false,
+          "decision_impact": null,
+          "source_refs": []
+        }
+      ]
+    },
+    "candidate": {
+      "decision": {
+        "kind": "DRAFT",
+        "question": {
+          "id": "launch-date",
+          "purpose": "FOLLOW_UP",
+          "text": "Do you have a launch date?",
+          "blocking": false,
+          "decision_impact": null,
+          "source_refs": []
+        },
+        "draft": {
+          "brief": {
+            "objective": {
+              "value": "Launch an online course for 100 learners",
+              "status": "USER_STATED",
+              "source_refs": [
+                "message:prior"
+              ]
+            },
+            "audience": {
+              "value": "Broad audience",
+              "status": "AI_ASSUMPTION",
+              "source_refs": [],
+              "assumption_reason": "No detailed audience supplied"
+            },
+            "expected_outcomes": [
+              {
+                "value": "100 learners",
+                "status": "USER_STATED",
+                "source_refs": [
+                  "message:prior"
+                ]
+              }
+            ],
+            "timing": {
+              "value": 42,
+              "status": "USER_STATED",
+              "source_refs": [
+                "message:edit"
+              ]
+            },
+            "budget": {
+              "amount": 20000000,
+              "currency": "VND",
+              "status": "USER_STATED",
+              "source_refs": [
+                "message:edit"
+              ]
+            }
+          },
+          "duration_days": 42,
+          "phases": [
+            {
+              "ref": "p1",
+              "title": "Prepare course",
+              "start_day": 0,
+              "end_day": 14
+            },
+            {
+              "ref": "p2",
+              "title": "Acquire learners",
+              "start_day": 7,
+              "end_day": 28
+            },
+            {
+              "ref": "p3",
+              "title": "Open enrollment",
+              "start_day": 21,
+              "end_day": 35
+            },
+            {
+              "ref": "p4",
+              "title": "Optimize conversion",
+              "start_day": 28,
+              "end_day": 42
+            }
+          ],
+          "tasks": [
+            {
+              "ref": "t1",
+              "phase_ref": "p1",
+              "title": "Prepare course",
+              "start_day": 0,
+              "end_day": 7,
+              "duration_days": 7,
+              "duration_source": "AI_ASSUMPTION",
+              "acceptance_criteria": [
+                "Output reviewed"
+              ]
+            },
+            {
+              "ref": "t2",
+              "phase_ref": "p2",
+              "title": "Acquire learners",
+              "start_day": 7,
+              "end_day": 14,
+              "duration_days": 7,
+              "duration_source": "AI_ASSUMPTION",
+              "acceptance_criteria": [
+                "Output reviewed"
+              ]
+            },
+            {
+              "ref": "t3",
+              "phase_ref": "p3",
+              "title": "Open enrollment",
+              "start_day": 21,
+              "end_day": 28,
+              "duration_days": 7,
+              "duration_source": "AI_ASSUMPTION",
+              "acceptance_criteria": [
+                "Output reviewed"
+              ]
+            },
+            {
+              "ref": "t4",
+              "phase_ref": "p4",
+              "title": "Optimize conversion",
+              "start_day": 28,
+              "end_day": 35,
+              "duration_days": 7,
+              "duration_source": "AI_ASSUMPTION",
+              "acceptance_criteria": [
+                "Output reviewed"
+              ]
+            }
+          ],
+          "assumptions": [
+            {
+              "value": "Six-week launch",
+              "status": "AI_ASSUMPTION",
+              "assumption_reason": "No launch date supplied"
+            }
+          ],
+          "dependencies": [
+            {
+              "predecessor_ref": "t1",
+              "successor_ref": "t2"
+            },
+            {
+              "predecessor_ref": "t2",
+              "successor_ref": "t3"
+            },
+            {
+              "predecessor_ref": "t3",
+              "successor_ref": "t4"
+            }
+          ],
+          "open_questions": [
+            {
+              "id": "launch-date",
+              "purpose": "FOLLOW_UP",
+              "text": "Do you have a launch date?",
+              "blocking": false,
+              "decision_impact": null,
+              "source_refs": []
+            }
+          ]
+        }
+      },
+      "change_assessment": {
+        "affected_field_paths": [
+          "brief.budget",
+          "brief.timing"
+        ],
+        "affected_task_refs": [
+          "t2"
+        ],
+        "affected_phase_refs": [],
+        "source_refs": [
+          "message:edit"
+        ],
+        "reason": "Update the supplied budget and acquisition activity."
+      }
+    }
+  },
+  {
+    "case_id": "reduce-budget-en",
+    "scenario": "reduce-budget",
+    "locale": "en",
+    "message": "Change the budget to VND 10 million",
+    "expected": "DRAFT",
+    "layer": "GRAPH",
+    "active": true,
+    "base": {
+      "brief": {
+        "objective": {
+          "value": "Launch an online course for 100 learners",
+          "status": "USER_STATED",
+          "source_refs": [
+            "message:prior"
+          ]
+        },
+        "audience": {
+          "value": "Broad audience",
+          "status": "AI_ASSUMPTION",
+          "source_refs": [],
+          "assumption_reason": "No detailed audience supplied"
+        },
+        "expected_outcomes": [
+          {
+            "value": "100 learners",
+            "status": "USER_STATED",
+            "source_refs": [
+              "message:prior"
+            ]
+          }
+        ],
+        "timing": {
+          "value": 42,
+          "status": "USER_STATED",
+          "source_refs": [
+            "message:prior"
+          ]
+        },
+        "budget": {
+          "amount": 20000000,
+          "currency": "VND",
+          "status": "USER_STATED",
+          "source_refs": [
+            "message:prior"
+          ]
+        }
+      },
+      "duration_days": 42,
+      "phases": [
+        {
+          "ref": "p1",
+          "title": "Prepare course",
+          "start_day": 0,
+          "end_day": 14
+        },
+        {
+          "ref": "p2",
+          "title": "Acquire learners",
+          "start_day": 7,
+          "end_day": 28
+        },
+        {
+          "ref": "p3",
+          "title": "Open enrollment",
+          "start_day": 21,
+          "end_day": 35
+        },
+        {
+          "ref": "p4",
+          "title": "Optimize conversion",
+          "start_day": 28,
+          "end_day": 42
+        }
+      ],
+      "tasks": [
+        {
+          "ref": "t1",
+          "phase_ref": "p1",
+          "title": "Prepare course",
+          "start_day": 0,
+          "end_day": 7,
+          "duration_days": 7,
+          "duration_source": "AI_ASSUMPTION",
+          "acceptance_criteria": [
+            "Output reviewed"
+          ]
+        },
+        {
+          "ref": "t2",
+          "phase_ref": "p2",
+          "title": "Acquire learners",
+          "start_day": 7,
+          "end_day": 14,
+          "duration_days": 7,
+          "duration_source": "AI_ASSUMPTION",
+          "acceptance_criteria": [
+            "Output reviewed"
+          ]
+        },
+        {
+          "ref": "t3",
+          "phase_ref": "p3",
+          "title": "Open enrollment",
+          "start_day": 21,
+          "end_day": 28,
+          "duration_days": 7,
+          "duration_source": "AI_ASSUMPTION",
+          "acceptance_criteria": [
+            "Output reviewed"
+          ]
+        },
+        {
+          "ref": "t4",
+          "phase_ref": "p4",
+          "title": "Optimize conversion",
+          "start_day": 28,
+          "end_day": 35,
+          "duration_days": 7,
+          "duration_source": "AI_ASSUMPTION",
+          "acceptance_criteria": [
+            "Output reviewed"
+          ]
+        }
+      ],
+      "assumptions": [
+        {
+          "value": "Six-week launch",
+          "status": "AI_ASSUMPTION",
+          "assumption_reason": "No launch date supplied"
+        }
+      ],
+      "dependencies": [
+        {
+          "predecessor_ref": "t1",
+          "successor_ref": "t2"
+        },
+        {
+          "predecessor_ref": "t2",
+          "successor_ref": "t3"
+        },
+        {
+          "predecessor_ref": "t3",
+          "successor_ref": "t4"
+        }
+      ],
+      "open_questions": [
+        {
+          "id": "launch-date",
+          "purpose": "FOLLOW_UP",
+          "text": "Do you have a launch date?",
+          "blocking": false,
+          "decision_impact": null,
+          "source_refs": []
+        }
+      ]
+    },
+    "candidate": {
+      "decision": {
+        "kind": "DRAFT",
+        "question": {
+          "id": "launch-date",
+          "purpose": "FOLLOW_UP",
+          "text": "Do you have a launch date?",
+          "blocking": false,
+          "decision_impact": null,
+          "source_refs": []
+        },
+        "draft": {
+          "brief": {
+            "objective": {
+              "value": "Launch an online course for 100 learners",
+              "status": "USER_STATED",
+              "source_refs": [
+                "message:prior"
+              ]
+            },
+            "audience": {
+              "value": "Broad audience",
+              "status": "AI_ASSUMPTION",
+              "source_refs": [],
+              "assumption_reason": "No detailed audience supplied"
+            },
+            "expected_outcomes": [
+              {
+                "value": "100 learners",
+                "status": "USER_STATED",
+                "source_refs": [
+                  "message:prior"
+                ]
+              }
+            ],
+            "timing": {
+              "value": 42,
+              "status": "USER_STATED",
+              "source_refs": [
+                "message:prior"
+              ]
+            },
+            "budget": {
+              "amount": 10000000,
+              "currency": "VND",
+              "status": "USER_STATED",
+              "source_refs": [
+                "message:edit"
+              ]
+            }
+          },
+          "duration_days": 42,
+          "phases": [
+            {
+              "ref": "p1",
+              "title": "Prepare course",
+              "start_day": 0,
+              "end_day": 14
+            },
+            {
+              "ref": "p2",
+              "title": "Acquire learners",
+              "start_day": 7,
+              "end_day": 28
+            },
+            {
+              "ref": "p3",
+              "title": "Open enrollment",
+              "start_day": 21,
+              "end_day": 35
+            },
+            {
+              "ref": "p4",
+              "title": "Optimize conversion",
+              "start_day": 28,
+              "end_day": 42
+            }
+          ],
+          "tasks": [
+            {
+              "ref": "t1",
+              "phase_ref": "p1",
+              "title": "Prepare course",
+              "start_day": 0,
+              "end_day": 7,
+              "duration_days": 7,
+              "duration_source": "AI_ASSUMPTION",
+              "acceptance_criteria": [
+                "Output reviewed"
+              ]
+            },
+            {
+              "ref": "t2",
+              "phase_ref": "p2",
+              "title": "Acquire learners through organic channels",
+              "start_day": 7,
+              "end_day": 14,
+              "duration_days": 7,
+              "duration_source": "AI_ASSUMPTION",
+              "acceptance_criteria": [
+                "Output reviewed"
+              ]
+            },
+            {
+              "ref": "t3",
+              "phase_ref": "p3",
+              "title": "Open enrollment",
+              "start_day": 21,
+              "end_day": 28,
+              "duration_days": 7,
+              "duration_source": "AI_ASSUMPTION",
+              "acceptance_criteria": [
+                "Output reviewed"
+              ]
+            },
+            {
+              "ref": "t4",
+              "phase_ref": "p4",
+              "title": "Optimize conversion",
+              "start_day": 28,
+              "end_day": 35,
+              "duration_days": 7,
+              "duration_source": "AI_ASSUMPTION",
+              "acceptance_criteria": [
+                "Output reviewed"
+              ]
+            }
+          ],
+          "assumptions": [
+            {
+              "value": "Six-week launch",
+              "status": "AI_ASSUMPTION",
+              "assumption_reason": "No launch date supplied"
+            }
+          ],
+          "dependencies": [
+            {
+              "predecessor_ref": "t1",
+              "successor_ref": "t2"
+            },
+            {
+              "predecessor_ref": "t2",
+              "successor_ref": "t3"
+            },
+            {
+              "predecessor_ref": "t3",
+              "successor_ref": "t4"
+            }
+          ],
+          "open_questions": [
+            {
+              "id": "launch-date",
+              "purpose": "FOLLOW_UP",
+              "text": "Do you have a launch date?",
+              "blocking": false,
+              "decision_impact": null,
+              "source_refs": []
+            }
+          ]
+        }
+      },
+      "change_assessment": {
+        "affected_field_paths": [
+          "brief.budget"
+        ],
+        "affected_task_refs": [
+          "t2"
+        ],
+        "affected_phase_refs": [],
+        "source_refs": [
+          "message:edit"
+        ],
+        "reason": "Update the supplied budget and acquisition activity."
+      }
+    }
+  },
+  {
+    "case_id": "new-plan-en",
+    "scenario": "new-plan",
+    "locale": "en",
+    "message": "Create another plan for recruitment",
+    "expected": "DRAFT",
+    "layer": "GRAPH",
+    "active": true,
+    "base": {
+      "brief": {
+        "objective": {
+          "value": "Launch an online course for 100 learners",
+          "status": "USER_STATED",
+          "source_refs": [
+            "message:prior"
+          ]
+        },
+        "audience": {
+          "value": "Broad audience",
+          "status": "AI_ASSUMPTION",
+          "source_refs": [],
+          "assumption_reason": "No detailed audience supplied"
+        },
+        "expected_outcomes": [
+          {
+            "value": "100 learners",
+            "status": "USER_STATED",
+            "source_refs": [
+              "message:prior"
+            ]
+          }
+        ],
+        "timing": {
+          "value": 42,
+          "status": "AI_ASSUMPTION",
+          "assumption_reason": "Suggested launch duration"
+        }
+      },
+      "duration_days": 42,
+      "phases": [
+        {
+          "ref": "p1",
+          "title": "Prepare course",
+          "start_day": 0,
+          "end_day": 14
+        },
+        {
+          "ref": "p2",
+          "title": "Acquire learners",
+          "start_day": 7,
+          "end_day": 28
+        },
+        {
+          "ref": "p3",
+          "title": "Open enrollment",
+          "start_day": 21,
+          "end_day": 35
+        },
+        {
+          "ref": "p4",
+          "title": "Optimize conversion",
+          "start_day": 28,
+          "end_day": 42
+        }
+      ],
+      "tasks": [
+        {
+          "ref": "t1",
+          "phase_ref": "p1",
+          "title": "Prepare course",
+          "start_day": 0,
+          "end_day": 7,
+          "duration_days": 7,
+          "duration_source": "AI_ASSUMPTION",
+          "acceptance_criteria": [
+            "Output reviewed"
+          ]
+        },
+        {
+          "ref": "t2",
+          "phase_ref": "p2",
+          "title": "Acquire learners",
+          "start_day": 7,
+          "end_day": 14,
+          "duration_days": 7,
+          "duration_source": "AI_ASSUMPTION",
+          "acceptance_criteria": [
+            "Output reviewed"
+          ]
+        },
+        {
+          "ref": "t3",
+          "phase_ref": "p3",
+          "title": "Open enrollment",
+          "start_day": 21,
+          "end_day": 28,
+          "duration_days": 7,
+          "duration_source": "AI_ASSUMPTION",
+          "acceptance_criteria": [
+            "Output reviewed"
+          ]
+        },
+        {
+          "ref": "t4",
+          "phase_ref": "p4",
+          "title": "Optimize conversion",
+          "start_day": 28,
+          "end_day": 35,
+          "duration_days": 7,
+          "duration_source": "AI_ASSUMPTION",
+          "acceptance_criteria": [
+            "Output reviewed"
+          ]
+        }
+      ],
+      "assumptions": [
+        {
+          "value": "Six-week launch",
+          "status": "AI_ASSUMPTION",
+          "assumption_reason": "No launch date supplied"
+        }
+      ],
+      "dependencies": [
+        {
+          "predecessor_ref": "t1",
+          "successor_ref": "t2"
+        },
+        {
+          "predecessor_ref": "t2",
+          "successor_ref": "t3"
+        },
+        {
+          "predecessor_ref": "t3",
+          "successor_ref": "t4"
+        }
+      ],
+      "open_questions": [
+        {
+          "id": "launch-date",
+          "purpose": "FOLLOW_UP",
+          "text": "Do you have a launch date?",
+          "blocking": false,
+          "decision_impact": null,
+          "source_refs": []
+        }
+      ]
+    },
+    "candidate": {
+      "decision": {
+        "kind": "DRAFT",
+        "question": {
+          "id": "launch-date",
+          "purpose": "FOLLOW_UP",
+          "text": "Do you have a launch date?",
+          "blocking": false,
+          "decision_impact": null,
+          "source_refs": []
+        },
+        "draft": {
+          "brief": {
+            "objective": {
+              "value": "Recruit employees",
+              "status": "USER_STATED",
+              "source_refs": [
+                "message:edit"
+              ]
+            },
+            "audience": {
+              "value": "Broad audience",
+              "status": "AI_ASSUMPTION",
+              "source_refs": [],
+              "assumption_reason": "No detailed audience supplied"
+            },
+            "expected_outcomes": [],
+            "timing": {
+              "value": 42,
+              "status": "AI_ASSUMPTION",
+              "assumption_reason": "Suggested launch duration"
+            }
+          },
+          "duration_days": 42,
+          "phases": [
+            {
+              "ref": "p1",
+              "title": "Recruitment stage",
+              "start_day": 0,
+              "end_day": 14
+            },
+            {
+              "ref": "p2",
+              "title": "Recruitment stage",
+              "start_day": 7,
+              "end_day": 28
+            },
+            {
+              "ref": "p3",
+              "title": "Recruitment stage",
+              "start_day": 21,
+              "end_day": 35
+            },
+            {
+              "ref": "p4",
+              "title": "Recruitment stage",
+              "start_day": 28,
+              "end_day": 42
+            }
+          ],
+          "tasks": [
+            {
+              "ref": "t1",
+              "phase_ref": "p1",
+              "title": "Recruitment stage",
+              "start_day": 0,
+              "end_day": 7,
+              "duration_days": 7,
+              "duration_source": "AI_ASSUMPTION",
+              "acceptance_criteria": [
+                "Output reviewed"
+              ]
+            },
+            {
+              "ref": "t2",
+              "phase_ref": "p2",
+              "title": "Recruitment stage",
+              "start_day": 7,
+              "end_day": 14,
+              "duration_days": 7,
+              "duration_source": "AI_ASSUMPTION",
+              "acceptance_criteria": [
+                "Output reviewed"
+              ]
+            },
+            {
+              "ref": "t3",
+              "phase_ref": "p3",
+              "title": "Recruitment stage",
+              "start_day": 21,
+              "end_day": 28,
+              "duration_days": 7,
+              "duration_source": "AI_ASSUMPTION",
+              "acceptance_criteria": [
+                "Output reviewed"
+              ]
+            },
+            {
+              "ref": "t4",
+              "phase_ref": "p4",
+              "title": "Recruitment stage",
+              "start_day": 28,
+              "end_day": 35,
+              "duration_days": 7,
+              "duration_source": "AI_ASSUMPTION",
+              "acceptance_criteria": [
+                "Output reviewed"
+              ]
+            }
+          ],
+          "assumptions": [
+            {
+              "value": "Six-week launch",
+              "status": "AI_ASSUMPTION",
+              "assumption_reason": "No launch date supplied"
+            }
+          ],
+          "dependencies": [
+            {
+              "predecessor_ref": "t1",
+              "successor_ref": "t2"
+            },
+            {
+              "predecessor_ref": "t2",
+              "successor_ref": "t3"
+            },
+            {
+              "predecessor_ref": "t3",
+              "successor_ref": "t4"
+            }
+          ],
+          "open_questions": [
+            {
+              "id": "launch-date",
+              "purpose": "FOLLOW_UP",
+              "text": "Do you have a launch date?",
+              "blocking": false,
+              "decision_impact": null,
+              "source_refs": []
+            }
+          ]
+        }
+      },
+      "change_assessment": null
+    }
+  },
+  {
+    "case_id": "conflict-en",
+    "scenario": "conflict",
+    "locale": "en",
+    "message": "Shorten it to two weeks",
+    "expected": "DRAFT",
+    "layer": "GRAPH",
+    "active": true,
+    "base": {
+      "brief": {
+        "objective": {
+          "value": "Launch an online course for 100 learners",
+          "status": "USER_STATED",
+          "source_refs": [
+            "message:prior"
+          ]
+        },
+        "audience": {
+          "value": "Broad audience",
+          "status": "AI_ASSUMPTION",
+          "source_refs": [],
+          "assumption_reason": "No detailed audience supplied"
+        },
+        "expected_outcomes": [
+          {
+            "value": "100 learners",
+            "status": "USER_STATED",
+            "source_refs": [
+              "message:prior"
+            ]
+          }
+        ],
+        "timing": {
+          "value": 42,
+          "status": "AI_ASSUMPTION",
+          "assumption_reason": "Suggested launch duration"
+        }
+      },
+      "duration_days": 42,
+      "phases": [
+        {
+          "ref": "p1",
+          "title": "Launch",
+          "start_day": 0,
+          "end_day": 21
+        }
+      ],
+      "tasks": [
+        {
+          "ref": "t1",
+          "phase_ref": "p1",
+          "title": "Prepare course",
+          "start_day": 0,
+          "end_day": 7,
+          "duration_days": 7,
+          "duration_source": "AI_ASSUMPTION",
+          "acceptance_criteria": [
+            "Output reviewed"
+          ]
+        },
+        {
+          "ref": "t2",
+          "phase_ref": "p1",
+          "title": "Prepare course",
+          "start_day": 7,
+          "end_day": 14,
+          "duration_days": 7,
+          "duration_source": "AI_ASSUMPTION",
+          "acceptance_criteria": [
+            "Output reviewed"
+          ]
+        },
+        {
+          "ref": "t3",
+          "phase_ref": "p1",
+          "title": "Prepare course",
+          "start_day": 14,
+          "end_day": 21,
+          "duration_days": 7,
+          "duration_source": "AI_ASSUMPTION",
+          "acceptance_criteria": [
+            "Output reviewed"
+          ]
+        }
+      ],
+      "assumptions": [
+        {
+          "value": "Six-week launch",
+          "status": "AI_ASSUMPTION",
+          "assumption_reason": "No launch date supplied"
+        }
+      ],
+      "dependencies": [
+        {
+          "predecessor_ref": "t1",
+          "successor_ref": "t2"
+        },
+        {
+          "predecessor_ref": "t2",
+          "successor_ref": "t3"
+        }
+      ],
+      "open_questions": [
+        {
+          "id": "launch-date",
+          "purpose": "FOLLOW_UP",
+          "text": "Do you have a launch date?",
+          "blocking": false,
+          "decision_impact": null,
+          "source_refs": []
+        }
+      ]
+    },
+    "candidate": {
+      "decision": {
+        "kind": "DRAFT",
+        "question": {
+          "id": "launch-date",
+          "purpose": "FOLLOW_UP",
+          "text": "Do you have a launch date?",
+          "blocking": false,
+          "decision_impact": null,
+          "source_refs": []
+        },
+        "draft": {
+          "brief": {
+            "objective": {
+              "value": "Launch an online course for 100 learners",
+              "status": "USER_STATED",
+              "source_refs": [
+                "message:prior"
+              ]
+            },
+            "audience": {
+              "value": "Broad audience",
+              "status": "AI_ASSUMPTION",
+              "source_refs": [],
+              "assumption_reason": "No detailed audience supplied"
+            },
+            "expected_outcomes": [
+              {
+                "value": "100 learners",
+                "status": "USER_STATED",
+                "source_refs": [
+                  "message:prior"
+                ]
+              }
+            ],
+            "timing": {
+              "value": 14,
+              "status": "USER_STATED",
+              "source_refs": [
+                "message:edit"
+              ]
+            }
+          },
+          "duration_days": 14,
+          "phases": [
+            {
+              "ref": "p1",
+              "title": "Launch",
+              "start_day": 0,
+              "end_day": 21
+            }
+          ],
+          "tasks": [
+            {
+              "ref": "t1",
+              "phase_ref": "p1",
+              "title": "Prepare course",
+              "start_day": 0,
+              "end_day": 7,
+              "duration_days": 7,
+              "duration_source": "AI_ASSUMPTION",
+              "acceptance_criteria": [
+                "Output reviewed"
+              ]
+            },
+            {
+              "ref": "t2",
+              "phase_ref": "p1",
+              "title": "Prepare course",
+              "start_day": 7,
+              "end_day": 14,
+              "duration_days": 7,
+              "duration_source": "AI_ASSUMPTION",
+              "acceptance_criteria": [
+                "Output reviewed"
+              ]
+            },
+            {
+              "ref": "t3",
+              "phase_ref": "p1",
+              "title": "Prepare course",
+              "start_day": 14,
+              "end_day": 21,
+              "duration_days": 7,
+              "duration_source": "AI_ASSUMPTION",
+              "acceptance_criteria": [
+                "Output reviewed"
+              ]
+            }
+          ],
+          "assumptions": [
+            {
+              "value": "Six-week launch",
+              "status": "AI_ASSUMPTION",
+              "assumption_reason": "No launch date supplied"
+            }
+          ],
+          "dependencies": [
+            {
+              "predecessor_ref": "t1",
+              "successor_ref": "t2"
+            },
+            {
+              "predecessor_ref": "t2",
+              "successor_ref": "t3"
+            }
+          ],
+          "open_questions": [
+            {
+              "id": "launch-date",
+              "purpose": "FOLLOW_UP",
+              "text": "Do you have a launch date?",
+              "blocking": false,
+              "decision_impact": null,
+              "source_refs": []
+            }
+          ]
+        }
+      },
+      "change_assessment": {
+        "affected_field_paths": [
+          "brief.timing",
+          "duration_days"
+        ],
+        "affected_task_refs": [],
+        "affected_phase_refs": [],
+        "source_refs": [
+          "message:edit"
+        ],
+        "reason": "Keep dependencies and report the requested horizon conflict."
+      }
+    }
+  },
+  {
+    "case_id": "refresh-en",
+    "scenario": "refresh",
+    "locale": "en",
+    "message": "Refresh during planning",
+    "expected": "RESTORE",
+    "layer": "POSTGRES",
+    "active": false,
+    "base": null,
+    "candidate": null
+  },
+  {
+    "case_id": "stale-approval-en",
+    "scenario": "stale-approval",
+    "locale": "en",
+    "message": "Confirm an old proposal after the draft changes",
+    "expected": "REJECT_STALE",
+    "layer": "POSTGRES",
+    "active": false,
+    "base": null,
+    "candidate": null
+  },
+  {
+    "case_id": "permissions-en",
+    "scenario": "permissions",
+    "locale": "en",
+    "message": "The user lacks permission to read related data",
+    "expected": "EXCLUDE",
+    "layer": "POSTGRES",
+    "active": false,
+    "base": null,
+    "candidate": null
+  }
+]

@@ -7,6 +7,7 @@ from pydantic import ValidationError
 
 from app.modules.assistant.application.ports import AssistantTransactionFactory
 from app.modules.identity.domain.auth import AuthenticatedActor
+from app.modules.planning_runs.application.draft_service import PlanningDraftService
 from app.modules.planning_runs.application.proposal_service import ProposalService
 from app.modules.planning_runs.application.run_service import PlanningRunService
 from app.modules.planning_runs.domain.models import (
@@ -43,11 +44,13 @@ class AssistantPlanningToolAdapter:
         assistant_transaction_factory: AssistantTransactionFactory,
         planning_run_service: PlanningRunService,
         proposal_service: ProposalService,
+        planning_drafts: PlanningDraftService | None = None,
     ) -> None:
         self._actors = actor_resolver
         self._assistant_transactions = assistant_transaction_factory
         self._planning_runs = planning_run_service
         self._proposals = proposal_service
+        self._drafts = planning_drafts
 
     async def execute(self, request: ToolExecutionRequest) -> ToolExecutionResult:
         if request.tool_id != "planning.manage_run" or request.tool_version != "1.0.0":
@@ -113,7 +116,83 @@ class AssistantPlanningToolAdapter:
                     workflow_run_id=result.run.id,
                     workflow_status=result.run.status.value,
                 )
+            if value.operation in {
+                PlanningOperation.UPDATE_DRAFT,
+                PlanningOperation.PREPARE_ACTION,
+            }:
+                if (
+                    self._drafts is None
+                    or value.draft_id is None
+                    or value.expected_draft_version is None
+                    or value.workflow_run_id is None
+                ):
+                    return self._reject("PLANNING_INPUT_INVALID")
+                snapshot = await self._drafts.get_snapshot(actor=actor, draft_id=value.draft_id)
+                if (
+                    snapshot.workflow_run_id != value.workflow_run_id
+                    or snapshot.current_version != value.expected_draft_version
+                ):
+                    return self._reject("RESOURCE_VERSION_MISMATCH")
+                async with self._assistant_transactions(actor) as transaction:
+                    if not await transaction.repository.has_planning_conversation_link(
+                        actor=actor, turn_id=turn_id, workflow_run_id=value.workflow_run_id
+                    ):
+                        return self._reject("PLANNING_RUN_NOT_FOUND")
+                    await transaction.repository.link_agent_workflow_run(
+                        organization_id=actor.organization_id,
+                        agent_run_id=request.agent_run_id,
+                        workflow_run_id=value.workflow_run_id,
+                    )
+                    await transaction.commit()
+                if value.operation is PlanningOperation.PREPARE_ACTION:
+                    if value.anchor_date is None:
+                        return self._reject("PLANNING_INPUT_INVALID")
+                    prepared = await self._drafts.prepare_action(
+                        actor=actor,
+                        draft_id=value.draft_id,
+                        expected_draft_version=value.expected_draft_version,
+                        anchor_date=value.anchor_date,
+                        request_id=f"assistant-tool:{request.agent_run_id}:{request.call_id}",
+                        idempotency_key=request.idempotency_key,
+                    )
+                    return self._success(
+                        value,
+                        workflow_run_id=prepared.workflow_run_id,
+                        workflow_status="WAITING_FOR_DECISION",
+                        proposal_id=prepared.proposal_id,
+                        proposal_version=prepared.proposal_version,
+                        approval_id=prepared.approval_id,
+                        awaiting="MANAGER_DECISION",
+                    )
+                result = await self._planning_runs.post_manager_message(
+                    actor=actor,
+                    run_id=value.workflow_run_id,
+                    message=value.manager_instruction or "",
+                    draft_id=value.draft_id,
+                    expected_draft_version=value.expected_draft_version,
+                    request_id=f"assistant-tool:{request.agent_run_id}:{request.call_id}",
+                    idempotency_key=request.idempotency_key,
+                )
+                return self._success(
+                    value, workflow_run_id=result.run.id, workflow_status=result.run.status.value
+                )
             if value.operation is PlanningOperation.RESUME_INPUT:
+                if value.workflow_run_id is not None and agent_run.workflow_run_id is None:
+                    candidate_run = await self._planning_runs.get_workflow_run(
+                        actor=actor, run_id=value.workflow_run_id
+                    )
+                    if candidate_run.workflow_version == "3.0.0":
+                        async with self._assistant_transactions(actor) as transaction:
+                            if not await transaction.repository.has_planning_conversation_link(
+                                actor=actor, turn_id=turn_id, workflow_run_id=value.workflow_run_id
+                            ):
+                                return self._reject("PLANNING_RUN_NOT_FOUND")
+                            agent_run = await transaction.repository.link_agent_workflow_run(
+                                organization_id=actor.organization_id,
+                                agent_run_id=request.agent_run_id,
+                                workflow_run_id=value.workflow_run_id,
+                            )
+                            await transaction.commit()
                 if (
                     value.workflow_run_id is None
                     or agent_run.workflow_run_id != value.workflow_run_id

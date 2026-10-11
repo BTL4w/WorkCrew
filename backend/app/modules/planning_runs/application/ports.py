@@ -23,6 +23,10 @@ from app.modules.planning_runs.domain.risk_replanning import RiskPlanBinding, Ri
 
 
 class PlanningRunRepository(Protocol):
+    async def validate_draft_binding(
+        self, *, actor: AuthenticatedActor, run_id: UUID, draft_id: UUID, expected_version: int
+    ) -> None: ...
+
     """Repository port for AI planning run entities and workflow state."""
 
     async def fail_risk_revision_run(self, *, organization_id: UUID, run_id: UUID) -> bool: ...

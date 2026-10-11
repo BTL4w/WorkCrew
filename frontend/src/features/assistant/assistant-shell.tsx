@@ -137,7 +137,8 @@ export function AssistantShell({
   const projectedSequenceRef = useRef(projectedSequence);
   useEffect(() => {
     projectedSequenceRef.current = projectedSequence;
-  }, [projectedSequence]);
+    void queryClient.invalidateQueries({ queryKey: ["work", organizationId, membershipId, "planning-draft"] });
+  }, [projectedSequence, queryClient, organizationId, membershipId]);
   useEffect(() => {
     if (!assistantActive || !activeConversationId) return;
     const connection = connectEvents({
@@ -201,7 +202,7 @@ export function AssistantShell({
       return;
     }
     const workflowRunId = latestQuestion?.response_context.workflow_run_id;
-    const cardAction = typeof workflowRunId === "string" ? { kind: "PLANNING_INPUT" as const, workflow_run_id: workflowRunId } : undefined;
+    const cardAction = typeof workflowRunId === "string" && latestQuestion?.response_context.progressive !== true ? { kind: "PLANNING_INPUT" as const, workflow_run_id: workflowRunId } : undefined;
     void send({ message: normalized, locale, ...(cardAction ? { card_action: cardAction } : {}) });
   }
 
@@ -219,6 +220,10 @@ export function AssistantShell({
       return false;
     } finally { setSubmitting(false); }
   }
+  function prepareDraft(block: Extract<AssistantBlock,{kind:"planning_draft"}>, anchorDate:string) {
+    void send({message:t("draft.prepareMessage",{date:anchorDate}),locale,card_action:{kind:"PLANNING_DRAFT_PREPARE",schema_version:"1.0",workflow_run_id:block.workflow_run_id,draft_id:block.draft_id,draft_version:block.draft_version,anchor_date:anchorDate}},block.draft_version);
+  }
+
   function revise(block: ProposalBlock, instruction: string) {
     void send({ message: instruction, locale, card_action: { kind: "PLANNING_REVISE", workflow_run_id: block.workflow_run_id, proposal_id: block.proposal_id } }, block.proposal_version);
   }
@@ -335,6 +340,7 @@ export function AssistantShell({
         {snapshot.isPending && activeConversationId ? <p role="status">{t("loading")}</p> : <Transcript
           messages={snapshot.data?.messages ?? []}
           canManage={canManage}
+          onPrepareDraft={prepareDraft}
           onEdit={saveEdit}
           onRevise={revise}
           onApprove={(block) => void decide(block, "APPROVE")}

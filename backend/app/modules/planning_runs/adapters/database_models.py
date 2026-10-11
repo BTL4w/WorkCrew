@@ -47,7 +47,7 @@ class WorkflowRunModel(Base):
         CheckConstraint(
             "status IN ("
             "'QUEUED', 'RUNNING', 'NEEDS_INPUT', "
-            "'WAITING_FOR_DECISION', 'COMPLETED', 'FAILED')",
+            "'DRAFT_AVAILABLE', 'WAITING_FOR_DECISION', 'COMPLETED', 'FAILED')",
             name="status",
         ),
         Index("ix_workflow_runs_project", "organization_id", "project_id", "id"),
@@ -153,6 +153,18 @@ class ProposalVersionModel(Base):
     __tablename__ = "proposal_versions"
     __table_args__ = (
         ForeignKeyConstraint(
+            ["organization_id", "source_draft_id", "source_draft_version"],
+            [
+                "planning_draft_versions.organization_id",
+                "planning_draft_versions.draft_id",
+                "planning_draft_versions.version_number",
+            ],
+            name="fk_proposal_versions_source_draft",
+        ),
+        CheckConstraint(
+            "(source_draft_id IS NULL) = (source_draft_version IS NULL)", name="source_draft_pair"
+        ),
+        ForeignKeyConstraint(
             ["organization_id", "proposal_id"],
             ["proposals.organization_id", "proposals.id"],
             ondelete="CASCADE",
@@ -171,6 +183,8 @@ class ProposalVersionModel(Base):
         Index("ix_proposal_versions_proposal", "organization_id", "proposal_id", "version_number"),
     )
 
+    source_draft_id: Mapped[UUID | None] = mapped_column(nullable=True)
+    source_draft_version: Mapped[int | None] = mapped_column(Integer, nullable=True)
     id: Mapped[UUID] = mapped_column(primary_key=True)
     organization_id: Mapped[UUID]
     proposal_id: Mapped[UUID]
@@ -432,4 +446,66 @@ class OutboxEventModel(Base):
         DateTime(timezone=True),
         server_default=func.now(),
     )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class PlanningDraftModel(Base):
+    __tablename__ = "planning_drafts"
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["organization_id", "workflow_run_id"],
+            ["workflow_runs.organization_id", "workflow_runs.id"],
+            ondelete="RESTRICT",
+        ),
+        ForeignKeyConstraint(
+            ["organization_id", "created_by_membership_id"],
+            ["memberships.organization_id", "memberships.id"],
+            ondelete="RESTRICT",
+        ),
+        ForeignKeyConstraint(
+            ["organization_id", "id", "current_version_number"],
+            [
+                "planning_draft_versions.organization_id",
+                "planning_draft_versions.draft_id",
+                "planning_draft_versions.version_number",
+            ],
+            name="fk_planning_drafts_current_version",
+            deferrable=True,
+            initially="DEFERRED",
+            use_alter=True,
+        ),
+        UniqueConstraint("organization_id", "id"),
+        UniqueConstraint("organization_id", "workflow_run_id"),
+        CheckConstraint("current_version_number >= 1 AND version >= 1", name="versions"),
+        Index("ix_planning_drafts_owner", "organization_id", "created_by_membership_id", "id"),
+    )
+    id: Mapped[UUID] = mapped_column(primary_key=True)
+    organization_id: Mapped[UUID]
+    workflow_run_id: Mapped[UUID]
+    created_by_membership_id: Mapped[UUID]
+    current_version_number: Mapped[int] = mapped_column(Integer)
+    version: Mapped[int] = mapped_column(Integer, default=1, server_default="1")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class PlanningDraftVersionModel(Base):
+    __tablename__ = "planning_draft_versions"
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["organization_id", "draft_id"],
+            ["planning_drafts.organization_id", "planning_drafts.id"],
+            ondelete="RESTRICT",
+        ),
+        UniqueConstraint("organization_id", "draft_id", "version_number"),
+        CheckConstraint("version_number >= 1", name="version"),
+        CheckConstraint("fingerprint ~ '^[a-f0-9]{64}$'", name="fingerprint"),
+        Index("ix_planning_draft_versions_draft", "organization_id", "draft_id", "version_number"),
+    )
+    id: Mapped[UUID] = mapped_column(primary_key=True)
+    organization_id: Mapped[UUID]
+    draft_id: Mapped[UUID]
+    version_number: Mapped[int] = mapped_column(Integer)
+    content: Mapped[dict[str, Any]] = mapped_column(JSONB)
+    fingerprint: Mapped[str] = mapped_column(String(64))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())

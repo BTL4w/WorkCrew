@@ -94,6 +94,9 @@ class PlanningAIRuntime:
     verifier_version = PLANNING_VERIFIER_VERSION
     schema_version = PLANNING_SCHEMA_VERSION
 
+    def __init__(self, *, progressive_enabled: bool = False) -> None:
+        self.workflow_version = "3.0.0" if progressive_enabled else PLANNING_WORKFLOW_VERSION
+
     def validate_capability(self, message: str) -> None:
         decision = evaluate_planning_policy(actor_role="MANAGER", user_brief=message)
         if decision.outcome != "ALLOW":
@@ -256,6 +259,23 @@ class _Phase2MockModelGateway:
             }
             return await MockModelGateway(
                 fixtures={request.invocation_key: fixture}
+            ).generate_structured(request)
+        if request.invocation_key.startswith("planning.progressive."):
+            from app.modules.planning_runs.adapters.progressive_mock import progressive_fixture
+
+            locale = "vi" if ".vi." in request.invocation_key else "en"
+            fixture: dict[str, Any] = (
+                {
+                    "passed": True,
+                    "unsupported_claim_paths": [],
+                    "constraint_violation_paths": [],
+                    "safe_reasons": [],
+                }
+                if request.invocation_key.endswith(".grounding")
+                else progressive_fixture(self._payload(request), locale)
+            )
+            return await MockModelGateway(
+                fixtures={request.invocation_key: fixture}, model_ref="mock:progressive-planning-v1"
             ).generate_structured(request)
         if request.invocation_key.startswith("planning."):
             return await self._planning.generate_structured(request)
@@ -625,6 +645,36 @@ class _Phase2MockModelGateway:
                 and "assignment.recommend_team" in cast(list[object], capabilities)
             )
 
+        active = payload.get("active_planning")
+        if (
+            isinstance(active, dict)
+            and cast(dict[str, object], active).get("workflow_version") == "3.0.0"
+            and not any(
+                signal in message
+                for signal in ("kế hoạch khác", "another plan", "new plan", "plan khác")
+            )
+            and not any(
+                signal in message for signal in ("report", "báo cáo", "my tasks", "việc của tôi")
+            )
+        ):
+            return {
+                "objectives": [message or "Refine planning draft"],
+                "planning_intent": "CONTINUE_DRAFT",
+                "steps": [
+                    {
+                        "step_id": "continue_plan",
+                        "target_agent_id": "planning",
+                        "target_agent_version": "1.0.0",
+                        "capability": "planning.resume",
+                        "objective": message or "Refine draft",
+                        "typed_input": {},
+                        "depends_on": [],
+                        "mode": "PROPOSAL",
+                    }
+                ],
+                "unavailable_capabilities": [],
+                "response_language": locale,
+            }
         assignment_available = any(is_assignment_entry(item) for item in catalog)
         asks_for_team = any(signal in message for signal in ("project", "dự án")) and any(
             signal in message for signal in ("team", "đội ngũ", "nhóm", "nhân sự")
@@ -771,7 +821,11 @@ class WorkflowRecordingModelGateway:
                         provider=provider or "unknown",
                         model_name=model_name or model_ref,
                         prompt_version=request.invocation_key,
-                        schema_version=PLANNING_SCHEMA_VERSION,
+                        schema_version=(
+                            "planning-draft.v1"
+                            if request.invocation_key.startswith("planning.progressive.")
+                            else PLANNING_SCHEMA_VERSION
+                        ),
                         invocation_key=request.invocation_key,
                         duration_ms=max(0, int((monotonic() - started) * 1000)),
                         status=status,
@@ -975,6 +1029,19 @@ class PlanningJobHandler:
         )
         if actor is None or actor.role not in {MembershipRole.ADMIN, MembershipRole.MANAGER}:
             raise RuntimeError("ACTOR_CONTEXT_UNAVAILABLE")
+        if run.workflow_version == "3.0.0":
+            from app.modules.planning_runs.adapters.progressive_runtime import (
+                execute_progressive_job,
+            )
+
+            await execute_progressive_job(
+                settings=self._settings,
+                transactions=self._transactions,
+                actor=actor,
+                run=run,
+                job=job,
+            )
+            return
         gateway = WorkflowRecordingModelGateway(
             gateway=build_model_gateway(self._settings),
             transaction_factory=self._transactions,

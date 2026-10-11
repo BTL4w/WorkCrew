@@ -3,6 +3,7 @@ import { z } from "zod";
 export const workflowRunStatusSchema = z.enum([
   "QUEUED",
   "RUNNING",
+  "DRAFT_AVAILABLE",
   "NEEDS_INPUT",
   "WAITING_FOR_DECISION",
   "COMPLETED",

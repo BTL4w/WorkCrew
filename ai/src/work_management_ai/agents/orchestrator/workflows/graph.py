@@ -169,6 +169,7 @@ class OrchestratorGraph:
             _route,
             {
                 "execute": "select_next_step",
+                "ask_user": "ask_user",
                 "repair": "bounded_repair",
                 "capability_unavailable": "capability_unavailable",
                 "manual_fallback": "manual_fallback",

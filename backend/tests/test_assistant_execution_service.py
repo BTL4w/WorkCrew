@@ -100,7 +100,51 @@ def test_latest_current_proposal_is_available_as_ambient_chat_context() -> None:
         "proposal_version": 2,
         "proposal_status": "READY_FOR_DECISION",
         "requested_operation": None,
+        "workflow_version": "2.0.0",
+        "draft_id": None,
+        "draft_version": None,
+        "draft_fingerprint": None,
+        "anchor_date": None,
     }
+
+
+def test_prepared_proposal_retains_progressive_draft_context() -> None:
+    organization_id, conversation_id, workflow_id, draft_id, proposal_id = (
+        uuid4() for _ in range(5)
+    )
+    messages = tuple(
+        AssistantMessage(
+            id=uuid4(),
+            organization_id=organization_id,
+            conversation_id=conversation_id,
+            sequence=index + 1,
+            role=MessageRole.ASSISTANT,
+            content_blocks=(block,),
+        )
+        for index, block in enumerate(
+            [
+                {
+                    "kind": "planning_draft",
+                    "workflow_run_id": str(workflow_id),
+                    "draft_id": str(draft_id),
+                    "draft_version": 2,
+                },
+                {
+                    "kind": "proposal",
+                    "workflow_run_id": str(workflow_id),
+                    "proposal_id": str(proposal_id),
+                    "proposal_version": 1,
+                    "state": "READY_FOR_DECISION",
+                    "read_only": False,
+                },
+            ]
+        )
+    )
+    context = resolve_ambient_planning_context(messages)
+    assert context is not None
+    assert context.workflow_version == "3.0.0"
+    assert context.draft_id == draft_id and context.draft_version == 2
+    assert context.proposal_id == proposal_id
 
 
 @pytest.mark.asyncio

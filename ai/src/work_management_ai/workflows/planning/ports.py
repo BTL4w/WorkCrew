@@ -5,6 +5,9 @@ from typing import Literal, Protocol
 from uuid import UUID
 
 from work_management_ai.schemas.planning import PlanningModelOutput
+from work_management_ai.schemas.progressive_planning import DraftBinding, PlanningDecision
+from work_management_ai.workflows.planning.draft_verifier import DraftValidationResult
+from work_management_ai.workflows.planning.state import ProgressivePlanningState
 from work_management_ai.workflows.planning.verifier import PlanningValidationResult
 
 
@@ -77,3 +80,12 @@ class PlanningPersistencePort(Protocol):
         self,
         draft: PlanningProposalDraft,
     ) -> PersistedProposalReference: ...
+
+
+class ProgressivePlanningPersistencePort(Protocol):
+    async def publish_progressive_result(
+        self,
+        state: ProgressivePlanningState,
+        decision: PlanningDecision,
+        validation: DraftValidationResult,
+    ) -> DraftBinding | None: ...

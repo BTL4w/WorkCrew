@@ -8,6 +8,7 @@ from typing import Any
 
 from .phase5_cases import load_cases
 from .phase5_reporting import MockReportingEvaluationGateway, run_reporting_suite
+from .progressive_planning import evaluate_default_suite
 
 LEGACY_SUITES = (
     "phase2_multi_agent",
@@ -19,7 +20,7 @@ LEGACY_SUITES = (
 
 
 def evaluate_core_gate(suites: dict[str, bool]) -> bool:
-    required = set(LEGACY_SUITES) | {"phase5_reporting"}
+    required = set(LEGACY_SUITES) | {"phase5_reporting", "progressive_planning"}
     return required.issubset(suites) and all(suites[name] for name in required)
 
 
@@ -42,6 +43,9 @@ def main() -> int:
     reporting = asyncio.run(run_reporting_suite(load_cases(), MockReportingEvaluationGateway()))
     reports["phase5_reporting"] = reporting.model_dump(mode="json")
     gates["phase5_reporting"] = reporting.gate.passed
+    progressive = asyncio.run(evaluate_default_suite())
+    reports["progressive_planning"] = progressive.model_dump(mode="json")
+    gates["progressive_planning"] = progressive.passed
     passed = evaluate_core_gate(gates)
     print(
         json.dumps(

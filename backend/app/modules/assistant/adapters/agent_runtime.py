@@ -23,6 +23,9 @@ from app.modules.assistant.domain.models import (
     OrchestrationRunStatus,
 )
 from app.modules.identity.domain.auth import AuthenticatedActor
+from app.modules.planning_runs.application.draft_service import PlanningDraftService
+from app.modules.planning_runs.application.run_service import PlanningRunService
+from app.modules.planning_runs.domain.models import PlanningRunDomainError
 from work_management_ai.agents.assignment.harness import AssignmentAgentHarness
 from work_management_ai.agents.daily_update.harness import DailyUpdateHarness
 from work_management_ai.agents.orchestrator.contracts import (
@@ -158,16 +161,50 @@ def resolve_ambient_planning_context(
     """Resolve the latest current proposal without inferring a user operation."""
 
     closed_workflows: set[UUID] = set()
+    drafts = {
+        str(block.get("workflow_run_id")): block
+        for message in messages
+        for block in message.content_blocks
+        if block.get("kind") == "planning_draft"
+    }
     for message in reversed(messages):
         for block in reversed(message.content_blocks):
             kind = block.get("kind")
             try:
-                workflow_run_id = UUID(str(block["workflow_run_id"]))
+                workflow_run_id = UUID(
+                    str(
+                        block.get("workflow_run_id")
+                        or cast(dict[str, Any], block.get("response_context") or {}).get(
+                            "workflow_run_id"
+                        )
+                    )
+                )
             except (KeyError, ValueError):
                 continue
             if kind == "decision_result":
                 closed_workflows.add(workflow_run_id)
                 continue
+            if workflow_run_id not in closed_workflows and kind == "planning_draft":
+                return ActivePlanningContext(
+                    workflow_run_id=workflow_run_id,
+                    workflow_status="DRAFT_AVAILABLE",
+                    workflow_version="3.0.0",
+                    proposal_id=None,
+                    draft_id=UUID(str(block["draft_id"])),
+                    draft_version=int(block["draft_version"]),
+                )
+            if (
+                workflow_run_id not in closed_workflows
+                and kind == "question"
+                and isinstance(block.get("response_context"), dict)
+                and block["response_context"].get("progressive")
+            ):
+                return ActivePlanningContext(
+                    workflow_run_id=workflow_run_id,
+                    workflow_status="NEEDS_INPUT",
+                    workflow_version="3.0.0",
+                    proposal_id=None,
+                )
             if kind != "proposal" or workflow_run_id in closed_workflows:
                 continue
             state = block.get("state")
@@ -183,6 +220,7 @@ def resolve_ambient_planning_context(
                 continue
             if proposal_version < 1:
                 continue
+            draft = drafts.get(str(workflow_run_id))
             return ActivePlanningContext(
                 workflow_run_id=workflow_run_id,
                 workflow_status="WAITING_FOR_DECISION",
@@ -190,6 +228,9 @@ def resolve_ambient_planning_context(
                 proposal_version=proposal_version,
                 proposal_status=str(state),
                 requested_operation=None,
+                workflow_version="3.0.0" if draft else "2.0.0",
+                draft_id=UUID(str(draft["draft_id"])) if draft else None,
+                draft_version=int(draft["draft_version"]) if draft else None,
             )
     return None
 
@@ -600,8 +641,13 @@ class AssistantTurnExecutor:
         assignment_context_resolver: AssignmentContextResolverPort | None = None,
         daily_update_context_resolver: DailyUpdateContextResolver | None = None,
         block_projector: Any = None,
+        planning_drafts: PlanningDraftService | None = None,
+        planning_runs: PlanningRunService | None = None,
+        progressive_planning_enabled: bool = False,
     ) -> None:
         self._block_projector = block_projector
+        self._planning_drafts, self._planning_runs = planning_drafts, planning_runs
+        self._progressive_enabled = progressive_planning_enabled
         self._transactions = transaction_factory
         self._registry = registry
         self._engine_factory = engine_factory
@@ -628,6 +674,31 @@ class AssistantTurnExecutor:
             raise RuntimeError("ASSISTANT_EXECUTION_CONTEXT_INVALID")
         excerpts: list[ConversationExcerpt] = []
         active_planning = resolve_ambient_planning_context(snapshot.messages)
+        if active_planning is not None and active_planning.workflow_version == "3.0.0":
+            try:
+                if active_planning.draft_id is not None and self._planning_drafts is not None:
+                    latest = await self._planning_drafts.get_snapshot(
+                        actor=actor, draft_id=active_planning.draft_id
+                    )
+                    active_planning = active_planning.model_copy(
+                        update={
+                            "draft_version": latest.current_version,
+                            "draft_fingerprint": latest.fingerprint,
+                        }
+                    )
+                elif self._planning_runs is not None:
+                    latest_run = await self._planning_runs.get_workflow_run(
+                        actor=actor, run_id=active_planning.workflow_run_id
+                    )
+                    if latest_run.requested_by_membership_id != actor.membership_id:
+                        raise ValueError("planning context owner changed")
+                    active_planning = active_planning.model_copy(
+                        update={"workflow_status": latest_run.status.value}
+                    )
+                else:
+                    active_planning = None
+            except (PlanningRunDomainError, ValueError):
+                active_planning = None
         pending_followup = None
         raw_pending = run.checkpoint.get("pending_followup")
         if isinstance(raw_pending, dict):
@@ -661,7 +732,38 @@ class AssistantTurnExecutor:
                         continue
                     trusted_action = cast(dict[str, object], action)
                     action_kind = trusted_action.get("kind")
-                    requested_operation: Literal["RESUME_INPUT", "REVISE"]
+                    requested_operation: Literal[
+                        "RESUME_INPUT", "REVISE", "UPDATE_DRAFT", "PREPARE_ACTION"
+                    ]
+                    if action_kind in {"PLANNING_DRAFT_UPDATE", "PLANNING_DRAFT_PREPARE"}:
+                        from datetime import date
+
+                        if self._planning_drafts is None:
+                            raise RuntimeError("PLANNING_CONTEXT_UNAVAILABLE")
+                        selected = await self._planning_drafts.get_snapshot(
+                            actor=actor, draft_id=UUID(str(trusted_action["draft_id"]))
+                        )
+                        if (
+                            str(selected.workflow_run_id) != str(trusted_action["workflow_run_id"])
+                            or selected.current_version != trusted_action["draft_version"]
+                        ):
+                            raise RuntimeError("RESOURCE_VERSION_MISMATCH")
+                        active_planning = ActivePlanningContext(
+                            workflow_run_id=selected.workflow_run_id,
+                            workflow_status="DRAFT_AVAILABLE",
+                            workflow_version="3.0.0",
+                            proposal_id=None,
+                            draft_id=selected.draft_id,
+                            draft_version=selected.current_version,
+                            draft_fingerprint=selected.fingerprint,
+                            requested_operation="PREPARE_ACTION"
+                            if action_kind == "PLANNING_DRAFT_PREPARE"
+                            else "UPDATE_DRAFT",
+                            anchor_date=date.fromisoformat(str(trusted_action["anchor_date"]))
+                            if trusted_action.get("anchor_date")
+                            else None,
+                        )
+                        break
                     if action_kind == "PLANNING_INPUT":
                         requested_operation = "RESUME_INPUT"
                     elif action_kind == "PLANNING_REVISE":
@@ -764,6 +866,7 @@ class AssistantTurnExecutor:
                         organization_id=actor.organization_id,
                     ),
                     active_context=ActiveConversationContext(
+                        progressive_planning_enabled=self._progressive_enabled,
                         recent_messages=tuple(excerpts),
                         daily_update=daily_update,
                         daily_update_resolution_issue=daily_issue,

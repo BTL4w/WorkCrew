@@ -69,6 +69,7 @@ from app.modules.planning_runs.domain.models import (
     WorkflowJob,
     WorkflowJobStatus,
     WorkflowRun,
+    WorkflowRunStateError,
     WorkflowRunStatus,
 )
 from app.modules.planning_runs.domain.risk_replanning import RiskPlanBinding, RiskPlanMetadata
@@ -310,6 +311,23 @@ class PostgreSQLPlanningRunRepository(PlanningRunRepository):
         )
         if replay is not None:
             return _decision_result(replay, replayed=True)
+
+        workflow_id = await self._session.scalar(
+            select(ProposalModel.workflow_run_id)
+            .join(
+                ApprovalModel,
+                (ApprovalModel.organization_id == ProposalModel.organization_id)
+                & (ApprovalModel.proposal_id == ProposalModel.id),
+            )
+            .where(
+                ApprovalModel.organization_id == actor.organization_id,
+                ApprovalModel.id == approval_id,
+            )
+        )
+        if workflow_id is not None:
+            from app.modules.planning_runs.adapters.draft_repository import lock_planning_workflow
+
+            await lock_planning_workflow(self._session, actor.organization_id, workflow_id)
 
         approval_model = await self._session.scalar(
             select(ApprovalModel)
@@ -723,7 +741,31 @@ class PostgreSQLPlanningRunRepository(PlanningRunRepository):
                 resource_id = UUID(str(item["resource_id"]))
             except (KeyError, ValueError) as error:
                 raise ProposalStaleError from error
-            if resource_type == "RISK_WEEKLY_PLAN":
+            if resource_type == "PLANNING_DRAFT":
+                from app.modules.planning_runs.adapters.database_models import (
+                    PlanningDraftModel,
+                    PlanningDraftVersionModel,
+                )
+
+                draft = await self._session.scalar(
+                    select(PlanningDraftModel).where(
+                        PlanningDraftModel.organization_id == actor.organization_id,
+                        PlanningDraftModel.id == resource_id,
+                        PlanningDraftModel.created_by_membership_id == actor.membership_id,
+                    )
+                )
+                if draft is None or draft.current_version_number != int(item.get("version", -1)):
+                    raise ProposalStaleError
+                version = await self._session.scalar(
+                    select(PlanningDraftVersionModel).where(
+                        PlanningDraftVersionModel.organization_id == actor.organization_id,
+                        PlanningDraftVersionModel.draft_id == draft.id,
+                        PlanningDraftVersionModel.version_number == draft.current_version_number,
+                    )
+                )
+                if version is None or version.fingerprint != item.get("fingerprint"):
+                    raise ProposalStaleError
+            elif resource_type == "RISK_WEEKLY_PLAN":
                 metadata = RiskPlanMetadata.model_validate(item["metadata"])
                 if metadata.before.project_id != resource_id:
                     raise ProposalStaleError
@@ -1308,7 +1350,13 @@ class PostgreSQLPlanningRunRepository(PlanningRunRepository):
             .where(
                 WorkflowRunModel.organization_id == actor.organization_id,
                 WorkflowRunModel.id == run.id,
-                WorkflowRunModel.status == WorkflowRunStatus.NEEDS_INPUT.value,
+                WorkflowRunModel.status.in_(
+                    [
+                        WorkflowRunStatus.NEEDS_INPUT.value,
+                        WorkflowRunStatus.DRAFT_AVAILABLE.value,
+                        WorkflowRunStatus.WAITING_FOR_DECISION.value,
+                    ]
+                ),
                 WorkflowRunModel.version == run.version - 1,
             )
             .with_for_update()
@@ -1328,7 +1376,7 @@ class PostgreSQLPlanningRunRepository(PlanningRunRepository):
         if (
             latest is None
             or latest.sequence != checkpoint.sequence
-            or latest.node != "await_manager_input"
+            or latest.node != checkpoint.node
         ):
             raise InvalidTransitionError("manager-input checkpoint changed")
         now = datetime.now(UTC)
@@ -1420,6 +1468,7 @@ class PostgreSQLPlanningRunRepository(PlanningRunRepository):
         validation_result: dict[str, object],
         request_id: str,
     ) -> Proposal:
+        await self._lock_proposal_workflow(actor.organization_id, proposal_id)
         proposal_model = await self._session.scalar(
             select(ProposalModel)
             .where(
@@ -1508,6 +1557,7 @@ class PostgreSQLPlanningRunRepository(PlanningRunRepository):
         job = values["job"]
         assert isinstance(actor, AuthenticatedActor)
         assert isinstance(proposal, Proposal)
+        await self._lock_proposal_workflow(actor.organization_id, proposal.id)
         assert isinstance(version, ProposalVersion)
         assert approval is None or isinstance(approval, Approval)
         assert isinstance(job, WorkflowJob)
@@ -1584,6 +1634,8 @@ class PostgreSQLPlanningRunRepository(PlanningRunRepository):
                 field_provenance=version.field_provenance,
                 validation_result=version.validation_result,
                 source_reference_snapshot=version.source_reference_snapshot,
+                source_draft_id=version.source_draft_id,
+                source_draft_version=version.source_draft_version,
                 workflow_version=version.workflow_version,
                 prompt_version=version.prompt_version,
                 schema_version=version.schema_version,
@@ -1663,6 +1715,7 @@ class PostgreSQLPlanningRunRepository(PlanningRunRepository):
         job = values["job"]
         assert isinstance(actor, AuthenticatedActor)
         assert isinstance(proposal_id, UUID)
+        await self._lock_proposal_workflow(actor.organization_id, proposal_id)
         assert isinstance(job, WorkflowJob)
         expected_version_value = values["expected_version"]
         assert isinstance(expected_version_value, int)
@@ -1779,6 +1832,7 @@ class PostgreSQLPlanningRunRepository(PlanningRunRepository):
         proposal_id = values["proposal_id"]
         assert isinstance(actor, AuthenticatedActor)
         assert isinstance(proposal_id, UUID)
+        await self._lock_proposal_workflow(actor.organization_id, proposal_id)
         base_version_value = values["base_version"]
         assert isinstance(base_version_value, int)
         base_version = base_version_value
@@ -1831,6 +1885,7 @@ class PostgreSQLPlanningRunRepository(PlanningRunRepository):
         validation_result = values["validation_result"]
         assert isinstance(actor, AuthenticatedActor)
         assert isinstance(proposal_id, UUID)
+        await self._lock_proposal_workflow(actor.organization_id, proposal_id)
         assert isinstance(content, dict)
         assert isinstance(validation_result, dict)
         typed_content = cast(dict[str, object], content)
@@ -1899,6 +1954,8 @@ class PostgreSQLPlanningRunRepository(PlanningRunRepository):
             field_provenance={"default": "AI_PROPOSED"},
             validation_result=cast(dict[str, Any], typed_validation),
             source_reference_snapshot=list(base.source_reference_snapshot),
+            source_draft_id=base.source_draft_id,
+            source_draft_version=base.source_draft_version,
             workflow_version=base.workflow_version,
             prompt_version=base.prompt_version,
             schema_version=base.schema_version,
@@ -2066,6 +2123,46 @@ class PostgreSQLPlanningRunRepository(PlanningRunRepository):
             created_at=model.created_at,
         )
 
+    async def _lock_proposal_workflow(self, organization_id: UUID, proposal_id: UUID) -> None:
+        from app.modules.planning_runs.adapters.draft_repository import lock_planning_workflow
+
+        run_id = await self._session.scalar(
+            select(ProposalModel.workflow_run_id).where(
+                ProposalModel.organization_id == organization_id, ProposalModel.id == proposal_id
+            )
+        )
+        if run_id is not None:
+            await lock_planning_workflow(self._session, organization_id, run_id)
+
+    async def validate_draft_binding(
+        self, *, actor: AuthenticatedActor, run_id: UUID, draft_id: UUID, expected_version: int
+    ) -> None:
+        from app.modules.planning_runs.adapters.database_models import PlanningDraftModel
+        from app.modules.planning_runs.adapters.draft_repository import lock_planning_workflow
+
+        await lock_planning_workflow(self._session, actor.organization_id, run_id)
+        draft = await self._session.scalar(
+            select(PlanningDraftModel).where(
+                PlanningDraftModel.organization_id == actor.organization_id,
+                PlanningDraftModel.workflow_run_id == run_id,
+                PlanningDraftModel.id == draft_id,
+                PlanningDraftModel.created_by_membership_id == actor.membership_id,
+            )
+        )
+        if draft is None:
+            raise PlanningRunNotFoundError
+        decided = await self._session.scalar(
+            select(ProposalModel.id).where(
+                ProposalModel.organization_id == actor.organization_id,
+                ProposalModel.workflow_run_id == run_id,
+                ProposalModel.status.in_(["APPROVED", "REJECTED"]),
+            )
+        )
+        if decided is not None:
+            raise WorkflowRunStateError("decided plans cannot be changed")
+        if draft.current_version_number != expected_version:
+            raise ResourceVersionMismatchError(draft.current_version_number)
+
     async def create_proposal(
         self,
         *,
@@ -2096,6 +2193,8 @@ class PostgreSQLPlanningRunRepository(PlanningRunRepository):
             field_provenance=initial_version.field_provenance,
             validation_result=initial_version.validation_result,
             source_reference_snapshot=initial_version.source_reference_snapshot,
+            source_draft_id=initial_version.source_draft_id,
+            source_draft_version=initial_version.source_draft_version,
             workflow_version=initial_version.workflow_version,
             prompt_version=initial_version.prompt_version,
             schema_version=initial_version.schema_version,
@@ -2266,6 +2365,8 @@ class PostgreSQLPlanningRunRepository(PlanningRunRepository):
                 field_provenance=version.field_provenance,
                 validation_result=version.validation_result,
                 source_reference_snapshot=version.source_reference_snapshot,
+                source_draft_id=version.source_draft_id,
+                source_draft_version=version.source_draft_version,
                 workflow_version=version.workflow_version,
                 prompt_version=version.prompt_version,
                 schema_version=version.schema_version,
@@ -2318,6 +2419,8 @@ class PostgreSQLPlanningRunRepository(PlanningRunRepository):
             field_provenance=version.field_provenance,
             validation_result=version.validation_result,
             source_reference_snapshot=version.source_reference_snapshot,
+            source_draft_id=version.source_draft_id,
+            source_draft_version=version.source_draft_version,
             workflow_version=version.workflow_version,
             prompt_version=version.prompt_version,
             schema_version=version.schema_version,
@@ -2358,6 +2461,8 @@ class PostgreSQLPlanningRunRepository(PlanningRunRepository):
             field_provenance=model.field_provenance,
             validation_result=model.validation_result,
             source_reference_snapshot=model.source_reference_snapshot,
+            source_draft_id=model.source_draft_id,
+            source_draft_version=model.source_draft_version,
             workflow_version=model.workflow_version,
             prompt_version=model.prompt_version,
             schema_version=model.schema_version,

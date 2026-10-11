@@ -64,8 +64,21 @@ class ExecutionStep(_StrictFrozenModel):
     mode: StepMode
 
 
+class PlanningIntent(StrEnum):
+    START_NEW = "START_NEW"
+    CONTINUE_DRAFT = "CONTINUE_DRAFT"
+    PREPARE_ACTION = "PREPARE_ACTION"
+    OTHER = "OTHER"
+
+
+class OrchestratorGoalQuestion(_StrictFrozenModel):
+    question: str = Field(min_length=1, max_length=4000)
+
+
 class ExecutionPlan(_StrictFrozenModel):
     schema_version: Literal["1.0"] = "1.0"
+    goal_question: OrchestratorGoalQuestion | None = None
+    planning_intent: PlanningIntent | None = None
     schedule_intent: ScheduleIntent | None = None
     objectives: tuple[str, ...] = Field(min_length=1, max_length=8)
     steps: tuple[ExecutionStep, ...] = Field(default=(), max_length=8)
@@ -74,6 +87,10 @@ class ExecutionPlan(_StrictFrozenModel):
 
     @model_validator(mode="after")
     def require_an_executable_or_unavailable_outcome(self) -> "ExecutionPlan":
+        if self.goal_question is not None:
+            if self.steps or self.unavailable_capabilities or self.schedule_intent is not None:
+                raise ValueError("goal question cannot execute or delegate")
+            return self
         if self.schedule_intent is not None and self.steps:
             raise ValueError("schedule preview cannot be combined with specialist writes")
         if not self.steps and not self.unavailable_capabilities and self.schedule_intent is None:
@@ -92,7 +109,14 @@ class ActivePlanningContext(_StrictFrozenModel):
     proposal_id: UUID | None
     proposal_version: int | None = Field(default=None, ge=1)
     proposal_status: str | None = Field(default=None, min_length=1, max_length=100)
-    requested_operation: Literal["RESUME_INPUT", "REVISE"] | None = None
+    workflow_version: str = "2.0.0"
+    draft_id: UUID | None = None
+    draft_version: int | None = Field(default=None, ge=1)
+    draft_fingerprint: str | None = None
+    anchor_date: date | None = None
+    requested_operation: (
+        Literal["RESUME_INPUT", "REVISE", "UPDATE_DRAFT", "PREPARE_ACTION"] | None
+    ) = None
 
 
 class ActiveTeamContext(_StrictFrozenModel):
@@ -226,6 +250,7 @@ class PendingFollowup(_StrictFrozenModel):
 
 
 class ActiveConversationContext(_StrictFrozenModel):
+    progressive_planning_enabled: bool = False
     daily_update: DailyUpdateHandoff | None = None
     daily_update_resolution_issue: bool = False
     recent_messages: tuple[ConversationExcerpt, ...] = Field(max_length=12)

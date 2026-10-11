@@ -22,7 +22,7 @@ permissions:
   risk_ceiling: PROPOSAL_ONLY
 
 runtime:
-  workflow: orchestrator.v1
+  workflow: orchestrator.v2
   max_iterations: 8
   max_tool_calls: 1
   max_handoffs: 6

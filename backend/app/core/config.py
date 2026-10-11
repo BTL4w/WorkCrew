@@ -89,6 +89,7 @@ class Settings(BaseSettings):
     session_secure_cookie: bool = False
     frontend_origin: str = "http://localhost:3000"
     ai_provider: Literal["disabled", "mock", "openai"] = "disabled"
+    progressive_planning_enabled: bool = False
     report_evaluation_hosted_enabled: bool = False
     report_evaluation_budget_tokens: int = Field(default=100000, ge=1, le=1000000)
     ai_model: str = ""

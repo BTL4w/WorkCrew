@@ -1207,6 +1207,45 @@ class PostgreSQLAssistantRepository:
             return None
         return _agent_run(row[0]), row[1]
 
+    async def has_planning_conversation_link(
+        self, *, actor: AuthenticatedActor, turn_id: UUID, workflow_run_id: UUID
+    ) -> bool:
+        conversation_id = await self._session.scalar(
+            select(AssistantTurnModel.conversation_id)
+            .join(
+                AssistantConversationModel,
+                (AssistantConversationModel.organization_id == AssistantTurnModel.organization_id)
+                & (AssistantConversationModel.id == AssistantTurnModel.conversation_id),
+            )
+            .where(
+                AssistantTurnModel.organization_id == actor.organization_id,
+                AssistantTurnModel.id == turn_id,
+                AssistantConversationModel.owner_membership_id == actor.membership_id,
+            )
+        )
+        if conversation_id is None:
+            return False
+        linked = await self._session.scalar(
+            select(AgentRunModel.id)
+            .join(
+                OrchestrationRunModel,
+                (OrchestrationRunModel.organization_id == AgentRunModel.organization_id)
+                & (OrchestrationRunModel.id == AgentRunModel.orchestration_run_id),
+            )
+            .join(
+                AssistantTurnModel,
+                (AssistantTurnModel.organization_id == OrchestrationRunModel.organization_id)
+                & (AssistantTurnModel.id == OrchestrationRunModel.turn_id),
+            )
+            .where(
+                AgentRunModel.organization_id == actor.organization_id,
+                AgentRunModel.workflow_run_id == workflow_run_id,
+                AssistantTurnModel.conversation_id == conversation_id,
+            )
+            .limit(1)
+        )
+        return linked is not None
+
     async def get_accepted_planning_action(
         self, *, organization_id: UUID, turn_id: UUID
     ) -> dict[str, object] | None:
@@ -1248,6 +1287,20 @@ class PostgreSQLAssistantRepository:
         )
         if model is None or model.workflow_run_id not in {None, workflow_run_id}:
             raise AssistantDomainLookupError("AGENT_WORKFLOW_LINK_CONFLICT")
+        if model.workflow_run_id is None and model.typed_input.get("operation") in {
+            "RESUME_INPUT",
+            "UPDATE_DRAFT",
+            "PREPARE_ACTION",
+        }:
+            model.projected_workflow_sequence = (
+                await self._session.scalar(
+                    select(func.max(WorkflowEventModel.sequence)).where(
+                        WorkflowEventModel.organization_id == organization_id,
+                        WorkflowEventModel.workflow_run_id == workflow_run_id,
+                    )
+                )
+                or 0
+            )
         model.workflow_run_id = workflow_run_id
         if model.projected_workflow_sequence is None:
             model.projected_workflow_sequence = 0
@@ -1431,6 +1484,50 @@ class PostgreSQLAssistantRepository:
             conversation.last_event_sequence = assistant_event_sequence
             conversation.version += 1
             conversation.updated_at = now
+        if event.event_type.startswith("planning.draft.") and agent.typed_output is not None:
+            result = dict(agent.typed_output)
+            output = dict(result.get("typed_output") or {})
+            result["interaction_outcome"] = "DRAFT_READY"
+            result["status"] = "COMPLETED"
+            result["proposed_actions"] = []
+            output.update(
+                {
+                    "workflow_status": "DRAFT_AVAILABLE",
+                    "awaiting": "NONE",
+                    "draft_id": event.public_payload["draft_id"],
+                    "draft_version": event.public_payload["draft_version"],
+                }
+            )
+            result["typed_output"] = output
+            agent.typed_output = result
+        if (
+            event.event_type == "workflow.needs_input"
+            and event.public_payload.get("progressive")
+            and agent.typed_output is not None
+        ):
+            result = dict(agent.typed_output)
+            output = dict(result.get("typed_output") or {})
+            result.update(
+                {
+                    "interaction_outcome": "NEEDS_INPUT",
+                    "status": "AWAITING_INPUT",
+                    "proposed_actions": [],
+                }
+            )
+            output.update(
+                {
+                    "workflow_status": "NEEDS_INPUT",
+                    "awaiting": "MANAGER_INPUT",
+                    "question": event.public_payload["question"],
+                    "draft_id": None,
+                    "draft_version": None,
+                    "proposal_id": None,
+                    "proposal_version": None,
+                    "approval_id": None,
+                }
+            )
+            result["typed_output"] = output
+            agent.typed_output = result
         agent.projected_workflow_sequence = event.sequence
         agent.updated_at = now
         if status is not None:

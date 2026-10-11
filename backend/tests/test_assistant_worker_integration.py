@@ -246,6 +246,11 @@ async def test_worker_commits_transcript_event_and_terminal_state_once() -> None
             "proposal_version": 1,
             "proposal_status": "READY_FOR_DECISION",
             "requested_operation": "REVISE",
+            "workflow_version": "2.0.0",
+            "draft_id": None,
+            "draft_version": None,
+            "draft_fingerprint": None,
+            "anchor_date": None,
         }
     finally:
         await engine.dispose()

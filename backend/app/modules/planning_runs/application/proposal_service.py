@@ -194,6 +194,8 @@ class ProposalService:
                     field_provenance={"default": "MANAGER_EDITED"},
                     validation_result=validation_result,
                     source_reference_snapshot=list(previous.source_reference_snapshot),
+                    source_draft_id=previous.source_draft_id,
+                    source_draft_version=previous.source_draft_version,
                     workflow_version=previous.workflow_version,
                     prompt_version=previous.prompt_version,
                     schema_version=previous.schema_version,

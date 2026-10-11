@@ -34,10 +34,13 @@ from work_management_ai.workflows.planning.ports import (
     PlanningProposalDraft,
     PlanningRevisionBase,
     PlanningRevisionDraft,
+    ProgressivePlanningPersistencePort,
 )
 from work_management_ai.workflows.planning.state import (
     PlanningRevisionError,
     PlanningState,
+    ProgressivePlanningResult,
+    ProgressivePlanningState,
     checkpoint_state,
     merge_revision_assignees,
 )
@@ -91,12 +94,26 @@ class PlanningGraph:
         context_port: PlanningContextPort,
         persistence_port: PlanningPersistencePort,
         trace_port: TracePort | None = None,
+        progressive_persistence_port: ProgressivePlanningPersistencePort | None = None,
     ) -> None:
+        self._progressive_persistence_port = progressive_persistence_port
         self._model_gateway = model_gateway
         self._context_port = context_port
         self._persistence_port = persistence_port
         self._trace_port = trace_port or NoopTracePort()
         self._compiled = self._compile()
+
+    async def run_progressive(self, state: ProgressivePlanningState) -> ProgressivePlanningResult:
+        from work_management_ai.workflows.planning.progressive_graph import run_progressive
+
+        if self._progressive_persistence_port is None:
+            raise RuntimeError("progressive persistence port is required")
+        return await run_progressive(
+            state,
+            gateway=self._model_gateway,
+            context_port=self._context_port,
+            persistence=self._progressive_persistence_port,
+        )
 
     @staticmethod
     def thread_id(run_id: UUID) -> str:

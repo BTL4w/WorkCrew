@@ -1,5 +1,6 @@
 """Typed Planning Specialist Agent contracts."""
 
+from datetime import date
 from enum import StrEnum
 from typing import Literal
 from uuid import UUID
@@ -19,9 +20,12 @@ class PlanningOperation(StrEnum):
     RESUME_INPUT = "RESUME_INPUT"
     REVISE = "REVISE"
     EXPLAIN = "EXPLAIN"
+    UPDATE_DRAFT = "UPDATE_DRAFT"
+    PREPARE_ACTION = "PREPARE_ACTION"
 
 
 class PlanningAgentInput(_StrictFrozenModel):
+    progressive: bool = False
     operation: PlanningOperation
     locale: Literal["vi", "en"]
     brief: str = Field(min_length=1, max_length=8_000)
@@ -30,6 +34,9 @@ class PlanningAgentInput(_StrictFrozenModel):
     expected_proposal_version: int | None = Field(default=None, ge=1)
     manager_instruction: str | None = Field(default=None, max_length=8_000)
     risk_context: RiskReplanRequest | None = None
+    draft_id: UUID | None = None
+    expected_draft_version: int | None = Field(default=None, ge=1)
+    anchor_date: date | None = None
 
     @model_validator(mode="after")
     def operation_references_are_complete(self) -> "PlanningAgentInput":
@@ -49,6 +56,13 @@ class PlanningAgentInput(_StrictFrozenModel):
             return self
         if self.workflow_run_id is None:
             raise ValueError("existing workflow run is required")
+        if self.operation in {PlanningOperation.UPDATE_DRAFT, PlanningOperation.PREPARE_ACTION}:
+            if self.draft_id is None or self.expected_draft_version is None:
+                raise ValueError("exact draft binding is required")
+            if self.operation is PlanningOperation.UPDATE_DRAFT and not self.manager_instruction:
+                raise ValueError("draft instruction is required")
+            if self.operation is PlanningOperation.PREPARE_ACTION and self.anchor_date is None:
+                raise ValueError("anchor date is required")
         if self.operation is PlanningOperation.RESUME_INPUT and not self.manager_instruction:
             raise ValueError("manager input is required")
         if self.operation is PlanningOperation.REVISE and (
@@ -71,6 +85,9 @@ class PlanningAgentOutput(_StrictFrozenModel):
     approval_id: UUID | None
     awaiting: Literal["NONE", "MANAGER_INPUT", "MANAGER_DECISION"]
     public_summary: str = Field(min_length=1, max_length=20_000)
+    question: str | None = Field(default=None, min_length=1, max_length=4_000)
+    draft_id: UUID | None = None
+    draft_version: int | None = Field(default=None, ge=1)
 
 
 class PlanningStepPlan(_StrictFrozenModel):
