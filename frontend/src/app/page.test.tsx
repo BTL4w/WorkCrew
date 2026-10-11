@@ -16,9 +16,11 @@ vi.mock("next/navigation", () => ({
 describe("HomePage", () => {
   beforeEach(() => {
     navigation.replace.mockReset();
+    globalThis.history.replaceState({}, "", "/");
   });
 
   afterEach(() => {
+    globalThis.history.replaceState({}, "", "/");
     vi.unstubAllGlobals();
   });
 
@@ -34,7 +36,7 @@ describe("HomePage", () => {
     expect(await screen.findByText("Demo Manager")).toBeVisible();
     expect(screen.getByText(`${getMessages(locale).work.role.MANAGER} · ${managerActor.membership.organization_name}`)).toBeVisible();
     expect(screen.getByText("manager@example.test")).toBeVisible();
-    expect(screen.getByRole("heading", { name: "Projects" })).toBeVisible();
+    expect(screen.getByRole("heading", { name: getMessages(locale).assistant.title })).toBeVisible();
   });
 
   it("revokes the session and redirects to login", async () => {

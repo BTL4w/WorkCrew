@@ -1,6 +1,6 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { managerActor, renderWithAppProviders } from "@/test/render";
 import { AppLocaleProvider } from "@/shared/i18n/locale-provider";
@@ -50,6 +50,57 @@ function page(items: unknown[]) {
 }
 
 describe("WorkWorkspace", () => {
+  beforeEach(() => {
+    globalThis.history.replaceState({}, "", "/?view=projects");
+  });
+
+  it("opens a fresh chat on entry even when previous conversations exist", async () => {
+    globalThis.history.replaceState({}, "", "/");
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const path = String(input);
+      if (path === "/api/v1/me") return response(managerActor);
+      if (path === "/api/v1/ai/conversations") return response({ items: [{
+        id: "77777777-7777-4777-8777-777777777777", locale: "vi", title: "Chat cũ",
+        status: "ACTIVE", last_message_sequence: 2, last_event_sequence: 4,
+        created_at: "2026-08-13T10:00:00Z", updated_at: "2026-08-13T10:01:00Z",
+      }] });
+      throw new Error(`Unexpected request: ${path}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    renderWithAppProviders(<WorkWorkspace actor={managerActor} />);
+    expect(await screen.findByText("Chat cũ")).toBeVisible();
+    expect(screen.getByRole("heading", { name: "Tôi có thể giúp gì cho bạn?" })).toBeVisible();
+    expect(screen.getByRole("textbox", { name: "Nhắn cho Trợ lý AI" })).toHaveValue("");
+    expect(fetchMock.mock.calls.some(([input]) => String(input).startsWith("/api/v1/ai/conversations/"))).toBe(false);
+  });
+
+  it("writes menu navigation to the URL and restores views on browser history", async () => {
+    globalThis.history.replaceState({}, "", "/");
+    vi.stubGlobal("fetch", vi.fn(async (input: RequestInfo | URL) => {
+      const path = String(input);
+      if (path === "/api/v1/me") return response(managerActor);
+      if (path === "/api/v1/ai/conversations") return response({ items: [] });
+      if (path === "/api/v1/projects" || path.startsWith("/api/v1/my-tasks?")) return response(page([]));
+      throw new Error(`Unexpected request: ${path}`);
+    }));
+    const { unmount } = renderWithAppProviders(<WorkWorkspace actor={managerActor} />);
+    fireEvent.click(screen.getByRole("button", { name: "Projects" }));
+    expect(new URLSearchParams(location.search).get("view")).toBe("projects");
+    expect(await screen.findByRole("heading", { name: "Projects" })).toBeVisible();
+    fireEvent.click(screen.getByRole("button", { name: "Task của tôi" }));
+    expect(new URLSearchParams(location.search).get("view")).toBe("myTasks");
+    await act(async () => { history.back(); });
+    await waitFor(() => expect(screen.getByRole("heading", { name: "Projects" })).toBeVisible());
+    await act(async () => { history.forward(); });
+    await waitFor(() => expect(screen.getByRole("heading", { name: "Task của tôi" })).toBeVisible());
+    unmount();
+    renderWithAppProviders(<WorkWorkspace actor={managerActor} />);
+    expect(await screen.findByRole("heading", { name: "Task của tôi" })).toBeVisible();
+    fireEvent.click(screen.getByRole("button", { name: "Cuộc trò chuyện mới" }));
+    expect(location.search).toBe("");
+    expect(await screen.findByRole("heading", { name: "Tôi có thể giúp gì cho bạn?" })).toBeVisible();
+  });
+
   afterEach(() => {
     globalThis.localStorage.clear();
     globalThis.history.replaceState({}, "", "/");
@@ -75,9 +126,11 @@ describe("WorkWorkspace", () => {
     const evaluation = within(navigation).getByRole("button", { name: "Đánh giá AI" });
     fireEvent.click(assignment);
     expect(assignment).toHaveAttribute("aria-current", "page");
+    expect(new URLSearchParams(location.search).get("view")).toBe("assignTask");
     fireEvent.click(evaluation);
     expect(await screen.findByRole("heading", { name: "Đánh giá AI" })).toBeVisible();
     expect(evaluation).toHaveAttribute("aria-current", "page");
+    expect(new URLSearchParams(location.search).get("view")).toBe("evaluations");
     expect(assignment).not.toHaveAttribute("aria-current");
     expect(screen.queryByText("Chọn một project để tạo và giao task mới.")).not.toBeInTheDocument();
   });
@@ -238,6 +291,7 @@ describe("WorkWorkspace", () => {
       }),
     );
 
+    globalThis.history.replaceState({}, "", "/?view=myTasks");
     renderWithAppProviders(<WorkWorkspace actor={employeeActor} />);
     expect(screen.getByRole("button", { name: "Cuộc trò chuyện mới" })).toBeEnabled();
     fireEvent.click(await screen.findByText(task.title));
@@ -268,6 +322,7 @@ describe("WorkWorkspace", () => {
     });
     vi.stubGlobal("fetch", fetchMock);
 
+    globalThis.history.replaceState({}, "", "/?view=myTasks");
     render(
       <AppLocaleProvider initialLocale="vi">
         <QueryClientProvider client={queryClient}>
@@ -313,6 +368,7 @@ describe("WorkWorkspace", () => {
     fireEvent.click(await screen.findByRole("button", { name: "People & skills" }));
 
     expect(await screen.findByRole("heading", { name: "People & skills" })).toBeVisible();
+    expect(new URLSearchParams(location.search).get("view")).toBe("peopleCapacity");
     expect(screen.getByRole("heading", { name: "Demo Manager" })).toBeVisible();
     expect(container.querySelectorAll("aside")).toHaveLength(1);
   });
@@ -339,6 +395,7 @@ describe("WorkWorkspace", () => {
       throw new Error(`Unexpected request: ${path}`);
     }));
 
+    globalThis.history.replaceState({}, "", "/?view=myTasks");
     renderWithAppProviders(<WorkWorkspace actor={employeeActor} />);
     fireEvent.click(await screen.findByText(task.title));
     fireEvent.click(screen.getByRole("button", { name: "Bắt đầu task" }));
@@ -391,6 +448,7 @@ describe("WorkWorkspace", () => {
       throw new Error(`Unexpected request: ${path}`);
     }));
 
+    globalThis.history.replaceState({}, "", "/?view=myTasks");
     renderWithAppProviders(<WorkWorkspace actor={employeeActor} />);
     fireEvent.change(await screen.findByLabelText("Lọc theo trạng thái"), { target: { value: "TO_DO" } });
     fireEvent.click(await screen.findByRole("button", { name: "Trang sau" }));

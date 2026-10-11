@@ -12,6 +12,7 @@ for (const locale of ["vi", "en"] as const) {
     await page.getByRole("button", {name: "Đăng nhập", exact: true}).click();
     await expect(page.getByRole("button", {name: "Đăng xuất"})).toBeVisible();
     if (english) await page.getByRole("button", {name: "en", exact: true}).click();
+    await page.getByRole("button", {name: "Projects", exact: true}).click();
     const name = `Manual disabled ${locale} ${crypto.randomUUID()}`;
     await page.getByRole("button", {name: english ? "Create project" : "Tạo project", exact: true}).click();
     await page.getByLabel(english ? "Project name" : "Tên project").fill(name);

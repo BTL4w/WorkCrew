@@ -12,6 +12,7 @@ test("Team approval leaves Tasks unassigned until an explicit Manager assignment
   const projectName = `Phase 3 team ${Date.now()}`;
   const taskName = `Phase 3 task ${Date.now()}`;
   await signIn(page, "manager@example.test");
+  await page.getByRole("button", { name: "Projects", exact: true }).click();
   await page.getByRole("button", { name: "Tạo project" }).click();
   await page.getByLabel("Tên project").fill(projectName);
   await page.getByLabel("Mô tả project").fill("Project Team browser acceptance");

@@ -12,7 +12,7 @@ import { DailyUpdateForm } from "@/features/daily-updates/daily-update-form";
 import { CompletionChecklist } from "@/features/daily-updates/completion-checklist";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useLocale, useTranslations } from "next-intl";
-import { useSearchParams } from "next/navigation";
+import { navigateWorkspace, useWorkspaceSearchParams } from "@/shared/navigation/workspace-location";
 import {
   useEffect,
   useRef,
@@ -91,7 +91,7 @@ export function WorkWorkspace({
   onLogout?: () => void | Promise<void>;
 }) {
   const t = useTranslations("work");
-  const searchParams = useSearchParams();
+  const searchParams = useWorkspaceSearchParams();
   const queryClient = useQueryClient();
   const workQueryKey: WorkQueryKey = [
     "work",
@@ -99,13 +99,15 @@ export function WorkWorkspace({
     actor.membership.id,
   ] as const;
   const canManage = actor.membership.role !== "EMPLOYEE";
-  const initialConversationId = searchParams?.get("conversation")
-    ?? (typeof globalThis.location === "undefined"
-      ? null
-      : new URLSearchParams(globalThis.location.search).get("conversation"));
-  const [view, setView] = useState<View>(
-    initialConversationId ? "aiAssistant" : canManage ? "projects" : "myTasks",
-  );
+  const initialConversationId = searchParams.get("conversation");
+  const requestedView = searchParams.get("view");
+  const assignmentMode = canManage && requestedView === "assignTask";
+  const view: View = initialConversationId ? "aiAssistant"
+    : assignmentMode || requestedView === "projects" || (canManage && searchParams.get("report")) ? "projects"
+    : requestedView === "myTasks" ? "myTasks"
+    : requestedView === "peopleCapacity" ? "peopleCapacity"
+    : requestedView === "evaluations" && actor.membership.role === "ADMIN" ? "evaluations"
+    : "aiAssistant";
   const [projectSelection, setSelectedProject] = useState<Project | null | undefined>(undefined);
   const linkedProjectId = canManage ? searchParams?.get("project") : null;
   const linkedReportId = canManage ? searchParams?.get("report") : null;
@@ -118,7 +120,6 @@ export function WorkWorkspace({
   const [projectsPage, setProjectsPage] = useState(1);
   const [tasksPage, setTasksPage] = useState(1);
   const [myTasksPage, setMyTasksPage] = useState(1);
-  const [assignmentMode, setAssignmentMode] = useState(false);
   const [projectSection, setProjectSection] = useState<"tasks" | "plan" | "reports" | "projectTeam" | "automations">(linkedReportId ? "reports" : "tasks");
 
   const selectedProject = projectSelection === undefined ? linkedProject.data ?? null : projectSelection;
@@ -139,51 +140,38 @@ export function WorkWorkspace({
   });
 
   function openProjects() {
-    clearConversationLocation();
-    setAssignmentMode(false);
-    setView("projects");
+    navigateWorkspace("projects");
     setSelectedTask(null);
   }
 
   function openAiAssistant() {
-    setAssignmentMode(false);
-    setView("aiAssistant");
     setSelectedProject(null);
     setSelectedTask(null);
   }
 
   function openMyTasks() {
-    clearConversationLocation();
-    setAssignmentMode(false);
-    setView("myTasks");
+    navigateWorkspace("myTasks");
     setSelectedProject(null);
     setSelectedTask(null);
   }
 
   function openPeopleCapacity() {
-    clearConversationLocation();
-    setAssignmentMode(false);
-    setView("peopleCapacity");
+    navigateWorkspace("peopleCapacity");
     setSelectedProject(null);
     setSelectedTask(null);
   }
 
   function openEvaluations() {
-    clearConversationLocation();
-    setAssignmentMode(false);
-    setView("evaluations");
+    navigateWorkspace("evaluations");
     setSelectedProject(null);
     setSelectedTask(null);
   }
 
   function openAssignmentFlow() {
-    clearConversationLocation();
-    setView("projects");
+    navigateWorkspace(selectedProject ? "projects" : "assignTask");
     setSelectedTask(null);
     if (selectedProject) {
       setTaskForm({ task: null });
-    } else {
-      setAssignmentMode(true);
     }
   }
 
@@ -239,7 +227,7 @@ export function WorkWorkspace({
               setProjectSection("tasks");
               setTasksPage(1);
               if (project && assignmentMode) {
-                setAssignmentMode(false);
+                navigateWorkspace("projects");
                 setTaskForm({ task: null });
               }
             }}
@@ -305,13 +293,13 @@ export function WorkWorkspace({
     <>
       <AiAssistant
         actor={actor}
-        initialConversationId={initialConversationId}
+        conversationId={initialConversationId}
         activeSection={assignmentMode ? "assignTask" : view === "aiAssistant" ? "assistant" : view}
         workspaceTitle={pageTitle}
         workspaceContent={workspaceContent && <>{canManage && <NotificationList organizationId={actor.membership.organization_id} actorMembershipId={actor.membership.id} onOpenTask={async id => {
           const task = await getTask(id);
           const project = await getProject(task.project_id);
-          setSelectedProject(project.data); setSelectedTask(task); setView("projects");
+          setSelectedProject(project.data); setSelectedTask(task); navigateWorkspace("projects");
         }} />}{!canManage && <DailySummaryView organizationId={actor.membership.organization_id} membershipId={actor.membership.id}/>} {workspaceContent}</>}
         onOpenAssistant={openAiAssistant}
         onContinueManually={openProjects}
@@ -354,12 +342,6 @@ export function WorkWorkspace({
       ) : null}
     </>
   );
-}
-
-function clearConversationLocation() {
-  const url = new URL(globalThis.location.href);
-  url.searchParams.delete("conversation");
-  globalThis.history.replaceState(globalThis.history.state, "", `${url.pathname}${url.search}${url.hash}`);
 }
 
 function ProjectsView(props: {

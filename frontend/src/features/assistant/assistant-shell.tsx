@@ -10,6 +10,7 @@ import { decideRecommendation, recordRecommendationFeedback, reviseRecommendatio
 import type { CandidateOverrideInput, RecommendationVersion } from "@/features/project-team/contracts";
 import type { MeResponse } from "@/shared/api/contracts";
 import { ApiError, isDefinitiveMutationRejection } from "@/shared/api/client";
+import { navigateWorkspace } from "@/shared/navigation/workspace-location";
 
 import { assistantKeys, createConversation, getConversation, listConversations, manageConversation, postAssistantMessage } from "./api";
 import { Composer } from "./composer";
@@ -26,10 +27,7 @@ type ConnectEvents = (options: Parameters<typeof connectAssistantEvents>[0]) => 
 
 function nextKey() { return globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random()}`; }
 function syncConversationLocation(conversationId: string | null) {
-  const url = new URL(globalThis.location.href);
-  if (conversationId) url.searchParams.set("conversation", conversationId);
-  else url.searchParams.delete("conversation");
-  globalThis.history.replaceState(globalThis.history.state, "", `${url.pathname}${url.search}${url.hash}`);
+  navigateWorkspace(null, conversationId);
 }
 function retryTransientQuery(failureCount: number, caught: Error) {
   return failureCount < 1 && (!(caught instanceof ApiError) || caught.status >= 500);
@@ -49,6 +47,7 @@ function useAttempt() {
 export function AssistantShell({
   actor,
   initialConversationId = null,
+  conversationId,
   activeSection = "assistant",
   workspaceTitle,
   workspaceContent,
@@ -66,6 +65,7 @@ export function AssistantShell({
 }: {
   actor: MeResponse;
   initialConversationId?: string | null;
+  conversationId?: string | null;
   activeSection?: AssistantNavigationSection;
   workspaceTitle?: string;
   workspaceContent?: ReactNode;
@@ -115,7 +115,8 @@ export function AssistantShell({
     retry: retryTransientQuery,
     retryDelay: 100,
   });
-  const activeConversationId = newConversation ? null : selectedId ?? conversations.data?.[0]?.id ?? null;
+  const activeConversationId = conversationId !== undefined ? conversationId
+    : newConversation ? null : selectedId ?? conversations.data?.[0]?.id ?? null;
   const snapshotKey = activeConversationId ? assistantKeys.conversation(organizationId, membershipId, activeConversationId) : null;
   const snapshot = useQuery({
     queryKey: snapshotKey ?? [...assistantKeys.scope(organizationId, membershipId), "new"],
@@ -302,7 +303,7 @@ export function AssistantShell({
             queryClient.setQueryData<AssistantConversation[]>(conversationsKey, (items) => items?.filter((item) => item.id !== conversation.id));
             queryClient.removeQueries({ queryKey: assistantKeys.conversation(organizationId, membershipId, conversation.id) });
             if (activeConversationId === conversation.id) {
-              setSelectedId(null); setNewConversation(true); setMessage(""); setError(null); syncConversationLocation(null);
+              setSelectedId(null); setNewConversation(true); setMessage(""); setError(null); navigateWorkspace(null, null, true);
             }
           }
         } catch (error) {

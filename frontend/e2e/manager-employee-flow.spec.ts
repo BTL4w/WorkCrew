@@ -8,6 +8,7 @@ async function signIn(page: Page, email: string) {
   await page.getByLabel("Mật khẩu").fill(password);
   await page.getByRole("button", { name: "Đăng nhập" }).click();
   await expect(page.getByRole("button", { name: "Đăng xuất" })).toBeVisible();
+  await page.getByRole("button", { name: email === "manager@example.test" ? "Projects" : "Task của tôi", exact: true }).click();
 }
 
 async function signOut(page: Page) {
@@ -30,7 +31,7 @@ test("invalid credentials can be corrected without losing the login flow", async
   await page.getByRole("button", { name: "Đăng nhập" }).click();
 
   await expect(page.getByRole("button", { name: "Đăng xuất" })).toBeVisible();
-  await expect(page.getByRole("heading", { name: "Projects" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Tôi có thể giúp gì cho bạn?" })).toBeVisible();
 });
 
 test("Manager assigns a Task and Employee reports evidence before completion", async ({ page }) => {
