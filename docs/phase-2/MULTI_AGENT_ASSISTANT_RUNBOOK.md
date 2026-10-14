@@ -50,6 +50,37 @@ make dev
 Production refuses an incomplete OpenAI configuration. Live-provider tests
 remain separate, opt-in and credential-gated.
 
+## LangSmith SDK and local configuration
+
+The AI package declares `langsmith>=0.14.4,<0.15`, which supports Python agent
+addressing. Dependencies are managed through `pyproject.toml` and `uv.lock`,
+not a separate `requirements.txt`. Synchronize both environments after updates:
+
+```bash
+make ai-sync
+make -C backend sync
+```
+
+The environment examples include `LANGSMITH_AGENT_ID=workcrew` and
+`LANGSMITH_AGENT_ENVIRONMENT=local`. Agent addressing requires both values and
+must not be combined with `LANGSMITH_PROJECT`, `LANGCHAIN_PROJECT` or
+`LANGCHAIN_SESSION`. A trace/run UUID is not a shared destination identifier.
+Use the endpoint for the account's region if it differs from the SDK default.
+See the [official agent addressing guide](https://docs.langchain.com/langsmith/log-traces-to-agent).
+
+This SDK upgrade does not activate a LangSmith export adapter. `APP_LANGSMITH_*`
+application settings are not wired to the SDK; its `LANGSMITH_*` variables must
+be available in the process environment, and reading `.env` through application
+Settings does not export them. Compose does not forward these settings to API
+or worker containers. The workflow `TracePort` still defaults to `NoopTracePort`.
+
+Automatic tracing remains disabled in the examples. Inputs and outputs are
+hidden as defense in depth; this does not sanitize metadata, run names or raw
+errors. Any future exporter must enforce the repository's safe trace allowlist,
+tenant boundaries and retention rules before tracing is enabled. Keep API keys
+in an ignored local secret store and never print them. No hosted tracing request
+is part of the default checks.
+
 ## Conversation naming
 
 The first accepted text message of an unnamed conversation atomically queues
