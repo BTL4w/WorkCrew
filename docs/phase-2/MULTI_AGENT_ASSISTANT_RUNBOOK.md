@@ -68,18 +68,61 @@ must not be combined with `LANGSMITH_PROJECT`, `LANGCHAIN_PROJECT` or
 Use the endpoint for the account's region if it differs from the SDK default.
 See the [official agent addressing guide](https://docs.langchain.com/langsmith/log-traces-to-agent).
 
-This SDK upgrade does not activate a LangSmith export adapter. `APP_LANGSMITH_*`
-application settings are not wired to the SDK; its `LANGSMITH_*` variables must
-be available in the process environment, and reading `.env` through application
-Settings does not export them. Compose does not forward these settings to API
-or worker containers. The workflow `TracePort` still defaults to `NoopTracePort`.
+Enable the safe operational exporter with `APP_LANGSMITH_TRACING=true`. Configure
+`APP_LANGSMITH_API_KEY` (or its `LANGSMITH_API_KEY` alias), the agent identifier,
+and environment in the ignored local `.env`. `APP_LANGSMITH_ENDPOINT` accepts an
+HTTPS endpoint for the account region; no embedded credentials or query string
+are allowed. Application-prefixed values take precedence over SDK aliases.
 
-Automatic tracing remains disabled in the examples. Inputs and outputs are
-hidden as defense in depth; this does not sanitize metadata, run names or raw
-errors. Any future exporter must enforce the repository's safe trace allowlist,
-tenant boundaries and retention rules before tracing is enabled. Keep API keys
-in an ignored local secret store and never print them. No hosted tracing request
-is part of the default checks.
+Keep `LANGSMITH_TRACING=false`: native SDK auto tracing is intentionally
+suppressed at worker, HTTP request and model boundaries. Only manually
+allowlisted operational spans are sent. Inputs/outputs default to hidden. Set `LANGSMITH_HIDE_INPUTS=false` and/or
+`LANGSMITH_HIDE_OUTPUTS=false` to display allowlisted structured operational
+fields. The `APP_LANGSMITH_HIDE_INPUTS` / `APP_LANGSMITH_HIDE_OUTPUTS` aliases
+have precedence when set to a non-empty value. These flags are forwarded to both the adapter and SDK client,
+including API/worker containers. A new trace is required after restarting;
+existing traces cannot recover previously omitted payloads.
+
+Visible I/O includes UUID resource references, numeric parameters/counters,
+recognized status/agent/locale enums, verifier results and bounded structured
+agent/tool/model projections under `data`. Unknown fields and all free text
+are dropped; prompts, image bytes, hidden reasoning, raw errors and business
+names are never exported. I/O payloads are excluded from metadata even when
+hidden, preventing a visibility toggle from leaking data through Attributes.
+This is a partial projection, not the original full state; `io_filter_version`
+and `io_projection` identify the filter in metadata. Traversal is bounded to
+four levels, 32 list rows, 64 keys per object and 512 visited fields total.
+Capture/serialization failure emits a safe warning and preserves the original
+business result, including when a custom output serializer fails. Model token counts and agent/tool/workflow versions may be included;
+these are operational measurements, not business metrics or authorization.
+
+`make backend-dev` and `make worker-dev` now load the root `.env` when it exists.
+A backend-local `.env` remains available through Settings. Compose forwards the
+application tracing settings to API and worker containers. Restart local API
+and worker after configuration changes. For containers, rebuild and recreate
+`backend-api` and `ai-worker` after installing the updated runtime.
+
+A completed Assistant turn exports an `assistant.turn` tree with Orchestrator,
+Specialist, model and tool children. Each attempt has a distinct trace UUID and
+retains its durable orchestration/run identities and tenant UUID in metadata.
+Retry/replay behavior still follows existing application transactions and
+idempotency; tracing cannot grant roles or execute mutations. Legacy planning
+jobs export workflow node records under their own tenant-scoped trace.
+
+Open LangSmith, select **workcrew → Tracing → Local**. No trace/run UUID is
+needed for destination configuration. A worker with an empty tenant list stays
+idle; configure authorized `APP_WORKER_ORGANIZATION_IDS` and send a new message.
+Traces appear as spans finish. Export is best effort: a bounded queue prevents
+provider outages from blocking the business flow, warns with safe codes on
+failure/overflow, and drains for up to three seconds at worker shutdown.
+Dropped traces are not retried through business jobs or persisted as an outbox;
+the existing database audit remains authoritative.
+
+Keep hosted trace retention at or below the repository's 90-day redacted-trace
+limit. Tenant UUID metadata is for operator correlation, not access control;
+restrict workspace/project access to authorized operators. Keep API keys in an
+ignored local secret store and never print them. Automated suites use fake
+clients and require no hosted tracing request.
 
 ## Conversation naming
 
@@ -202,8 +245,10 @@ counts only. It does not call a model-as-judge or a hosted provider.
   it creates no draft or proposal. AI cannot invent a goal, even as an assumption.
   A short concrete goal can produce a useful draft; nonessential missing details
   are labeled assumptions. Business creation still requires Manager/Admin approval.
+- Clarification questions appear as ordinary Assistant text without a separate
+  card or “More information needed” heading. Reply in the chat composer to continue.
 - Existing `NEEDS_INPUT` checkpoints remain resumable through their inline
-  question/card; the accepted action supplies the trusted workflow reference.
+  question; the accepted action supplies the trusted workflow reference.
 - Stale proposal: use the newest exact version. Old cards remain read-only and
   edits are revalidated before any decision.
 - Proposal exists but no Project exists: expected. Planning creates immutable

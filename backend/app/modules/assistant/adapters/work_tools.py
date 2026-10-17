@@ -33,6 +33,7 @@ from work_management_ai.runtime.contracts import (
 from work_management_ai.runtime.tool_registry import ToolRegistry, ToolRegistryError
 from work_management_ai.tools.work.read_my_tasks.contracts import ReadMyTasksInput
 from work_management_ai.tools.work.read_resource.contracts import ReadResourceInput
+from work_management_ai.tracing import trace_span
 
 
 def _fingerprint(value: object) -> str:
@@ -61,6 +62,28 @@ class RecordingToolExecutor:
         self._backend = backend
 
     async def execute(self, request: ToolExecutionRequest) -> ToolExecutionResult:
+        try:
+            major = request.tool_version.split(".", maxsplit=1)[0]
+            registered = self._registry.resolve(f"{request.tool_id}@{major}")
+            tool_id, tool_version = registered.manifest.name, registered.manifest.version
+        except ToolRegistryError:
+            # Rejected names are untrusted content, not trace-safe identifiers.
+            tool_id, tool_version = None, None
+        async with trace_span(
+            "tool",
+            organization_id=request.actor.organization_id,
+            agent_run_id=request.agent_run_id,
+            tool_id=tool_id,
+            tool_version=tool_version,
+        ) as span:
+            if tool_id is not None:
+                span.capture_inputs({"typed_input": request.typed_input})
+            result = await self._execute(request)
+            span.capture_outputs({"typed_output": result.typed_output})
+            span.set_status(result.status)
+            return result
+
+    async def _execute(self, request: ToolExecutionRequest) -> ToolExecutionResult:
         major = request.tool_version.split(".", maxsplit=1)[0]
         try:
             registered = self._registry.resolve(f"{request.tool_id}@{major}")

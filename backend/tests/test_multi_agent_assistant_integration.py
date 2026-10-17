@@ -36,6 +36,7 @@ from work_management_ai.agents.work_intelligence.contracts import WorkStepPlan
 from work_management_ai.model_gateway.contracts import ModelMessage, StructuredModelRequest
 from work_management_ai.model_gateway.errors import ModelTimeoutError
 from work_management_ai.model_gateway.mock import MockModelGateway
+from work_management_ai.observability.safe_trace import TraceSpanRecord
 from work_management_ai.runtime.contracts import (
     ActorReference,
     AgentBudget,
@@ -471,8 +472,10 @@ async def test_mock_provider_supplies_bounded_assistant_agent_fixtures_without_c
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize("tracing_enabled", [False, True])
 async def test_worker_persists_running_activity_before_first_model_answer(
     monkeypatch: pytest.MonkeyPatch,
+    tracing_enabled: bool,
 ) -> None:
     organization_id, membership_id = uuid4(), uuid4()
     conversation = AssistantConversation.create(
@@ -606,13 +609,33 @@ async def test_worker_persists_running_activity_before_first_model_answer(
             )
 
     registry, _ = build_agent_registry()
+
+    class Sink:
+        def __init__(self) -> None:
+            self.records: list[TraceSpanRecord] = []
+
+        def emit(self, record: TraceSpanRecord) -> None:
+            self.records.append(record)
+
+        async def close(self) -> None:
+            pass
+
+    sink = Sink()
     await AssistantTurnExecutor(
+        trace_sink=sink if tracing_enabled else None,
         transaction_factory=lambda _: Transaction(),  # type: ignore[arg-type]
         registry=registry,
         engine_factory=lambda _: Engine(),  # type: ignore[arg-type]
     ).execute_job(job=job, actor=actor)
 
     assert len(recorder.blocks) == 1
+    assert len(sink.records) == (1 if tracing_enabled else 0)
+    if tracing_enabled:
+        root = sink.records[0]
+        assert root.organization_id == organization_id
+        assert root.orchestration_run_id == run.id
+        assert root.status == "COMPLETED"
+        assert "What is next?" not in root.model_dump_json()
     blocks, dedupe_key = recorder.blocks[0]
     assert dedupe_key == f"assistant:{turn.id}:running"
     assert blocks[0].model_dump(mode="json") == {

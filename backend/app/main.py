@@ -9,6 +9,7 @@ from uuid import uuid4
 
 from fastapi import FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
+from langsmith import tracing_context  # pyright: ignore[reportUnknownVariableType]
 from sqlalchemy.ext.asyncio import AsyncEngine
 
 from app.api.errors import register_error_handlers
@@ -450,7 +451,8 @@ def create_app(
     ) -> Response:
         request_id = _resolve_request_id(request)
         request.state.request_id = request_id
-        response = await call_next(request)
+        with tracing_context(enabled=False):
+            response = await call_next(request)
         response.headers["X-Request-ID"] = request_id
         return response
 

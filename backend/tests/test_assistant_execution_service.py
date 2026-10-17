@@ -3,7 +3,7 @@
 from uuid import UUID, uuid4
 
 import pytest
-from pydantic import BaseModel
+from pydantic import BaseModel, field_serializer
 
 from app.modules.assistant.adapters.agent_runtime import (
     AgentRecordingModelGateway,
@@ -35,6 +35,8 @@ from work_management_ai.model_gateway.errors import (
     ModelTimeoutError,
     ModelUnavailableError,
 )
+from work_management_ai.observability.safe_trace import TraceSpanRecord
+from work_management_ai.tracing import trace_session
 
 
 def _job() -> AssistantJob:
@@ -207,11 +209,22 @@ async def test_deactivated_actor_fails_before_runtime_call() -> None:
 
 
 @pytest.mark.asyncio
-async def test_model_gateway_records_safe_metadata_after_transaction_free_call() -> None:
+@pytest.mark.parametrize("serialization_fails", [False, True])
+@pytest.mark.parametrize("tracing_enabled", [False, True])
+async def test_model_gateway_records_safe_metadata_after_transaction_free_call(
+    serialization_fails: bool,
+    tracing_enabled: bool,
+) -> None:
     organization_id, agent_run_id = uuid4(), uuid4()
 
     class Output(BaseModel):
         answer: str
+
+        @field_serializer("answer")
+        def serialize_answer(self, value: str) -> str:
+            if serialization_fails:
+                raise ValueError("private serialization detail")
+            return value
 
     class Repo:
         recorded: AgentModelInvocation | None = None
@@ -262,8 +275,27 @@ async def test_model_gateway_records_safe_metadata_after_transaction_free_call()
         timeout_seconds=5,
     )
 
-    with agent_model_scope(organization_id, agent_run_id):
-        response = await gateway.generate_structured(request)
+    class Sink:
+        def __init__(self) -> None:
+            self.records: list[TraceSpanRecord] = []
+
+        def emit(self, record: TraceSpanRecord) -> None:
+            self.records.append(record)
+
+        async def close(self) -> None:
+            pass
+
+    sink = Sink()
+    async with trace_session(
+        sink if tracing_enabled else None,
+        organization_id=organization_id,
+        orchestration_run_id=uuid4(),
+    ):
+        with agent_model_scope(organization_id, agent_run_id):
+            response = await gateway.generate_structured(request)
+
+    assert len(sink.records) == (2 if tracing_enabled else 0)
+    assert "private serialization detail" not in str(sink.records)
 
     assert response.parsed.answer == "safe"
     recorded = repo.recorded

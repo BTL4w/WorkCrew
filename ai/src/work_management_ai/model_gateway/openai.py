@@ -148,7 +148,10 @@ class OpenAIModelGateway:
                 messages.append((message.role, blocks))
             # SDK tracing records runnable inputs unless disabled at the boundary.
             # Keep structured safe traces at the Harness, never export image bytes.
-            with _private_image_request() if has_images else nullcontext():
+            with (
+                tracing_context(enabled=False),
+                _private_image_request() if has_images else nullcontext(),
+            ):
                 async with asyncio.timeout(request.timeout_seconds):
                     raw_output = await structured_model.ainvoke(messages)
         except ValidationError as error:

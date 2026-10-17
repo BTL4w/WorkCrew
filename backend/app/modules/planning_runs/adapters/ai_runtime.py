@@ -41,7 +41,9 @@ from work_management_ai.model_gateway.contracts import (
 from work_management_ai.model_gateway.errors import ModelInvalidOutputError, ModelUnavailableError
 from work_management_ai.model_gateway.mock import MockModelGateway
 from work_management_ai.model_gateway.openai import OpenAIModelGateway
+from work_management_ai.observability.langsmith_adapter import LangSmithTraceAdapter
 from work_management_ai.schemas.planning import PlanningModelOutput
+from work_management_ai.tracing import trace_session
 from work_management_ai.workflows.planning.context import (
     PermittedPlanningContext,
     PlanningContextRequest,
@@ -1035,10 +1037,12 @@ class PlanningJobHandler:
         settings: Settings,
         transaction_factory: PlanningTransactionFactory,
         actor_resolver: CurrentActorResolver,
+        trace_adapter: LangSmithTraceAdapter | None = None,
     ) -> None:
         self._settings = settings
         self._transactions = transaction_factory
         self._actors = actor_resolver
+        self._trace_adapter = trace_adapter
 
     async def __call__(self, *, job: WorkflowJob, worker_id: str) -> None:
         del worker_id
@@ -1079,6 +1083,7 @@ class PlanningJobHandler:
             model_gateway=gateway,
             context_port=_PlanningContextAdapter(self._transactions, run),
             persistence_port=_PlanningPersistenceAdapter(self._transactions, actor),
+            trace_port=self._trace_adapter,
         )
         result: PlanningGraphResult
         if job.job_type == "planning.start":
@@ -1487,8 +1492,10 @@ def build_planning_job_handlers(
     settings: Settings,
     transaction_factory: PlanningTransactionFactory,
     actor_resolver: CurrentActorResolver,
+    *,
+    trace_adapter: LangSmithTraceAdapter | None = None,
 ) -> dict[str, JobHandler]:
-    planning = PlanningJobHandler(settings, transaction_factory, actor_resolver)
+    planning = PlanningJobHandler(settings, transaction_factory, actor_resolver, trace_adapter)
     runtime = PlanningAIRuntime()
 
     def revision_graph(run: WorkflowRun) -> PlanningGraph:
@@ -1501,11 +1508,12 @@ def build_planning_job_handlers(
             ),
             context_port=_PlanningContextAdapter(transaction_factory, run),
             persistence_port=_RevisionOnlyPersistenceAdapter(),
+            trace_port=trace_adapter,
         )
 
     from app.modules.planning_runs.adapters.risk_replanning import RiskReplanningJobHandler
 
-    return {
+    handlers: dict[str, JobHandler] = {
         "proposal.risk_replan": RiskReplanningJobHandler(
             transaction_factory=transaction_factory,
             actor_resolver=actor_resolver,
@@ -1537,3 +1545,21 @@ def build_planning_job_handlers(
         "proposal.revalidate": ProposalRevalidationJobHandler(transaction_factory, actor_resolver),
         "planning.finalize": PlanningFinalizationJobHandler(transaction_factory, actor_resolver),
     }
+    if trace_adapter is None:
+        return handlers
+    return {
+        name: _TracedPlanningHandler(handler, trace_adapter) for name, handler in handlers.items()
+    }
+
+
+class _TracedPlanningHandler:
+    def __init__(self, handler: JobHandler, adapter: LangSmithTraceAdapter) -> None:
+        self._handler, self._adapter = handler, adapter
+
+    async def __call__(self, *, job: WorkflowJob, worker_id: str) -> None:
+        async with trace_session(
+            self._adapter,
+            organization_id=job.organization_id,
+            orchestration_run_id=job.workflow_run_id,
+        ):
+            await self._handler(job=job, worker_id=worker_id)

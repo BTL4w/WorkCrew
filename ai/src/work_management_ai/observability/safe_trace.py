@@ -1,9 +1,12 @@
 """Allowlisted metadata-only trace serialization."""
 
+from datetime import datetime
 from typing import Annotated, Literal
 from uuid import UUID
 
 from pydantic import AfterValidator, BaseModel, ConfigDict, Field, StringConstraints
+
+from work_management_ai.runtime.contracts import JsonValue
 
 
 def _reject_sensitive_identifier(value: str) -> str:
@@ -81,3 +84,60 @@ def serialize_safe_trace(record: SafeTraceRecord) -> dict[str, object]:
     """Serialize only the explicitly allowlisted safe trace schema."""
 
     return record.model_dump(mode="json")
+
+
+class TraceSpanRecord(BaseModel):
+    """Operational span; structured I/O is filtered again at the export boundary."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    id: UUID
+    trace_id: UUID
+    parent_run_id: UUID | None
+    organization_id: UUID
+    orchestration_run_id: UUID
+    agent_run_id: UUID | None = None
+    kind: Literal["assistant", "agent", "model", "tool", "workflow"]
+    agent_id: (
+        Literal[
+            "orchestrator",
+            "work_intelligence",
+            "planning",
+            "assignment",
+            "daily_update",
+            "risk",
+            "reporting",
+        ]
+        | None
+    ) = None
+    agent_version: _VERSION | None = None
+    model_reference: (
+        Annotated[
+            str,
+            StringConstraints(pattern=r"^[A-Za-z0-9][A-Za-z0-9_.:@-]{0,95}$"),
+            AfterValidator(_reject_sensitive_identifier),
+        ]
+        | None
+    ) = None
+    tool_id: _VERSION | None = None
+    tool_version: _VERSION | None = None
+    workflow_node: _VERSION | None = None
+    workflow_version: _VERSION | None = None
+    prompt_version: _VERSION | None = None
+    verifier_version: _VERSION | None = None
+    start_time: datetime
+    end_time: datetime
+    dotted_order: str = Field(pattern=r"^[0-9TZ.a-f-]+$")
+    status: Literal[
+        "COMPLETED",
+        "FAILED",
+        "CANCELLED",
+        "REJECTED",
+        "AWAITING_INPUT",
+        "AWAITING_HUMAN",
+    ] = "COMPLETED"
+    input_tokens: int | None = Field(default=None, ge=0)
+    output_tokens: int | None = Field(default=None, ge=0)
+    verifier_passed: bool | None = None
+    input_data: dict[str, JsonValue] = Field(default_factory=dict)
+    output_data: dict[str, JsonValue] = Field(default_factory=dict)

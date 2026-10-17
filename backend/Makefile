@@ -1,18 +1,19 @@
 SHELL := /bin/bash
 
 UV := uv
+LOCAL_ENV := $(if $(wildcard ../.env),--env-file ../.env,)
 
 .DEFAULT_GOAL := up
 
 .PHONY: up dev sync migrate seed lint format-check typecheck test test-ai test-integration migration-check worker-dev
 
 up: sync
-	$(UV) run fastapi dev app/main.py
+	$(UV) run $(LOCAL_ENV) fastapi dev app/main.py
 
 dev: up
 
 worker-dev: sync
-	$(UV) run python -m app.worker
+	$(UV) run $(LOCAL_ENV) python -m app.worker
 
 sync:
 	$(UV) sync --locked

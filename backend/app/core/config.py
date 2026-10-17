@@ -3,10 +3,11 @@
 from functools import lru_cache
 from pathlib import Path
 from typing import Any, Literal
+from urllib.parse import urlsplit
 from uuid import UUID
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
-from pydantic import Field, SecretStr, field_validator, model_validator
+from pydantic import AliasChoices, Field, SecretStr, field_validator, model_validator
 from pydantic_settings import (
     BaseSettings,
     EnvSettingsSource,
@@ -42,6 +43,8 @@ class Settings(BaseSettings):
         env_file=".env",
         env_prefix="APP_",
         extra="ignore",
+        populate_by_name=True,
+        hide_input_in_errors=True,
     )
 
     @classmethod
@@ -53,9 +56,21 @@ class Settings(BaseSettings):
         dotenv_settings: PydanticBaseSettingsSource,
         file_secret_settings: PydanticBaseSettingsSource,
     ) -> tuple[PydanticBaseSettingsSource, ...]:
+        resolved_env = CustomEnvSettingsSource(settings_cls)
+        # Empty APP placeholders in copied examples must not shadow SDK aliases.
+        for source in (resolved_env, dotenv_settings):
+            if isinstance(source, EnvSettingsSource):
+                source.env_vars = {
+                    name: value
+                    for name, value in source.env_vars.items()
+                    if not (
+                        name.casefold().startswith("app_langsmith_")
+                        and (value is None or not value.strip())
+                    )
+                }
         return (
             init_settings,
-            CustomEnvSettingsSource(settings_cls),
+            resolved_env,
             dotenv_settings,
             file_secret_settings,
         )
@@ -96,8 +111,62 @@ class Settings(BaseSettings):
     ai_title_model: str = Field(default="gpt-4o-mini", min_length=1)
     ai_title_timeout_seconds: float = Field(default=3, gt=0, le=10)
     openai_api_key: SecretStr | None = None
-    langsmith_tracing: bool = False
-    langsmith_api_key: SecretStr | None = None
+    langsmith_tracing: bool = Field(
+        default=False, validation_alias=AliasChoices("APP_LANGSMITH_TRACING", "LANGSMITH_TRACING")
+    )
+    langsmith_api_key: SecretStr | None = Field(
+        default=None, validation_alias=AliasChoices("APP_LANGSMITH_API_KEY", "LANGSMITH_API_KEY")
+    )
+    langsmith_hide_inputs: bool = Field(
+        default=True,
+        validation_alias=AliasChoices("APP_LANGSMITH_HIDE_INPUTS", "LANGSMITH_HIDE_INPUTS"),
+    )
+    langsmith_hide_outputs: bool = Field(
+        default=True,
+        validation_alias=AliasChoices("APP_LANGSMITH_HIDE_OUTPUTS", "LANGSMITH_HIDE_OUTPUTS"),
+    )
+    langsmith_agent_id: str = Field(
+        default="",
+        pattern=r"^(?:[a-z][a-z0-9_-]{0,63})?$",
+        validation_alias=AliasChoices("APP_LANGSMITH_AGENT_ID", "LANGSMITH_AGENT_ID"),
+    )
+    langsmith_agent_environment: Literal["local", "development", "staging", "production"] = Field(
+        default="local",
+        validation_alias=AliasChoices(
+            "APP_LANGSMITH_AGENT_ENVIRONMENT", "LANGSMITH_AGENT_ENVIRONMENT"
+        ),
+    )
+    langsmith_endpoint: str | None = Field(
+        default=None, validation_alias=AliasChoices("APP_LANGSMITH_ENDPOINT", "LANGSMITH_ENDPOINT")
+    )
+
+    @field_validator("langsmith_endpoint")
+    @classmethod
+    def validate_langsmith_endpoint(cls, value: str | None) -> str | None:
+        if not value:
+            return None
+        url = urlsplit(value)
+        if (
+            url.scheme != "https"
+            or not url.hostname
+            or url.username
+            or url.password
+            or url.query
+            or url.fragment
+        ):
+            raise ValueError("LangSmith endpoint must be an HTTPS URL without credentials or query")
+        return value.rstrip("/")
+
+    @model_validator(mode="after")
+    def require_langsmith_destination(self) -> "Settings":
+        if self.langsmith_tracing and (
+            not self.langsmith_agent_id
+            or self.langsmith_api_key is None
+            or not self.langsmith_api_key.get_secret_value().strip()
+        ):
+            raise ValueError("Enabled LangSmith tracing requires API key and agent ID")
+        return self
+
     ai_raw_context_retention_days: int = Field(default=30, ge=0, le=30)
     ai_redacted_trace_retention_days: int = Field(default=90, ge=0, le=90)
     worker_poll_interval_seconds: float = Field(default=0.5, ge=0.1, le=10)

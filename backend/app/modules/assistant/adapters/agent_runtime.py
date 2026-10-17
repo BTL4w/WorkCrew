@@ -86,6 +86,7 @@ from work_management_ai.runtime.manifests import SkillManifest, ToolManifest, lo
 from work_management_ai.runtime.policy_guard import PolicyGuard
 from work_management_ai.runtime.skill_registry import SkillRegistry
 from work_management_ai.runtime.tool_registry import ToolRegistry
+from work_management_ai.tracing import SpanSink, trace_session, trace_span
 
 _SKILL_RESOURCES = (
     ("work_management_ai.skills.draft_management_report", "skill.yaml"),
@@ -305,6 +306,36 @@ class AgentRecordingModelGateway:
         self, request: StructuredModelRequest[StructuredOutputT]
     ) -> StructuredModelResponse[StructuredOutputT]:
         scope = _MODEL_SCOPE.get()
+        async with trace_span(
+            "model",
+            organization_id=scope[0] if scope else None,
+            agent_run_id=scope[1] if scope else None,
+            prompt_version=request.invocation_key[:64],
+        ) as span:
+            span.capture_inputs(
+                {
+                    "message_count": len(request.messages),
+                    "system_message_count": sum(
+                        message.role == "system" for message in request.messages
+                    ),
+                    "non_system_message_count": sum(
+                        message.role != "system" for message in request.messages
+                    ),
+                    "timeout_seconds": request.timeout_seconds,
+                }
+            )
+            response = await self._generate_structured(request)
+            span.capture_outputs(response.parsed, parsed=True)
+            span.model_reference = response.model_ref
+            if response.usage is not None:
+                span.input_tokens = response.usage.input_tokens
+                span.output_tokens = response.usage.output_tokens
+            return response
+
+    async def _generate_structured[StructuredOutputT: BaseModel](
+        self, request: StructuredModelRequest[StructuredOutputT]
+    ) -> StructuredModelResponse[StructuredOutputT]:
+        scope = _MODEL_SCOPE.get()
         if scope is None:
             raise RuntimeError("AGENT_MODEL_SCOPE_MISSING")
         organization_id, agent_run_id = scope
@@ -382,6 +413,31 @@ class _ScopedAgentHarness:
         self._reporting_usage_factory = reporting_usage_factory
 
     async def run(self, handoff: AgentHandoff) -> AgentResult:
+        async with trace_span(
+            "agent",
+            organization_id=handoff.actor.organization_id,
+            orchestration_run_id=handoff.orchestration_run_id,
+            agent_run_id=uuid5(NAMESPACE_URL, f"agent-run:{handoff.idempotency_key}"),
+            agent_id=handoff.target_agent_id.value,
+            agent_version=handoff.target_agent_version,
+        ) as span:
+            span.capture_inputs(
+                {
+                    "typed_input": handoff.typed_input,
+                    "budget": handoff.budget.model_dump(mode="json"),
+                }
+            )
+            result = await self._run(handoff)
+            span.capture_outputs(result)
+            span.set_status(result.status.value)
+            span.verifier_passed = (
+                all(item.passed for item in result.verifier_results)
+                if result.verifier_results
+                else None
+            )
+            return result
+
+    async def _run(self, handoff: AgentHandoff) -> AgentResult:
         run_id = uuid5(NAMESPACE_URL, f"agent-run:{handoff.idempotency_key}")
         with agent_model_scope(handoff.actor.organization_id, run_id):
             if handoff.target_agent_id in {AgentId.DAILY_UPDATE, AgentId.RISK}:
@@ -418,15 +474,39 @@ class _ScopedOrchestrator:
 
     async def run_turn(self, value: OrchestratorInput) -> OrchestratorOutput:
         run_id = uuid5(NAMESPACE_URL, f"orchestrator:{value.turn_id}")
-        with agent_model_scope(value.actor.organization_id, run_id):
-            return await self._harness.run_turn(value)
+        async with trace_span(
+            "agent",
+            organization_id=value.actor.organization_id,
+            orchestration_run_id=value.orchestration_run_id,
+            agent_run_id=run_id,
+            agent_id="orchestrator",
+        ) as span:
+            span.capture_inputs(
+                {
+                    "locale": value.locale,
+                    "conversation_id": value.conversation_id,
+                    "turn_id": value.turn_id,
+                }
+            )
+            with agent_model_scope(value.actor.organization_id, run_id):
+                result = await self._harness.run_turn(value)
+            span.capture_outputs(result)
+            span.set_status(result.status.value)
+            return result
 
     async def run_trigger(self, value: OrchestratorTriggerInput) -> OrchestratorOutput:
-        with agent_model_scope(
-            value.actor.organization_id,
-            uuid5(NAMESPACE_URL, f"orchestrator:{value.orchestration_run_id}"),
-        ):
-            return await self._harness.run_trigger(value)
+        run_id = uuid5(NAMESPACE_URL, f"orchestrator:{value.orchestration_run_id}")
+        async with trace_span(
+            "agent",
+            organization_id=value.actor.organization_id,
+            orchestration_run_id=value.orchestration_run_id,
+            agent_run_id=run_id,
+            agent_id="orchestrator",
+        ) as span:
+            with agent_model_scope(value.actor.organization_id, run_id):
+                result = await self._harness.run_trigger(value)
+            span.set_status(result.status.value)
+            return result
 
 
 def build_agent_registry() -> tuple[AgentRegistry, ToolRegistry]:
@@ -644,10 +724,12 @@ class AssistantTurnExecutor:
         planning_drafts: PlanningDraftService | None = None,
         planning_runs: PlanningRunService | None = None,
         progressive_planning_enabled: bool = False,
+        trace_sink: SpanSink | None = None,
     ) -> None:
         self._block_projector = block_projector
         self._planning_drafts, self._planning_runs = planning_drafts, planning_runs
         self._progressive_enabled = progressive_planning_enabled
+        self._trace_sink = trace_sink
         self._transactions = transaction_factory
         self._registry = registry
         self._engine_factory = engine_factory
@@ -655,6 +737,17 @@ class AssistantTurnExecutor:
         self._daily_update_context_resolver = daily_update_context_resolver
 
     async def execute_job(self, *, job: AssistantJob, actor: AuthenticatedActor) -> None:
+        async with trace_session(
+            self._trace_sink if job.organization_id == actor.organization_id else None,
+            organization_id=actor.organization_id,
+            orchestration_run_id=job.orchestration_run_id,
+        ) as span:
+            span.capture_inputs({"conversation_id": job.conversation_id, "turn_id": job.turn_id})
+            status = await self._execute_job(job=job, actor=actor)
+            if status is not None:
+                span.set_status(status)
+
+    async def _execute_job(self, *, job: AssistantJob, actor: AuthenticatedActor) -> str | None:
         async with self._transactions(actor) as transaction:
             run = await transaction.repository.begin_orchestration(job=job)
             snapshot = await transaction.repository.get_conversation_snapshot(
@@ -889,3 +982,4 @@ class AssistantTurnExecutor:
                 safe_error_code=safe_error,
             )
             await transaction.commit()
+        return output.status.value

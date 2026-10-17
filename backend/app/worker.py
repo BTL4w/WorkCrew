@@ -9,9 +9,11 @@ from datetime import UTC, datetime
 from typing import NoReturn, Protocol
 from uuid import UUID
 
+from langsmith import tracing_context  # pyright: ignore[reportUnknownVariableType]
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 from app.core.config import get_settings
+from app.core.tracing import build_trace_adapter
 from app.modules.assistant.adapters.agent_runtime import (
     AgentRecordingModelGateway,
     AssistantAgentRuntime,
@@ -112,6 +114,7 @@ from app.modules.work.planning.assignment.application.recommendation_service imp
 from app.modules.work.planning.assignment.application.requirement_service import (
     TeamRequirementService,
 )
+from work_management_ai.observability.langsmith_adapter import LangSmithTraceAdapter
 
 logger = logging.getLogger(__name__)
 
@@ -253,6 +256,16 @@ async def process_tenant_once(
 
 
 async def _run_worker() -> None:
+    trace_adapter = build_trace_adapter(get_settings())
+    try:
+        with tracing_context(enabled=False):
+            await _run_worker_with_tracing(trace_adapter)
+    finally:
+        if trace_adapter is not None:
+            await trace_adapter.close()
+
+
+async def _run_worker_with_tracing(trace_adapter: LangSmithTraceAdapter | None) -> None:
     settings = get_settings()
     worker_id = settings.worker_id
     organization_ids = settings.worker_organization_ids
@@ -287,7 +300,7 @@ async def _run_worker() -> None:
     planning_job_service = JobService(
         transaction_factory=planning_transaction_factory,
         handlers=build_planning_job_handlers(
-            settings, planning_transaction_factory, actor_resolver
+            settings, planning_transaction_factory, actor_resolver, trace_adapter=trace_adapter
         ),
         organization_scopes=scopes,
         lease_seconds=settings.worker_lease_seconds,
@@ -476,6 +489,7 @@ async def _run_worker() -> None:
         drafts=planning_drafts, transactions=planning_transaction_factory, previous=report_projector
     )
     turn_executor = AssistantTurnExecutor(
+        trace_sink=trace_adapter,
         transaction_factory=assistant_transaction_factory,
         registry=registry,
         engine_factory=build_execution_engine_factory(
