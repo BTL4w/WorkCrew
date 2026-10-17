@@ -362,7 +362,7 @@ describe("AssistantShell", () => {
     expect(keys[1]).toBe(keys[0]);
   });
 
-  it("answers a projected manager question as a linked chat turn", async () => {
+  it("shows a manager question as plain chat text and sends a linked answer", async () => {
     const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       if (String(input) === "/api/v1/ai/conversations") return response({ items: [conversation] });
       if (!init?.method) return response({ conversation, messages: [{
@@ -384,6 +384,7 @@ describe("AssistantShell", () => {
     renderWithAppProviders(<AssistantShell actor={managerActor} connectEvents={noEvents} />);
 
     await screen.findByText("Ngày ra mắt là khi nào?");
+    expect(screen.queryByRole("heading", { name: "Cần thêm thông tin" })).not.toBeInTheDocument();
     fireEvent.change(screen.getByRole("textbox", { name: "Nhắn cho Trợ lý AI" }), { target: { value: "Ngày 30/9" } });
     fireEvent.click(screen.getByRole("button", { name: "Gửi" }));
 

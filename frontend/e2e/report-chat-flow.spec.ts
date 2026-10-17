@@ -35,7 +35,15 @@ for(const locale of ["vi","en"] as const) {
   await page.request.post("/api/v1/projects",{data:{name},headers:{"Idempotency-Key":crypto.randomUUID()}});
   await composer.fill(locale==="vi"?`Tạo báo cáo cho dự án "${name}"`:`Generate a report for project "${name}"`);
   await page.getByRole("button",{name:locale==="vi"?"Gửi":"Send",exact:true}).click();
-  await expect(page.getByRole("heading",{name:locale==="vi"?"Cần thêm thông tin":"More information needed"}).last()).toBeVisible();
+  let clarification: string | undefined;
+  await expect.poll(async()=>{
+    const current=await (await page.request.get(`/api/v1/ai/conversations/${conversationId}`)).json();
+    const question=current.messages.flatMap((m:{content_blocks:Array<{kind:string;question?:string}>})=>m.content_blocks).findLast((b:{kind:string})=>b.kind==="question");
+    clarification=question?.question;
+    return Boolean(clarification);
+  }).toBe(true);
+  await expect(page.getByText(clarification!,{exact:true})).toBeVisible();
+  await expect(page.getByRole("heading",{name:locale==="vi"?"Cần thêm thông tin":"More information needed"})).toHaveCount(0);
   const beforeMissing=(await (await page.request.get(`/api/v1/ai/conversations/${conversationId}`)).json()).messages.length;
   await composer.fill(locale==="vi"?`Tạo báo cáo cho dự án "Missing ${Date.now()}"`:`Generate a report for project "Missing ${Date.now()}"`);
   await page.getByRole("button",{name:locale==="vi"?"Gửi":"Send",exact:true}).click();

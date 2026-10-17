@@ -76,12 +76,6 @@ test("Assistant enforces Employee scope and completes one approval-gated Manager
   await openNewConversation(page);
   await send(page, "Lập kế hoạch ra mắt sản phẩm trong quý tới");
 
-  await expect(page.locator(".assistant-question, .assistant-planning-card").first()).toBeVisible();
-  const question = page.getByRole("heading", { name: "Cần thêm thông tin" });
-  if (await question.isVisible()) {
-    await send(page, "Ngân sách đã được duyệt và phạm vi là một thị trường.");
-  }
-
   await expect(page.getByText("Proposal v1", { exact: true })).toBeVisible();
   await expect(page.getByText("Chờ bạn phê duyệt")).toBeVisible();
 
@@ -186,10 +180,6 @@ test("combined Project and team request checkpoints approval before recommending
   await openNewConversation(page);
   await send(page, "Lập kế hoạch dự án và đề xuất đội ngũ thực hiện");
 
-  const question = page.getByRole("heading", { name: "Cần thêm thông tin" });
-  if (await question.isVisible()) {
-    await send(page, "Phạm vi dự án đã xác nhận; dùng kế hoạch minh họa.");
-  }
   await expect(page.getByText("Proposal v1", { exact: true })).toBeVisible();
   await expect(page.locator(".assistant-team-recommendation")).toHaveCount(0);
   await page.getByRole("button", { name: "Phê duyệt kế hoạch" }).click();

@@ -194,7 +194,7 @@ function BlockView({ block, canManage, onEdit, onRevise, onApprove, onReject, on
     case "text": return <p>{block.text}</p>;
     case "activity": return <ActivityBlock block={block} />;
     case "work_evidence": return <WorkEvidenceBlock block={block} />;
-    case "question": return <section className="assistant-block assistant-question"><h3>{t("question.title")}</h3><p>{block.question}</p></section>;
+    case "question": return <p>{block.question}</p>;
     case "capability_unavailable": return <UnavailableBlock block={block} />;
     case "planning_draft": return <PlanningDraftBlock block={block} canManage={canManage} onPrepare={onPrepareDraft}/>;
     case "planning_run": return <section className="assistant-block assistant-activity"><p>{t("planning.status", { status: block.status })}</p></section>;

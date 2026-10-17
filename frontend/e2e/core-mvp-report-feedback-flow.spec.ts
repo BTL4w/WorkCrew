@@ -37,10 +37,6 @@ for (const locale of ["vi", "en"] as const) {
     const before = (await (await page.request.get("/api/v1/projects?page_size=100")).json()).items;
     await page.getByRole("navigation").getByRole("button", { name: l("assistant.conversations.new"), exact: true }).click();
     await send(page, locale, locale === "vi" ? "Lập kế hoạch ra mắt sản phẩm trong quý tới" : "Create a project plan for a product launch next quarter");
-    await expect(page.locator(".assistant-question, .assistant-planning-card").first()).toBeVisible();
-    if (await page.getByRole("heading", { name: l("assistant.question.title") }).isVisible()) {
-      await send(page, locale, locale === "vi" ? "Ngân sách đã được duyệt, phạm vi là một thị trường." : "Budget approved, scope is one market.");
-    }
     await expect(page.getByText("Proposal v1", { exact: true })).toBeVisible();
     const unapproved = (await (await page.request.get("/api/v1/projects?page_size=100")).json()).items;
     expect(unapproved.map((p: {id: string}) => p.id)).toEqual(before.map((p: {id: string}) => p.id));

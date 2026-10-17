@@ -77,6 +77,10 @@ for (const locale of ["vi", "en"] as const) {
     await expect(
       page.getByText(locale === "vi" ? /Thiếu mục tiêu/ : /Missing information/),
     ).toBeVisible();
+    await expect(page.getByRole("heading", {
+      name: locale === "vi" ? "Cần thêm thông tin" : "More information needed",
+    })).toHaveCount(0);
+    await expect(page.locator(".assistant-question")).toHaveCount(0);
     expect(
       (await snapshot(page)).messages
         .flatMap((message) => message.content_blocks)
