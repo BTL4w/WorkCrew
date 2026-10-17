@@ -165,8 +165,8 @@ class ProgressivePlanningState:
     workflow_version: str = "3.0.0"
     schema_version: str = "planning-draft.v1"
     model_reference: str = "unknown"
-    prompt_version: str = "progressive-planning.v1"
-    verifier_version: str = "1.0.0"
+    prompt_version: str = "progressive-planning.v3"
+    verifier_version: str = "1.2.0"
 
 
 @dataclass(frozen=True, slots=True)

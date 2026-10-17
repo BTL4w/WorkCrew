@@ -32,6 +32,7 @@ async function send(page: Page, message: string, locale: "vi" | "en") {
       exact: true,
     })
     .click();
+  await expect(page).toHaveURL(/[?&]conversation=[0-9a-f-]+(?:&|$)/);
 }
 async function latestDraft(page: Page, version: number) {
   let found: Snapshot["messages"][number]["content_blocks"][number] | undefined;
@@ -54,7 +55,7 @@ async function latestDraft(page: Page, version: number) {
   return found!;
 }
 for (const locale of ["vi", "en"] as const) {
-  test(`Progressive Planning ${locale}: question, draft, edits, refresh, stale review and exact confirmation`, async ({
+  test(`Progressive Planning ${locale}: missing goal, concrete draft, edits and exact confirmation`, async ({
     page,
   }) => {
     await page.goto("/login");
@@ -74,13 +75,13 @@ for (const locale of ["vi", "en"] as const) {
       locale,
     );
     await expect(
-      page.getByText(
-        locale === "vi"
-          ? "Bạn muốn lập kế hoạch cho mục tiêu gì?"
-          : "What goal would you like to plan for?",
-        { exact: true },
-      ),
+      page.getByText(locale === "vi" ? /Thiếu mục tiêu/ : /Missing information/),
     ).toBeVisible();
+    expect(
+      (await snapshot(page)).messages
+        .flatMap((message) => message.content_blocks)
+        .filter((block) => ["planning_draft", "proposal", "planning_run"].includes(block.kind)),
+    ).toHaveLength(0);
     await expect(page.locator(".assistant-planning-draft")).toHaveCount(0);
     await send(
       page,

@@ -13,7 +13,7 @@ from work_management_ai.schemas.progressive_planning import (
     PlanningField,
 )
 
-DRAFT_VERIFIER_VERSION = "1.0.0"
+DRAFT_VERIFIER_VERSION = "1.2.0"
 
 
 @dataclass(frozen=True, slots=True)

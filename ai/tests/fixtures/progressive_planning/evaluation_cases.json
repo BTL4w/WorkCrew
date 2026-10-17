@@ -1,7 +1,7 @@
 [
   {
-    "case_id": "ask-goal-vi",
-    "scenario": "ask-goal",
+    "case_id": "missing-goal-vi",
+    "scenario": "missing-goal",
     "locale": "vi",
     "message": "Tạo Plan cho tôi",
     "expected": "ASK_GOAL",
@@ -11,15 +11,13 @@
     "candidate": {
       "decision": {
         "kind": "ASK_GOAL",
+        "draft": null,
         "question": {
-          "id": "goal",
+          "id": "missing-goal",
           "purpose": "GOAL",
-          "text": "Bạn muốn lập kế hoạch cho mục tiêu gì?",
           "blocking": true,
-          "decision_impact": null,
-          "source_refs": []
-        },
-        "draft": null
+          "text": "Thiếu mục tiêu hoặc kết quả cụ thể cần đạt. Bạn muốn lập kế hoạch cho việc gì?"
+        }
       },
       "change_assessment": null
     }
@@ -36,14 +34,7 @@
     "candidate": {
       "decision": {
         "kind": "DRAFT",
-        "question": {
-          "id": "launch-date",
-          "purpose": "FOLLOW_UP",
-          "text": "Bạn đã có ngày ra mắt cụ thể chưa?",
-          "blocking": false,
-          "decision_impact": null,
-          "source_refs": []
-        },
+        "question": null,
         "draft": {
           "brief": {
             "objective": {
@@ -172,42 +163,151 @@
               "successor_ref": "t4"
             }
           ],
-          "open_questions": [
-            {
-              "id": "launch-date",
-              "purpose": "FOLLOW_UP",
-              "text": "Bạn đã có ngày ra mắt cụ thể chưa?",
-              "blocking": false,
-              "decision_impact": null,
-              "source_refs": []
-            }
-          ]
+          "open_questions": []
         }
       },
       "change_assessment": null
     }
   },
   {
-    "case_id": "decisive-vi",
-    "scenario": "decisive",
+    "case_id": "workshop-draft-vi",
+    "scenario": "workshop-draft",
     "locale": "vi",
     "message": "Tổ chức hội thảo",
-    "expected": "ASK_DECISIVE",
+    "expected": "DRAFT",
     "layer": "GRAPH",
     "active": false,
     "base": null,
     "candidate": {
       "decision": {
-        "kind": "ASK_DECISIVE",
-        "question": {
-          "id": "decisive",
-          "purpose": "DECISIVE",
-          "text": "Trực tuyến hay trực tiếp?",
-          "blocking": true,
-          "decision_impact": "In-person requires a venue and logistics; online requires a streaming setup.",
-          "source_refs": []
-        },
-        "draft": null
+        "kind": "DRAFT",
+        "question": null,
+        "draft": {
+          "brief": {
+            "objective": {
+              "value": "Tổ chức hội thảo",
+              "status": "USER_STATED",
+              "source_refs": [
+                "message:edit"
+              ]
+            },
+            "audience": {
+              "value": "Đối tượng rộng",
+              "status": "AI_ASSUMPTION",
+              "source_refs": [],
+              "assumption_reason": "No detailed audience supplied"
+            },
+            "expected_outcomes": [],
+            "timing": {
+              "value": 42,
+              "status": "AI_ASSUMPTION",
+              "assumption_reason": "Suggested launch duration"
+            }
+          },
+          "duration_days": 42,
+          "phases": [
+            {
+              "ref": "p1",
+              "title": "Xác định mục tiêu",
+              "start_day": 0,
+              "end_day": 14
+            },
+            {
+              "ref": "p2",
+              "title": "Chuẩn bị",
+              "start_day": 7,
+              "end_day": 28
+            },
+            {
+              "ref": "p3",
+              "title": "Triển khai",
+              "start_day": 21,
+              "end_day": 35
+            },
+            {
+              "ref": "p4",
+              "title": "Kiểm tra và tổng kết",
+              "start_day": 28,
+              "end_day": 42
+            }
+          ],
+          "tasks": [
+            {
+              "ref": "t1",
+              "phase_ref": "p1",
+              "title": "Xác định mục tiêu",
+              "start_day": 0,
+              "end_day": 7,
+              "duration_days": 7,
+              "duration_source": "AI_ASSUMPTION",
+              "acceptance_criteria": [
+                "Output reviewed"
+              ],
+              "required_skill_labels": []
+            },
+            {
+              "ref": "t2",
+              "phase_ref": "p2",
+              "title": "Chuẩn bị",
+              "start_day": 7,
+              "end_day": 14,
+              "duration_days": 7,
+              "duration_source": "AI_ASSUMPTION",
+              "acceptance_criteria": [
+                "Output reviewed"
+              ],
+              "required_skill_labels": []
+            },
+            {
+              "ref": "t3",
+              "phase_ref": "p3",
+              "title": "Triển khai",
+              "start_day": 21,
+              "end_day": 28,
+              "duration_days": 7,
+              "duration_source": "AI_ASSUMPTION",
+              "acceptance_criteria": [
+                "Output reviewed"
+              ],
+              "required_skill_labels": []
+            },
+            {
+              "ref": "t4",
+              "phase_ref": "p4",
+              "title": "Kiểm tra và tổng kết",
+              "start_day": 28,
+              "end_day": 35,
+              "duration_days": 7,
+              "duration_source": "AI_ASSUMPTION",
+              "acceptance_criteria": [
+                "Output reviewed"
+              ],
+              "required_skill_labels": []
+            }
+          ],
+          "assumptions": [
+            {
+              "value": "Six-week launch",
+              "status": "AI_ASSUMPTION",
+              "assumption_reason": "No launch date supplied"
+            }
+          ],
+          "dependencies": [
+            {
+              "predecessor_ref": "t1",
+              "successor_ref": "t2"
+            },
+            {
+              "predecessor_ref": "t2",
+              "successor_ref": "t3"
+            },
+            {
+              "predecessor_ref": "t3",
+              "successor_ref": "t4"
+            }
+          ],
+          "open_questions": []
+        }
       },
       "change_assessment": null
     }
@@ -362,14 +462,7 @@
     "candidate": {
       "decision": {
         "kind": "DRAFT",
-        "question": {
-          "id": "launch-date",
-          "purpose": "FOLLOW_UP",
-          "text": "Bạn đã có ngày ra mắt cụ thể chưa?",
-          "blocking": false,
-          "decision_impact": null,
-          "source_refs": []
-        },
+        "question": null,
         "draft": {
           "brief": {
             "objective": {
@@ -508,16 +601,7 @@
               "successor_ref": "t4"
             }
           ],
-          "open_questions": [
-            {
-              "id": "launch-date",
-              "purpose": "FOLLOW_UP",
-              "text": "Bạn đã có ngày ra mắt cụ thể chưa?",
-              "blocking": false,
-              "decision_impact": null,
-              "source_refs": []
-            }
-          ]
+          "open_questions": []
         }
       },
       "change_assessment": {
@@ -696,14 +780,7 @@
     "candidate": {
       "decision": {
         "kind": "DRAFT",
-        "question": {
-          "id": "launch-date",
-          "purpose": "FOLLOW_UP",
-          "text": "Bạn đã có ngày ra mắt cụ thể chưa?",
-          "blocking": false,
-          "decision_impact": null,
-          "source_refs": []
-        },
+        "question": null,
         "draft": {
           "brief": {
             "objective": {
@@ -842,16 +919,7 @@
               "successor_ref": "t4"
             }
           ],
-          "open_questions": [
-            {
-              "id": "launch-date",
-              "purpose": "FOLLOW_UP",
-              "text": "Bạn đã có ngày ra mắt cụ thể chưa?",
-              "blocking": false,
-              "decision_impact": null,
-              "source_refs": []
-            }
-          ]
+          "open_questions": []
         }
       },
       "change_assessment": {
@@ -1019,14 +1087,7 @@
     "candidate": {
       "decision": {
         "kind": "DRAFT",
-        "question": {
-          "id": "launch-date",
-          "purpose": "FOLLOW_UP",
-          "text": "Bạn đã có ngày ra mắt cụ thể chưa?",
-          "blocking": false,
-          "decision_impact": null,
-          "source_refs": []
-        },
+        "question": null,
         "draft": {
           "brief": {
             "objective": {
@@ -1147,16 +1208,7 @@
               "successor_ref": "t4"
             }
           ],
-          "open_questions": [
-            {
-              "id": "launch-date",
-              "purpose": "FOLLOW_UP",
-              "text": "Bạn đã có ngày ra mắt cụ thể chưa?",
-              "blocking": false,
-              "decision_impact": null,
-              "source_refs": []
-            }
-          ]
+          "open_questions": []
         }
       },
       "change_assessment": null
@@ -1278,14 +1330,7 @@
     "candidate": {
       "decision": {
         "kind": "DRAFT",
-        "question": {
-          "id": "launch-date",
-          "purpose": "FOLLOW_UP",
-          "text": "Bạn đã có ngày ra mắt cụ thể chưa?",
-          "blocking": false,
-          "decision_impact": null,
-          "source_refs": []
-        },
+        "question": null,
         "draft": {
           "brief": {
             "objective": {
@@ -1382,16 +1427,7 @@
               "successor_ref": "t3"
             }
           ],
-          "open_questions": [
-            {
-              "id": "launch-date",
-              "purpose": "FOLLOW_UP",
-              "text": "Bạn đã có ngày ra mắt cụ thể chưa?",
-              "blocking": false,
-              "decision_impact": null,
-              "source_refs": []
-            }
-          ]
+          "open_questions": []
         }
       },
       "change_assessment": {
@@ -1442,8 +1478,8 @@
     "candidate": null
   },
   {
-    "case_id": "ask-goal-en",
-    "scenario": "ask-goal",
+    "case_id": "missing-goal-en",
+    "scenario": "missing-goal",
     "locale": "en",
     "message": "Create a plan for me",
     "expected": "ASK_GOAL",
@@ -1453,15 +1489,13 @@
     "candidate": {
       "decision": {
         "kind": "ASK_GOAL",
+        "draft": null,
         "question": {
-          "id": "goal",
+          "id": "missing-goal",
           "purpose": "GOAL",
-          "text": "What goal should the plan achieve?",
           "blocking": true,
-          "decision_impact": null,
-          "source_refs": []
-        },
-        "draft": null
+          "text": "Missing information: the concrete goal or desired outcome. What would you like to achieve?"
+        }
       },
       "change_assessment": null
     }
@@ -1478,14 +1512,7 @@
     "candidate": {
       "decision": {
         "kind": "DRAFT",
-        "question": {
-          "id": "launch-date",
-          "purpose": "FOLLOW_UP",
-          "text": "Do you have a launch date?",
-          "blocking": false,
-          "decision_impact": null,
-          "source_refs": []
-        },
+        "question": null,
         "draft": {
           "brief": {
             "objective": {
@@ -1614,42 +1641,151 @@
               "successor_ref": "t4"
             }
           ],
-          "open_questions": [
-            {
-              "id": "launch-date",
-              "purpose": "FOLLOW_UP",
-              "text": "Do you have a launch date?",
-              "blocking": false,
-              "decision_impact": null,
-              "source_refs": []
-            }
-          ]
+          "open_questions": []
         }
       },
       "change_assessment": null
     }
   },
   {
-    "case_id": "decisive-en",
-    "scenario": "decisive",
+    "case_id": "workshop-draft-en",
+    "scenario": "workshop-draft",
     "locale": "en",
     "message": "Organize a workshop",
-    "expected": "ASK_DECISIVE",
+    "expected": "DRAFT",
     "layer": "GRAPH",
     "active": false,
     "base": null,
     "candidate": {
       "decision": {
-        "kind": "ASK_DECISIVE",
-        "question": {
-          "id": "decisive",
-          "purpose": "DECISIVE",
-          "text": "Online or in person?",
-          "blocking": true,
-          "decision_impact": "In-person requires a venue and logistics; online requires a streaming setup.",
-          "source_refs": []
-        },
-        "draft": null
+        "kind": "DRAFT",
+        "question": null,
+        "draft": {
+          "brief": {
+            "objective": {
+              "value": "Organize a workshop",
+              "status": "USER_STATED",
+              "source_refs": [
+                "message:edit"
+              ]
+            },
+            "audience": {
+              "value": "Broad audience",
+              "status": "AI_ASSUMPTION",
+              "source_refs": [],
+              "assumption_reason": "No detailed audience supplied"
+            },
+            "expected_outcomes": [],
+            "timing": {
+              "value": 42,
+              "status": "AI_ASSUMPTION",
+              "assumption_reason": "Suggested launch duration"
+            }
+          },
+          "duration_days": 42,
+          "phases": [
+            {
+              "ref": "p1",
+              "title": "Define objective",
+              "start_day": 0,
+              "end_day": 14
+            },
+            {
+              "ref": "p2",
+              "title": "Prepare",
+              "start_day": 7,
+              "end_day": 28
+            },
+            {
+              "ref": "p3",
+              "title": "Execute",
+              "start_day": 21,
+              "end_day": 35
+            },
+            {
+              "ref": "p4",
+              "title": "Review and wrap up",
+              "start_day": 28,
+              "end_day": 42
+            }
+          ],
+          "tasks": [
+            {
+              "ref": "t1",
+              "phase_ref": "p1",
+              "title": "Define objective",
+              "start_day": 0,
+              "end_day": 7,
+              "duration_days": 7,
+              "duration_source": "AI_ASSUMPTION",
+              "acceptance_criteria": [
+                "Output reviewed"
+              ],
+              "required_skill_labels": []
+            },
+            {
+              "ref": "t2",
+              "phase_ref": "p2",
+              "title": "Prepare",
+              "start_day": 7,
+              "end_day": 14,
+              "duration_days": 7,
+              "duration_source": "AI_ASSUMPTION",
+              "acceptance_criteria": [
+                "Output reviewed"
+              ],
+              "required_skill_labels": []
+            },
+            {
+              "ref": "t3",
+              "phase_ref": "p3",
+              "title": "Execute",
+              "start_day": 21,
+              "end_day": 28,
+              "duration_days": 7,
+              "duration_source": "AI_ASSUMPTION",
+              "acceptance_criteria": [
+                "Output reviewed"
+              ],
+              "required_skill_labels": []
+            },
+            {
+              "ref": "t4",
+              "phase_ref": "p4",
+              "title": "Review and wrap up",
+              "start_day": 28,
+              "end_day": 35,
+              "duration_days": 7,
+              "duration_source": "AI_ASSUMPTION",
+              "acceptance_criteria": [
+                "Output reviewed"
+              ],
+              "required_skill_labels": []
+            }
+          ],
+          "assumptions": [
+            {
+              "value": "Six-week launch",
+              "status": "AI_ASSUMPTION",
+              "assumption_reason": "No launch date supplied"
+            }
+          ],
+          "dependencies": [
+            {
+              "predecessor_ref": "t1",
+              "successor_ref": "t2"
+            },
+            {
+              "predecessor_ref": "t2",
+              "successor_ref": "t3"
+            },
+            {
+              "predecessor_ref": "t3",
+              "successor_ref": "t4"
+            }
+          ],
+          "open_questions": []
+        }
       },
       "change_assessment": null
     }
@@ -1804,14 +1940,7 @@
     "candidate": {
       "decision": {
         "kind": "DRAFT",
-        "question": {
-          "id": "launch-date",
-          "purpose": "FOLLOW_UP",
-          "text": "Do you have a launch date?",
-          "blocking": false,
-          "decision_impact": null,
-          "source_refs": []
-        },
+        "question": null,
         "draft": {
           "brief": {
             "objective": {
@@ -1950,16 +2079,7 @@
               "successor_ref": "t4"
             }
           ],
-          "open_questions": [
-            {
-              "id": "launch-date",
-              "purpose": "FOLLOW_UP",
-              "text": "Do you have a launch date?",
-              "blocking": false,
-              "decision_impact": null,
-              "source_refs": []
-            }
-          ]
+          "open_questions": []
         }
       },
       "change_assessment": {
@@ -2138,14 +2258,7 @@
     "candidate": {
       "decision": {
         "kind": "DRAFT",
-        "question": {
-          "id": "launch-date",
-          "purpose": "FOLLOW_UP",
-          "text": "Do you have a launch date?",
-          "blocking": false,
-          "decision_impact": null,
-          "source_refs": []
-        },
+        "question": null,
         "draft": {
           "brief": {
             "objective": {
@@ -2284,16 +2397,7 @@
               "successor_ref": "t4"
             }
           ],
-          "open_questions": [
-            {
-              "id": "launch-date",
-              "purpose": "FOLLOW_UP",
-              "text": "Do you have a launch date?",
-              "blocking": false,
-              "decision_impact": null,
-              "source_refs": []
-            }
-          ]
+          "open_questions": []
         }
       },
       "change_assessment": {
@@ -2461,14 +2565,7 @@
     "candidate": {
       "decision": {
         "kind": "DRAFT",
-        "question": {
-          "id": "launch-date",
-          "purpose": "FOLLOW_UP",
-          "text": "Do you have a launch date?",
-          "blocking": false,
-          "decision_impact": null,
-          "source_refs": []
-        },
+        "question": null,
         "draft": {
           "brief": {
             "objective": {
@@ -2589,16 +2686,7 @@
               "successor_ref": "t4"
             }
           ],
-          "open_questions": [
-            {
-              "id": "launch-date",
-              "purpose": "FOLLOW_UP",
-              "text": "Do you have a launch date?",
-              "blocking": false,
-              "decision_impact": null,
-              "source_refs": []
-            }
-          ]
+          "open_questions": []
         }
       },
       "change_assessment": null
@@ -2720,14 +2808,7 @@
     "candidate": {
       "decision": {
         "kind": "DRAFT",
-        "question": {
-          "id": "launch-date",
-          "purpose": "FOLLOW_UP",
-          "text": "Do you have a launch date?",
-          "blocking": false,
-          "decision_impact": null,
-          "source_refs": []
-        },
+        "question": null,
         "draft": {
           "brief": {
             "objective": {
@@ -2824,16 +2905,7 @@
               "successor_ref": "t3"
             }
           ],
-          "open_questions": [
-            {
-              "id": "launch-date",
-              "purpose": "FOLLOW_UP",
-              "text": "Do you have a launch date?",
-              "blocking": false,
-              "decision_impact": null,
-              "source_refs": []
-            }
-          ]
+          "open_questions": []
         }
       },
       "change_assessment": {

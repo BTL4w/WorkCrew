@@ -571,21 +571,14 @@ async def test_postgres_create_run_is_atomic_idempotent_audited_and_tenant_scope
             )
             assert await job_service.run_once("task7-test-worker", organization_id) is True
             revalidated = await client.get(f"/api/v1/workflow-runs/{run_id}")
-            needs_input_created = await client.post(
+            short_created = await client.post(
                 "/api/v1/ai/planning-runs",
                 json={"message": "Plan conference", "locale": "en"},
-                headers={"Idempotency-Key": "task7-needs-input-key"},
+                headers={"Idempotency-Key": "task7-short-request-key"},
             )
-            needs_input_run = UUID(needs_input_created.json()["run_id"])
+            short_run = UUID(short_created.json()["run_id"])
             assert await job_service.run_once("task7-test-worker", organization_id) is True
-            needs_input = await client.get(f"/api/v1/workflow-runs/{needs_input_run}")
-            answered = await client.post(
-                f"/api/v1/workflow-runs/{needs_input_run}/messages",
-                json={"message": "Budget is 50,000 USD"},
-                headers={"Idempotency-Key": "task7-manager-answer-key"},
-            )
-            assert await job_service.run_once("task7-test-worker", organization_id) is True
-            resumed = await client.get(f"/api/v1/workflow-runs/{needs_input_run}")
+            short_result = await client.get(f"/api/v1/workflow-runs/{short_run}")
             foreign = await client.get(f"/api/v1/workflow-runs/{foreign_run}")
             foreign_proposal_read = await client.get(
                 f"/api/v1/proposals/{foreign_proposal}/versions/1"
@@ -616,9 +609,9 @@ async def test_postgres_create_run_is_atomic_idempotent_audited_and_tenant_scope
         assert edited.headers["etag"] == '"2"'
         assert revalidated.json()["current_proposal"]["version"] == 2
         assert revalidated.json()["current_proposal"]["status"] == "READY_FOR_DECISION"
-        assert needs_input.json()["status"] == "NEEDS_INPUT"
-        assert answered.status_code == 202
-        assert resumed.json()["status"] == "WAITING_FOR_DECISION"
+        assert short_created.status_code == 202
+        assert short_result.json()["status"] == "WAITING_FOR_DECISION"
+        assert short_result.json()["current_proposal"] is not None
         assert foreign.status_code == 404
         assert foreign_proposal_read.status_code == 404
         assert employee.status_code == 403

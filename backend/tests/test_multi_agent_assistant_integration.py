@@ -117,6 +117,41 @@ def _orchestrator(
     )
 
 
+@pytest.mark.asyncio
+@pytest.mark.parametrize("progressive", [False, True])
+@pytest.mark.parametrize(
+    "locale,message",
+    [("vi", "Tạo plan cho tôi"), ("en", "Create a plan for me")],
+)
+async def test_missing_planning_goal_shows_required_information_before_any_delegation(
+    progressive: bool, locale: str, message: str
+) -> None:
+    resolver = _ActorResolver()
+    specialists = _RecordingSpecialists()
+    registry, _ = build_agent_registry()
+    harness = OrchestratorHarness(
+        model_gateway=build_model_gateway(Settings(environment="test", ai_provider="mock")),
+        registry=registry,
+        policy_guard=PolicyGuard(),
+        actor_resolver=resolver,
+        specialists=specialists,
+    )
+    value = _value(resolver, message, locale=locale)
+    value = value.model_copy(
+        update={
+            "active_context": value.active_context.model_copy(
+                update={"progressive_planning_enabled": progressive}
+            )
+        }
+    )
+    result = await harness.run_turn(value)
+    assert result.status is OrchestratorStatus.AWAITING_INPUT
+    assert result.stop_reason == "GOAL_CLARIFICATION_REQUIRED"
+    assert len(result.blocks) == 1 and result.blocks[0].kind == "question"
+    assert ("Thiếu" if locale == "vi" else "Missing") in result.blocks[0].question
+    assert specialists.handoffs == []
+
+
 def _multi_intent_plan() -> dict[str, object]:
     return {
         "schema_version": "1.0",

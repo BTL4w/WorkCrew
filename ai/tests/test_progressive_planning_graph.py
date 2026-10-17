@@ -113,20 +113,13 @@ def candidate(kind: str, locale: str) -> dict[str, object]:
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("locale", ["vi", "en"])
-@pytest.mark.parametrize(
-    "kind,message",
-    [
-        ("ASK_GOAL", "Create a plan for me"),
-        ("DRAFT", "Launch an online course for 100 learners"),
-        ("ASK_DECISIVE", "Organize a workshop"),
-    ],
-)
+@pytest.mark.parametrize("message", ["Launch an online course", "Organize a workshop"])
 async def test_progressive_decision_persists_without_business_proposal(
-    locale: str, kind: str, message: str
+    locale: str, message: str
 ) -> None:
     gateway = MockModelGateway(
         fixtures={
-            f"planning.progressive.{locale}.content": candidate(kind, locale),
+            f"planning.progressive.{locale}.content": candidate("DRAFT", locale),
             f"planning.progressive.{locale}.grounding": {"passed": True},
         }
     )
@@ -139,14 +132,53 @@ async def test_progressive_decision_persists_without_business_proposal(
     )
     result = await graph.run_progressive(state(locale, message))
     assert result.safe_error_code is None
-    assert result.decision is not None and result.decision.kind == kind
+    assert result.decision is not None and result.decision.kind == "DRAFT"
     assert len(persistence.decisions) == 1
-    if kind == "DRAFT":
-        assert result.binding is not None and result.decision.draft is not None
-        assert result.decision.draft.duration_days == 42
-        assert result.decision.question is not None and not result.decision.question.blocking
-    else:
-        assert result.binding is None and result.decision.draft is None
+    assert result.binding is not None and result.decision.draft is not None
+    assert result.decision.draft.duration_days == 42
+    assert result.decision.question is None
+    assert result.decision.draft.open_questions == ()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("kind", ["ASK_GOAL", "ASK_DECISIVE"])
+async def test_missing_required_information_pauses_without_a_draft(kind: str) -> None:
+    gateway = MockModelGateway(
+        fixtures={"planning.progressive.en.content": candidate(kind, "en")},
+    )
+    persistence = Persistence()
+    graph = PlanningGraph(
+        model_gateway=gateway,
+        context_port=Context(),
+        persistence_port=persistence,
+        progressive_persistence_port=persistence,
+    )
+    result = await graph.run_progressive(state())
+    assert result.safe_error_code is None
+    assert result.decision is not None and result.decision.kind == kind
+    assert result.decision.draft is None and result.binding is None
+    assert result.model_calls_used == 1
+    assert len(persistence.decisions) == 1 and persistence.decisions[0].question is not None
+
+
+@pytest.mark.asyncio
+async def test_model_cannot_publish_an_invented_goal_disguised_as_an_assumption() -> None:
+    content = candidate("DRAFT", "en")
+    content["decision"]["draft"]["brief"]["objective"] = {  # type: ignore[index]
+        "value": "Organize a work objective",
+        "status": "AI_ASSUMPTION",
+        "assumption_reason": "The user supplied no goal",
+    }
+    persistence = Persistence()
+    graph = PlanningGraph(
+        model_gateway=MockModelGateway(fixtures={"planning.progressive.en.content": content}),
+        context_port=Context(),
+        persistence_port=persistence,
+        progressive_persistence_port=persistence,
+    )
+    result = await graph.run_progressive(state())
+    assert result.safe_error_code == "PLANNING_VERIFIER_FAILED"
+    assert result.decision is None and persistence.decisions == []
 
 
 @pytest.mark.asyncio

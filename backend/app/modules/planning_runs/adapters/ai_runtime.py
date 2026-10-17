@@ -691,6 +691,29 @@ class _Phase2MockModelGateway:
                 "dự án",
             )
         )
+        from app.modules.planning_runs.adapters.progressive_mock import (
+            mock_missing_goal_question,
+            mock_missing_planning_goal,
+        )
+
+        recent = payload.get("recent_messages", [])
+        prior_users = [
+            str(item.get("text", ""))
+            for item in cast(list[dict[str, object]], recent)
+            if item.get("role") == "USER"
+        ]
+        if len(prior_users) >= 2 and mock_missing_planning_goal(prior_users[-2]):
+            asks_for_planning = asks_for_planning or any(
+                word in message
+                for word in (
+                    "khóa học",
+                    "course",
+                    "hội thảo",
+                    "workshop",
+                    "tuyển dụng",
+                    "recruitment",
+                )
+            )
         if asks_for_planning and not planning_available:
             return {
                 "objectives": [message or "planning request"],
@@ -699,6 +722,13 @@ class _Phase2MockModelGateway:
                 "response_language": locale,
             }
         if asks_for_planning:
+            if active is None and mock_missing_planning_goal(message):
+                return {
+                    "objectives": [message],
+                    "goal_question": {"question": mock_missing_goal_question(locale)},
+                    "steps": [],
+                    "response_language": locale,
+                }
             steps: list[dict[str, object]] = [
                 {
                     "step_id": "create_plan",
@@ -849,12 +879,9 @@ class _PlanningContextAdapter:
             or request.actor_membership_id != self._run.requested_by_membership_id
         ):
             raise PermissionError("planning context scope mismatch")
-        questions: tuple[str, ...] = ()
-        if len(request.user_brief.split()) < 4 and not request.manager_answers:
-            questions = ("Please provide more planning detail.",)
         return PermittedPlanningContext(
             reference_ids=(),
-            required_questions=questions,
+            required_questions=(),
             structured_facts={},
         )
 

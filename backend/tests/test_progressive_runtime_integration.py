@@ -26,8 +26,8 @@ pytestmark = [
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("locale", ["vi", "en"])
-@pytest.mark.parametrize("decision", ["ASK_GOAL", "DRAFT"])
-async def test_worker_persists_typed_question_or_relative_draft(
+@pytest.mark.parametrize("decision", ["ASK_GOAL", "DRAFT", "REPAIRED_INVALID"])
+async def test_worker_pauses_for_missing_information_or_publishes_a_verified_draft(
     monkeypatch: pytest.MonkeyPatch, locale: str, decision: str
 ) -> None:
     settings = Settings(environment="test", progressive_planning_enabled=True)
@@ -52,8 +52,19 @@ async def test_worker_persists_typed_question_or_relative_draft(
             .replace("message:1", f"brief:{run_id}")
         )
         draft["brief"]["objective"]["source_refs"] = [f"brief:{run_id}"]
+        if decision == "REPAIRED_INVALID":
+            # A compact repair leaves room for grounding within the unchanged
+            # durable token budget; oversized repairs must fall back safely.
+            draft = {
+                "brief": {"objective": draft["brief"]["objective"]},
+                "duration_days": 7,
+                "phases": [{"ref": "p1", "title": "Prepare", "start_day": 0, "end_day": 7}],
+                "tasks": [draft["tasks"][0]],
+            }
         candidate: dict[str, Any] = (
-            {
+            {"decision": {"kind": "DRAFT"}}
+            if decision == "REPAIRED_INVALID"
+            else {
                 "decision": {"kind": "DRAFT", "draft": draft, "question": None},
                 "change_assessment": None,
             }
@@ -85,7 +96,15 @@ async def test_worker_persists_typed_question_or_relative_draft(
                     "constraint_violation_paths": [],
                     "safe_reasons": [],
                 },
+            },
+            sequence_fixtures={
+                f"planning.progressive.{locale}.content": (
+                    candidate,
+                    {"decision": {"kind": "DRAFT", "draft": draft, "question": None}},
+                )
             }
+            if decision == "REPAIRED_INVALID"
+            else None,
         )
 
         def gateway_factory(_: Settings) -> MockModelGateway:
@@ -101,7 +120,7 @@ async def test_worker_persists_typed_question_or_relative_draft(
         async with engine.connect() as connection:
             assert await connection.scalar(
                 text("SELECT status FROM workflow_runs WHERE id=:id"), {"id": run_id}
-            ) == ("DRAFT_AVAILABLE" if decision == "DRAFT" else "NEEDS_INPUT")
+            ) == ("NEEDS_INPUT" if decision == "ASK_GOAL" else "DRAFT_AVAILABLE")
             for table in ("proposals", "projects", "tasks"):
                 assert (
                     await connection.scalar(
@@ -113,8 +132,8 @@ async def test_worker_persists_typed_question_or_relative_draft(
             assert await connection.scalar(
                 text("SELECT count(*) FROM model_invocations WHERE workflow_run_id=:id"),
                 {"id": run_id},
-            ) == (2 if decision == "DRAFT" else 1)
-            if decision == "DRAFT":
+            ) == (1 if decision == "ASK_GOAL" else 3 if decision == "REPAIRED_INVALID" else 2)
+            if decision != "ASK_GOAL":
                 assert (
                     await connection.scalar(
                         text(

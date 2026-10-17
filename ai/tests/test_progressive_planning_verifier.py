@@ -126,7 +126,7 @@ def test_invalid_graph_blocks_preparation(dependencies: list[dict[str, str]], co
     assert not result.can_prepare
 
 
-def test_assumed_goal_cannot_be_passed_off_as_a_useful_draft() -> None:
+def test_model_cannot_invent_the_missing_goal_even_as_an_assumption() -> None:
     draft = PlanningDraft.model_validate(draft_data())
     guessed = draft.model_copy(
         update={
@@ -142,8 +142,17 @@ def test_assumed_goal_cannot_be_passed_off_as_a_useful_draft() -> None:
         }
     )
     result = verify_draft(guessed, context())
-    assert "GOAL_REQUIRED" in [item.code for item in result.errors]
+    assert "GOAL_REQUIRED" in {error.code for error in result.errors}
     assert not result.can_prepare
+
+
+@pytest.mark.parametrize("status", [PlanningFieldStatus.UNKNOWN, PlanningFieldStatus.CONFLICTING])
+def test_unknown_or_conflicting_goal_still_blocks_preparation(status: PlanningFieldStatus) -> None:
+    base = PlanningDraft.model_validate(draft_data())
+    changed = base.model_copy(
+        update={"brief": base.brief.model_copy(update={"objective": PlanningField(status=status)})}
+    )
+    assert "GOAL_REQUIRED" in {error.code for error in verify_draft(changed, context()).errors}
 
 
 def test_horizon_edit_cannot_downgrade_user_stated_task_duration() -> None:

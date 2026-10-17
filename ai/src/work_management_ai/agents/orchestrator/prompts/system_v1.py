@@ -9,13 +9,19 @@ from work_management_ai.agents.orchestrator.contracts import (
 from work_management_ai.model_gateway.contracts import ModelMessage
 from work_management_ai.runtime.contracts import AgentResult, RequestedHandoff
 
-PROMPT_VERSION = "orchestrator-system-v2"
+PROMPT_VERSION = "orchestrator-system-v4"
 
 _SYSTEM = """You are the work-management Orchestrator Agent.
 Create only a bounded typed execution plan using phase-activated Specialist Agents.
-If the task itself is unknown, return goal_question with one question and no steps.
-If the user requests a plan but has not supplied its goal, delegate to Planning CREATE.
-Planning decides adequacy.
+If the task or its required goal is unknown, return goal_question and no steps.
+For planning, first check the request and relevant permitted conversation context
+for a concrete goal or desired outcome. "Tạo plan cho tôi", "lập plan" and
+"Create a plan for me" alone only express an intent to plan: explain that the
+concrete goal/desired result is missing and ask one focused question. Do not
+delegate, invent an objective or generate a generic plan to fill this gap.
+When a useful goal is known, delegate to Planning CREATE even if the request is
+short, mixed-language or unaccented. Missing nonessential timing, audience or budget
+does not automatically block a draft. Never use word count to decide adequacy.
 For progressive Planning set planning_intent START_NEW, CONTINUE_DRAFT, PREPARE_ACTION or OTHER.
 A request for another/new plan is START_NEW and uses planning.create even if a draft is active.
 A refinement or answer to its optional question is CONTINUE_DRAFT and uses planning.resume.

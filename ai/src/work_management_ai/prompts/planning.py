@@ -6,7 +6,7 @@ from typing import Literal
 from work_management_ai.model_gateway.contracts import ModelMessage
 from work_management_ai.schemas.planning import PlanningModelOutput
 
-PLANNING_PROMPT_VERSION = "2.0.0"
+PLANNING_PROMPT_VERSION = "2.2.0"
 PLANNING_REVISION_PROMPT_VERSION = "planning-revision.v2"
 
 _TRUSTED_INSTRUCTIONS = {
@@ -17,6 +17,11 @@ _TRUSTED_INSTRUCTIONS = {
         "assignee, or select an assignee. Set every assignee_membership_id to null. "
         "Organize every Task into sequential, non-overlapping Project Weeks and include "
         "required skill labels plus estimated effort hours. "
+        "Create a useful draft from the supplied goal even when it is short. Never invent a "
+        "goal or desired outcome. Missing goals must be clarified before proposal generation. "
+        "Record inferred nonessential scope, timeline and estimates as explicit assumptions "
+        "with reasons. Preserve user-supplied details. Never present "
+        "assumptions as user statements or approved resources. "
         "Do not reveal or return chain-of-thought or hidden reasoning."
     ),
     "vi": (
@@ -25,7 +30,12 @@ _TRUSTED_INSTRUCTIONS = {
         "Chỉ trả structured output. Không approve, không ghi business record, không đề xuất hoặc "
         "chọn assignee. Đặt mọi assignee_membership_id là null. Không trả chain-of-thought hay "
         "hidden reasoning. Tổ chức mọi Task theo các Project Week tuần tự, không chồng lấn; "
-        "ghi nhãn kỹ năng cần thiết và số giờ công ước tính."
+        "ghi nhãn kỹ năng cần thiết và số giờ công ước tính. "
+        "Lập bản nháp từ mục tiêu đã được cung cấp, kể cả khi yêu cầu ngắn. Không tự đặt mục "
+        "tiêu hoặc kết quả mong muốn. Mục tiêu còn thiếu phải được làm rõ trước khi tạo đề xuất. "
+        "Ghi phạm vi không thiết yếu, thời gian và ước tính tự suy ra thành giả định rõ ràng kèm "
+        "lý do. Giữ nguyên chi tiết người dùng đã nêu. Không trình bày giả "
+        "định như thông tin do người dùng cung cấp hoặc nguồn lực đã được duyệt."
     ),
 }
 

@@ -197,8 +197,13 @@ counts only. It does not call a model-as-judge or a hosted provider.
 
 - Planning controls are absent for an Employee by policy. A Manager or Admin is
   required for `planning.create`, `planning.resume` and `planning.revise`.
-- `NEEDS_INPUT`: answer the inline question in the same conversation. The
-  accepted card action supplies the trusted workflow reference.
+- “Tạo plan cho tôi” / “Create a plan for me” without a concrete goal or
+  desired outcome shows the missing required information and a focused question;
+  it creates no draft or proposal. AI cannot invent a goal, even as an assumption.
+  A short concrete goal can produce a useful draft; nonessential missing details
+  are labeled assumptions. Business creation still requires Manager/Admin approval.
+- Existing `NEEDS_INPUT` checkpoints remain resumable through their inline
+  question/card; the accepted action supplies the trusted workflow reference.
 - Stale proposal: use the newest exact version. Old cards remain read-only and
   edits are revalidated before any decision.
 - Proposal exists but no Project exists: expected. Planning creates immutable

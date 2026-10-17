@@ -55,9 +55,9 @@ from work_management_ai.workflows.planning.state import (
 )
 
 SCENARIOS = {
-    "ask-goal",
+    "missing-goal",
     "course-draft",
-    "decisive",
+    "workshop-draft",
     "update-budget",
     "reduce-budget",
     "new-plan",
@@ -129,6 +129,20 @@ class MockProgressiveEvaluationGateway:
             raise ValueError("evaluation case is not selected")
         fixture: dict[str, Any] | None
         if request.invocation_key.startswith("orchestrator."):
+            if self.case.expected == "ASK_GOAL":
+                assert self.case.candidate is not None
+                return await MockModelGateway(
+                    fixtures={
+                        request.invocation_key: {
+                            "objectives": [self.case.message],
+                            "goal_question": {
+                                "question": self.case.candidate["decision"]["question"]["text"]
+                            },
+                            "steps": [],
+                            "response_language": self.case.locale,
+                        }
+                    }
+                ).generate_structured(request)
             resume = self.case.scenario in {"update-budget", "reduce-budget", "conflict"}
             fixture = {
                 "objectives": [self.case.message],
@@ -385,6 +399,35 @@ async def run_progressive_planning_suite(
                 )
             )
             result = runner.result
+            if result is None and case.expected == "ASK_GOAL":
+                assert output.execution_plan is not None
+                assert output.execution_plan.goal_question is not None
+                assert len(output.blocks) == 1 and output.blocks[0].kind == "question"
+                assert not output.agent_results
+                question = output.blocks[0].question
+                assert any(
+                    term in question.casefold()
+                    for term in (
+                        ("mục tiêu", "kết quả") if case.locale == "vi" else ("goal", "outcome")
+                    )
+                )
+                observations.append(
+                    EvaluationObservation(
+                        case_id=case.case_id,
+                        scenario=case.scenario,
+                        locale=case.locale,
+                        mode=mode,
+                        status="PASS",
+                        decision="ASK_GOAL",
+                        model_calls=observed.calls,
+                        input_tokens=observed.inputs if observed.usage_known else None,
+                        output_tokens=observed.outputs if observed.usage_known else None,
+                        latency_ms=int((time.monotonic() - started) * 1000),
+                        model_refs=tuple(observed.refs),
+                        assertions=("MISSING_GOAL_SHOWN_WITHOUT_DELEGATION_OR_DRAFT",),
+                    )
+                )
+                continue
             assert result is not None and result.decision is not None, output.stop_reason
             assert result.decision.kind == case.expected
             decision = result.decision
@@ -412,8 +455,9 @@ async def run_progressive_planning_suite(
                         decision.draft.brief.timing.status == "AI_ASSUMPTION"
                         and len(decision.draft.phases) == 4
                     )
-                    assert decision.question is not None and not decision.question.blocking
                     assertions.append("USEFUL_EARLY_DRAFT_WITH_ASSUMPTIONS")
+                assert decision.question is None and not decision.draft.open_questions
+                assertions.append("DRAFT_WITHOUT_CLARIFICATION")
                 if case.scenario in {"update-budget", "reduce-budget"}:
                     assert (
                         binding is not None
