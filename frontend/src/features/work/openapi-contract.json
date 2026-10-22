@@ -973,18 +973,19 @@
       "daily_summary": "#/components/schemas/DailySummaryBlock",
       "daily_update": "#/components/schemas/DailyUpdateBlock",
       "decision_result": "#/components/schemas/DecisionResultBlock",
+      "planning_draft": "#/components/schemas/PlanningDraftResponseBlock",
       "planning_run": "#/components/schemas/PlanningRunBlock",
       "project_status": "#/components/schemas/ProjectStatusResponseBlock",
       "proposal": "#/components/schemas/ProposalBlock",
       "question": "#/components/schemas/QuestionBlock",
       "report": "#/components/schemas/ReportResponseBlock",
+      "retrieval_answer": "#/components/schemas/RetrievalAnswerResponseBlock",
       "risk": "#/components/schemas/RiskBlock",
       "safe_error": "#/components/schemas/SafeErrorBlock",
       "team_decision_result": "#/components/schemas/TeamDecisionResultBlock",
       "team_recommendation": "#/components/schemas/TeamRecommendationBlock",
       "text": "#/components/schemas/TextBlock",
-      "work_evidence": "#/components/schemas/WorkEvidenceBlock",
-      "planning_draft": "#/components/schemas/PlanningDraftResponseBlock"
+      "work_evidence": "#/components/schemas/WorkEvidenceBlock"
     },
     "schemas": {
       "DailySummaryBlock": {
@@ -1192,6 +1193,52 @@
         "properties": {
           "title": "null|string[1,120]",
           "is_pinned": "boolean|null"
+        }
+      },
+      "RetrievalAnswerResponseBlock": {
+        "required": [
+          "context_run_id",
+          "outcome",
+          "observed_at"
+        ],
+        "properties": {
+          "kind": "literal:retrieval_answer",
+          "schema_version": "literal:1.0",
+          "context_run_id": "string:uuid",
+          "outcome": "literal:ANSWER_READY|EVIDENCE_READY|PARTIAL|NOT_FOUND|SOURCE_UNAVAILABLE|DOCUMENTS_NOT_READY|REJECTED",
+          "claims": "array:ref:RetrievalClaim",
+          "sources": "array:ref:RetrievalSource",
+          "limitations": "array:string",
+          "observed_at": "string:date-time",
+          "availability": "literal:AVAILABLE|EXPIRED|UNAVAILABLE"
+        }
+      },
+      "RetrievalClaim": {
+        "required": [
+          "text",
+          "evidence_ids"
+        ],
+        "properties": {
+          "text": "string[1,3000]",
+          "evidence_ids": "array:string:uuid"
+        }
+      },
+      "RetrievalSource": {
+        "required": [
+          "evidence_id",
+          "title",
+          "canonical_url",
+          "method",
+          "excerpt"
+        ],
+        "properties": {
+          "evidence_id": "string:uuid",
+          "title": "string[1,500]",
+          "canonical_url": "ref:PublicURL",
+          "method": "literal:SEARCH_SNIPPET|PAGE_CONTENT",
+          "excerpt": "string[1,65536]",
+          "published_at": "null|string:date-time",
+          "source_fetched_at": "null|string:date-time"
         }
       }
     }

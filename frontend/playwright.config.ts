@@ -3,7 +3,7 @@ import { defineConfig, devices } from "@playwright/test";
 export default defineConfig({
   testDir: "./e2e",
   // Progressive Planning has its own flag-enabled configuration.
-  testIgnore: "**/progressive-planning-flow.spec.ts",
+  testIgnore: ["**/progressive-planning-flow.spec.ts", "**/retrieval-answer-flow.spec.ts"],
   fullyParallel: false,
   // Browser fixtures share one demo organization, capacity and reconciliation worker.
   workers: 1,

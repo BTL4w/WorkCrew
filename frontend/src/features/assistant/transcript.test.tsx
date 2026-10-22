@@ -237,3 +237,14 @@ describe("Transcript", () => {
     expect(screen.getByText("Khối lượng vượt capacity đã biết")).toBeVisible();
   });
 });
+
+it("renders verified retrieval sources in the shared transcript", async () => {
+  const { retrievalFixture } = await import("@/test/retrieval");
+  const { assistantBlockSchema } = await import("./contracts");
+  renderWithAppProviders(<Transcript messages={[{
+    id:"99999999-9999-4999-8999-999999999999", sequence:1, role:"ASSISTANT",
+    content_blocks:[assistantBlockSchema.parse(retrievalFixture())], created_at:"2026-10-23T01:00:00Z",
+  }]} canManage={false} {...callbacks}/>);
+  expect(screen.getByRole("region", {name:"Nghiên cứu web"})).toBeVisible();
+  expect(screen.getByRole("link", {name:"Nguồn 1: Public planning guide"})).toHaveAttribute("href","https://example.org/guide");
+});

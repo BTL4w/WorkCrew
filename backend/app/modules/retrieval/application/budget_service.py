@@ -583,3 +583,29 @@ class RetrievalBudgetService:
         async with self._transaction(actor, None) as repo:
             terms = await repo.protected_terms()
             validate_intent(intent, message, terms)
+
+    async def projection_sources(
+        self,
+        actor: AuthenticatedActor,
+        run_id: UUID,
+        refs: tuple[UUID, ...],
+        *,
+        expected_hashes: tuple[str, ...] | None = None,
+    ) -> tuple[RetrievalSnapshot, ...]:
+        """Read canonical context without starting/resuming work or renewing deadlines."""
+        async with self._transaction(actor, run_id) as repo:
+            scope = await repo.bind(run_id, None, allow_terminal=True)
+            if not refs:
+                return ()
+            if len(refs) > 8 or len(set(refs)) != len(refs):
+                raise RetrievalPolicyError("RETRIEVAL_SOURCE_UNAVAILABLE")
+            sources = await repo.load_sources(refs)
+            if any(source.expires_at <= scope.now for source in sources):
+                raise RetrievalPolicyError("RETRIEVAL_SOURCE_EXPIRED")
+        return await self.load_evidence(
+            actor,
+            refs,
+            expected_hashes=expected_hashes
+            or tuple(source.source.fingerprint for source in sources),
+            expected_run_id=run_id,
+        )

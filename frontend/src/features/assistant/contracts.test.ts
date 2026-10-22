@@ -120,3 +120,20 @@ describe("Assistant contracts", () => {
     expect(parsed.messages[0]?.content_blocks).toHaveLength(12);
   });
 });
+
+// Retrieval is an additive strict block; authority/provider fields never reach UI.
+describe("retrieval public contract", () => {
+  it("preserves nullable source dates", async () => {
+    const { retrievalFixture } = await import("@/test/retrieval");
+    expect(assistantBlockSchema.parse(retrievalFixture()).kind).toBe("retrieval_answer");
+  });
+  it.each(["citation", "url", "metadata", "version"])("rejects invalid %s", async mutation => {
+    const { retrievalFixture } = await import("@/test/retrieval");
+    const value = retrievalFixture();
+    if (mutation === "citation") value.claims[0].evidence_ids = ["33333333-3333-4333-8333-333333333333"];
+    if (mutation === "url") value.sources[0].canonical_url = "javascript:alert(1)";
+    if (mutation === "version") value.schema_version = "99.0";
+    const payload = mutation === "metadata" ? {...value, usage: {provider_requests: 1}} : value;
+    expect(assistantBlockSchema.safeParse(payload).success).toBe(false);
+  });
+});

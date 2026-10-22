@@ -132,7 +132,10 @@ async def test_actual_turn_executor_routes_and_replays_without_new_provider_cost
         retrieval_usage=runtime.usage,
         activation=activation,
     )
+    from app.modules.assistant.adapters.retrieval_projection import RetrievalBlockProjector
+
     executor = AssistantTurnExecutor(
+        block_projector=RetrievalBlockProjector(runtime.budgets),
         transaction_factory=transactions,
         registry=registry,
         engine_factory=factory,
@@ -154,6 +157,30 @@ async def test_actual_turn_executor_routes_and_replays_without_new_provider_cost
     )
     assert len(result) == 1
     assert result[0]["typed_output"]["typed_output"]["evidence"]
+    public_blocks = (
+        (
+            await h.sql(
+                "SELECT content_blocks FROM assistant_messages WHERE conversation_id=:id "
+                "AND role='ASSISTANT'",
+                {"id": h.job.conversation_id},
+            )
+        )
+        .scalars()
+        .all()
+    )
+    stored_blocks = [block for blocks in public_blocks for block in blocks]
+    retrieval = next(block for block in stored_blocks if block.get("kind") == "retrieval_answer")
+    assert retrieval["source_refs"] and "sources" not in retrieval
+    assert any(block.get("label_key") == "assistant.retrieval.searching" for block in stored_blocks)
+    root_output = (
+        await h.sql(
+            "SELECT typed_output FROM agent_runs WHERE orchestration_run_id=:id "
+            "AND agent_id='orchestrator'",
+            {"id": h.orchestration_id},
+        )
+    ).scalar_one()
+    assert root_output["blocks"][0]["source_refs"] == retrieval["source_refs"]
+    assert "sources" not in root_output["blocks"][0]
     count = (
         await h.sql(
             "SELECT count(*) FROM retrieval_attempt_reservations WHERE organization_id=:org",

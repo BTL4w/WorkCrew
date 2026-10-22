@@ -1,9 +1,9 @@
 """Bind the isolated Harness to canonical reservations, leases and checkpoint CAS."""
 
-from collections.abc import Generator
+from collections.abc import Awaitable, Callable, Generator
 from contextlib import contextmanager
 from contextvars import ContextVar
-from typing import Any
+from typing import Any, Literal
 from uuid import NAMESPACE_URL, UUID, uuid5
 
 from app.modules.assistant.adapters.retrieval_tools import RetrievalToolExecutor
@@ -21,13 +21,17 @@ from app.modules.retrieval.domain.state import RetrievalLease
 from work_management_ai.agents.retrieve.budget import ModelReservation, RetrievalCheckpoint
 from work_management_ai.model_gateway.contracts import ModelUsage
 from work_management_ai.runtime.contracts import (
+    ActivityResponseBlock,
     ActorReference,
     AgentHandoff,
+    AgentId,
     AgentResult,
     ToolExecutionRequest,
     ToolExecutionResult,
 )
 from work_management_ai.runtime.tool_registry import ToolRegistry
+
+type ProgressStatus = Literal["RUNNING", "COMPLETED", "FAILED"]
 
 
 class RetrievalUsageAdapter:
@@ -38,9 +42,11 @@ class RetrievalUsageAdapter:
         actor: AuthenticatedActor,
         run_id: UUID,
         lease: RetrievalLease,
+        progress: Callable[[ProgressStatus, str], Awaitable[None]] | None = None,
     ):
         self.budgets, self.actor, self.run_id, self.lease = budgets, actor, run_id, lease
         self.receipts: dict[str, RetrievalReservation] = {}
+        self.progress = progress
 
     async def remaining_seconds(self, *, retrieval: bool = False) -> float:
         return await self.budgets.remaining_seconds(
@@ -75,6 +81,8 @@ class RetrievalUsageAdapter:
             token_bounds=(input_tokens, output_tokens),
         )
         self.receipts[str(receipt.id)] = receipt
+        if self.progress is not None:
+            await self.progress("RUNNING", str(attempt_no))
         return ModelReservation(reservation_id=str(receipt.id), attempt_no=attempt_no)
 
     async def record_model_usage(
@@ -101,6 +109,8 @@ class RetrievalUsageAdapter:
             # and falls back to evidence. Other policy failures remain refusals.
             if str(error) != "RETRIEVAL_OBSERVED_USAGE_EXCEEDED":
                 raise
+        if self.progress is not None:
+            await self.progress("FAILED" if safe_code else "COMPLETED", str(reservation.attempt_no))
 
 
 _RETRIEVAL_JOB: ContextVar[AssistantJob | None] = ContextVar("retrieval_job", default=None)
@@ -161,7 +171,13 @@ class RetrievalRuntime:
             or handoff.orchestration_run_id != job.orchestration_run_id
         ):
             raise ValueError("RETRIEVAL_ACTOR_UNAVAILABLE")
+        run_id = uuid5(NAMESPACE_URL, f"agent-run:{handoff.idempotency_key}")
+
+        async def progress(status: ProgressStatus, key: str) -> None:
+            await self._publish_phase(handoff.actor, run_id, "summarizing", status, key)
+
         return RetrievalUsageAdapter(
+            progress=progress,
             budgets=self.budgets,
             actor=actor,
             run_id=uuid5(NAMESPACE_URL, f"agent-run:{handoff.idempotency_key}"),
@@ -170,13 +186,33 @@ class RetrievalRuntime:
 
     async def execute(self, request: ToolExecutionRequest) -> ToolExecutionResult:
         backend = self._backend()
-        return await RecordingToolExecutor(
+        phase = (
+            "searching"
+            if request.tool_id == "web.search"
+            else "reading"
+            if request.tool_id == "web.read_pages"
+            else None
+        )
+        if phase is not None:
+            await self._publish_phase(
+                request.actor, request.agent_run_id, phase, "RUNNING", request.call_id
+            )
+        result = await RecordingToolExecutor(
             transaction_factory=self.transactions,
             tool_registry=self.tools,
             backend=backend,
             replay_validator=backend,
             job_claim=self._job(),
         ).execute(request)
+        if phase is not None:
+            await self._publish_phase(
+                request.actor,
+                request.agent_run_id,
+                phase,
+                "COMPLETED" if result.status == "SUCCEEDED" else "FAILED",
+                request.call_id,
+            )
+        return result
 
     async def revalidate_agent_result(
         self, run_id: UUID, reference: ActorReference, result: AgentResult
@@ -196,3 +232,36 @@ class RetrievalRuntime:
         ):
             raise ValueError("RETRIEVAL_ACTOR_UNAVAILABLE")
         await self.budgets.validate_public_intent(actor, intent, message)
+
+    async def _publish_phase(
+        self,
+        reference: ActorReference,
+        run_id: UUID,
+        phase: Literal["searching", "reading", "summarizing"],
+        status: ProgressStatus,
+        key: str,
+    ) -> None:
+        job = self._job()
+        actor = await self.actors.resolve(
+            organization_id=reference.organization_id, membership_id=reference.membership_id
+        )
+        if (
+            actor is None
+            or actor.organization_id != job.organization_id
+            or actor.membership_id != job.requester_membership_id
+        ):
+            raise ValueError("RETRIEVAL_ACTOR_UNAVAILABLE")
+        await self.budgets.validate_run(
+            actor, run_id, RetrievalLease(job.id, job.locked_by or "", job.attempt_count)
+        )
+        block = ActivityResponseBlock(
+            label_key=f"assistant.retrieval.{phase}", status=status, agent_id=AgentId.RETRIEVE
+        )
+        async with self.transactions(actor) as transaction:
+            await transaction.repository.assert_job_claim(job=job)
+            await transaction.repository.append_assistant_blocks(
+                job=job,
+                blocks=(block.model_dump(mode="json"),),
+                dedupe_key=f"retrieve:{job.turn_id}:{run_id}:{phase}:{key}:{status}",
+            )
+            await transaction.commit()

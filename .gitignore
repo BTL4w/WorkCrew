@@ -12,6 +12,7 @@ docs/
 node_modules/
 .next/
 .next-e2e/
+.next-retrieval-e2e/
 out/
 coverage/
 playwright-report/

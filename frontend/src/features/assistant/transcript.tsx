@@ -1,3 +1,4 @@
+import { RetrievalAnswerBlock } from "./blocks/retrieval-answer-block";
 import { PlanningDraftBlock } from "./blocks/planning-draft-block";
 import { ReportBlock } from "./blocks/report-block";
 import { DailySummaryBlock } from "./blocks/daily-summary-block";
@@ -193,6 +194,7 @@ function BlockView({ block, canManage, onEdit, onRevise, onApprove, onReject, on
     case "daily_summary": return canManage ? <DailySummaryBlock block={block}/> : null;
     case "text": return <p>{block.text}</p>;
     case "activity": return <ActivityBlock block={block} />;
+    case "retrieval_answer": return <RetrievalAnswerBlock block={block}/>;
     case "work_evidence": return <WorkEvidenceBlock block={block} />;
     case "question": return <p>{block.question}</p>;
     case "capability_unavailable": return <UnavailableBlock block={block} />;

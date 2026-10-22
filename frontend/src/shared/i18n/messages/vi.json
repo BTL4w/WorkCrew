@@ -299,6 +299,39 @@
     "error": { "safe": "Không thể hoàn tất yêu cầu lúc này.", "reference": "Mã tham chiếu: {requestId}" }
   },
   "assistant": {
+    "retrieval": {
+      "title": "Nghiên cứu web",
+      "citation": "Nguồn {number}: {title}",
+      "searchExcerpt": "Trích đoạn tìm kiếm",
+      "pageContent": "Nội dung trang",
+      "published": "Xuất bản: {date} UTC",
+      "publishedUnknown": "Chưa rõ ngày xuất bản",
+      "fetched": "Nguồn được đọc: {date} UTC",
+      "fetchedUnknown": "Chưa rõ thời điểm đọc trang gốc",
+      "observed": "Đã truy xuất: {date}",
+      "freshnessUnknown": "Chưa xác định được độ mới của nguồn.",
+      "synthesisUnavailable": "Chưa thể tổng hợp. Các trích đoạn đã xác minh được hiển thị bên dưới.",
+      "partial": "Còn thiếu một phần bằng chứng bắt buộc.",
+      "limited": "Chưa xác minh được một phần bằng chứng được yêu cầu.",
+      "expired": "Các nguồn này đã hết hạn. Hãy tìm lại để có bằng chứng hiện tại.",
+      "unavailable": "Các nguồn này không còn khả dụng.",
+      "searching": "Đang tìm nguồn web công khai",
+      "reading": "Đang đọc các nguồn đã chọn",
+      "summarizing": "Đang tổng hợp từ nguồn đã xác minh",
+      "searchingComplete": "Đã tìm nguồn web công khai",
+      "readingComplete": "Đã đọc các nguồn đã chọn",
+      "summarizingComplete": "Đã tổng hợp nguồn",
+      "stopped": "Đã dừng nghiên cứu web",
+      "outcome": {
+        "ANSWER_READY": "Câu trả lời từ web",
+        "EVIDENCE_READY": "Các nguồn đã xác minh",
+        "PARTIAL": "Bằng chứng chưa đầy đủ",
+        "NOT_FOUND": "Không tìm thấy nguồn phù hợp",
+        "SOURCE_UNAVAILABLE": "Nguồn web đang không khả dụng",
+        "DOCUMENTS_NOT_READY": "Tài liệu chưa sẵn sàng",
+        "REJECTED": "Chưa thể thực hiện tìm kiếm này"
+      }
+    },
     "draft": {
       "title": "Bản nháp kế hoạch",
       "label": "Nháp",

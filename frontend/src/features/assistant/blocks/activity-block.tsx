@@ -3,6 +3,12 @@ import { useTranslations } from "next-intl";
 
 import type { AssistantBlock } from "../contracts";
 
+const retrievalStages: Record<string, string> = {
+  "assistant.retrieval.searching": "retrieval.searching",
+  "assistant.retrieval.reading": "retrieval.reading",
+  "assistant.retrieval.summarizing": "retrieval.summarizing",
+};
+
 type Block = Extract<AssistantBlock, { kind: "activity" }>;
 
 export function ActivityBlock({ block, groupedBlocks }: { block: Block; groupedBlocks?: Block[] }) {
@@ -10,11 +16,15 @@ export function ActivityBlock({ block, groupedBlocks }: { block: Block; groupedB
   const [expanded, setExpanded] = useState(false);
   const blocks = groupedBlocks ?? [block];
   const agents = [...new Set(blocks.flatMap((item) => item.agent_id ? [item.agent_id] : []))];
-  const status = aggregateStatus(blocks);
+  const retrieval = blocks.filter(item => item.agent_id === "retrieve" && retrievalStages[item.label_key]);
+  const latestStages = [...new Map(retrieval.map(item => [item.label_key, item])).values()];
+  const status = aggregateStatus(latestStages.length ? latestStages : blocks);
+  const label = retrieval.at(-1)?.label_key;
+  const labelKey = label ? status === "COMPLETED" ? `${retrievalStages[label]}Complete` : status === "FAILED" ? "retrieval.stopped" : retrievalStages[label] : "activity.default";
   return <section className="assistant-block assistant-activity">
     <div className="assistant-activity-summary">
       <span className={`assistant-status-dot status-${status.toLowerCase()}`} aria-hidden="true" />
-      <p>{t("activity.default")}</p>
+      <p>{t(labelKey)}</p>
       <button aria-expanded={expanded} type="button" onClick={() => setExpanded((value) => !value)}>{t("activity.details")}</button>
     </div>
     {expanded ? <dl>

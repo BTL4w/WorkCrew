@@ -299,6 +299,39 @@
     "error": { "safe": "The request could not be completed right now.", "reference": "Reference: {requestId}" }
   },
   "assistant": {
+    "retrieval": {
+      "title": "Web research",
+      "citation": "Source {number}: {title}",
+      "searchExcerpt": "Search excerpt",
+      "pageContent": "Page content",
+      "published": "Published: {date} UTC",
+      "publishedUnknown": "Publication date unknown",
+      "fetched": "Source fetched: {date} UTC",
+      "fetchedUnknown": "Origin fetch time unknown",
+      "observed": "Retrieved: {date}",
+      "freshnessUnknown": "Source freshness is unknown.",
+      "synthesisUnavailable": "A summary is unavailable. The verified excerpts are shown below.",
+      "partial": "Some required evidence is missing.",
+      "limited": "Some requested evidence could not be verified.",
+      "expired": "These sources have expired. Search again for current evidence.",
+      "unavailable": "These sources are no longer available.",
+      "searching": "Searching public web sources",
+      "reading": "Reading selected sources",
+      "summarizing": "Summarizing verified sources",
+      "searchingComplete": "Public web search completed",
+      "readingComplete": "Selected sources read",
+      "summarizingComplete": "Source summary completed",
+      "stopped": "Web research stopped",
+      "outcome": {
+        "ANSWER_READY": "Web answer",
+        "EVIDENCE_READY": "Verified sources",
+        "PARTIAL": "Partial evidence",
+        "NOT_FOUND": "No matching sources found",
+        "SOURCE_UNAVAILABLE": "Web sources are unavailable",
+        "DOCUMENTS_NOT_READY": "Documents are not ready",
+        "REJECTED": "This search could not be completed"
+      }
+    },
     "draft": {
       "title": "Planning draft",
       "label": "Draft",

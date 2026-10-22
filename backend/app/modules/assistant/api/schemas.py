@@ -14,6 +14,7 @@ from work_management_ai.runtime.contracts import (
     PlanningDraftResponseBlock,
     ProjectStatusResponseBlock,
     ReportResponseBlock,
+    RetrievalAnswerResponseBlock,
 )
 
 # ---------------------------------------------------------------------------
@@ -225,6 +226,7 @@ ContentBlock = Annotated[
     TextBlock
     | ActivityBlock
     | WorkEvidenceBlock
+    | RetrievalAnswerResponseBlock
     | QuestionBlock
     | CapabilityUnavailableBlock
     | PlanningDraftResponseBlock

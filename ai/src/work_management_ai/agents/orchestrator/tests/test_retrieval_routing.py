@@ -63,7 +63,10 @@ async def test_public_answer_has_one_route_call_and_no_rewrite(
 ):
     actor = _resolved_actor("EMPLOYEE")
     output = RetrieveOutput(
-        outcome=RetrieveOutcome.NOT_FOUND, strategy_used="WEB", observed_at=datetime.now(UTC)
+        outcome=RetrieveOutcome.NOT_FOUND,
+        strategy_used="WEB",
+        observed_at=datetime.now(UTC),
+        limitations=("MODEL_USAGE_UNAVAILABLE",),
     )
     runner = RecordingSpecialistRunner(
         {
@@ -116,6 +119,7 @@ async def test_public_answer_has_one_route_call_and_no_rewrite(
     assert runner.handoffs[0].typed_input["search_queries"] == ["public planning"]
     assert "message_spans" not in runner.handoffs[0].typed_input
     assert result.blocks
+    assert "MODEL_USAGE_UNAVAILABLE" not in str(result.blocks)
 
 
 @pytest.mark.asyncio
@@ -207,3 +211,60 @@ async def test_application_egress_refusal_asks_without_delegation():
     assert not runner.handoffs
     assert result.status.value == "AWAITING_INPUT"
     assert result.blocks[0].kind == "text"
+
+
+@pytest.mark.asyncio
+async def test_provider_outage_is_a_typed_result_without_another_model_call():
+    actor = _resolved_actor("EMPLOYEE")
+    output = RetrieveOutput(
+        outcome=RetrieveOutcome.SOURCE_UNAVAILABLE,
+        strategy_used="WEB",
+        observed_at=datetime.now(UTC),
+        safe_error_code="RETRIEVAL_TIMEOUT",
+    )
+    runner = RecordingSpecialistRunner(
+        {
+            "retrieval.search_web": [
+                AgentResult(
+                    agent_id=AgentId.RETRIEVE,
+                    agent_version="1.0.0",
+                    status=AgentRunStatus.FAILED,
+                    typed_output=output.model_dump(mode="json"),
+                    stop_reason="SOURCE_UNAVAILABLE",
+                )
+            ]
+        }
+    )
+    message = "Search public web for public planning"
+    plan = dict(
+        objectives=["Public guidance"],
+        response_language="en",
+        steps=[
+            dict(
+                step_id="web",
+                target_agent_id="retrieve",
+                target_agent_version="1.0.0",
+                capability="retrieval.search_web",
+                objective="Public guidance",
+                typed_input=dict(
+                    search_queries=["public planning"],
+                    message_spans=[dict(start=22, end=37, text="public planning")],
+                    requirements=[dict(requirement_id="topic", description="Guidance")],
+                    source_mode="WEB",
+                    answer_mode="SUMMARY",
+                ),
+                mode="READ_ONLY",
+            )
+        ],
+    )
+    harness = OrchestratorHarness(
+        model_gateway=MockModelGateway(fixtures={"orchestrator.en.plan": plan}),
+        registry=registry(),
+        policy_guard=PolicyGuard(),
+        actor_resolver=StaticActorResolver(actor),
+        specialists=runner,
+        activation=ActivationContext(5, True, frozenset({"I3"}), True),
+    )
+    result = await harness.run_turn(_input(actor, locale="en", message=message))
+    assert result.blocks[0].kind == "retrieval_answer"
+    assert result.blocks[0].outcome == "SOURCE_UNAVAILABLE"

@@ -1,0 +1,12 @@
+.card { max-width: 760px; border: 1px solid var(--border, #e2e4e0); border-radius: 12px; padding: 24px; background: var(--surface, #fff); overflow-wrap: anywhere; }
+.card h3 { margin: 0 0 16px; font-size: 1.125rem; }
+.card a { color: var(--accent, #295e4c); text-decoration: underline; text-underline-offset: 3px; }
+.claims { padding-left: 20px; line-height: 1.65; }
+.claims li + li { margin-top: 10px; }
+.claims a + a { margin-left: 6px; }
+.sources { padding-left: 22px; }
+.sources > li { margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--border, #e2e4e0); }
+.sources > li > a { font-weight: 600; }
+.meta { color: var(--chat-muted, #69717d); font-size: .8rem; margin: 6px 0; }
+.excerpt { white-space: pre-wrap; font-size: .9rem; line-height: 1.6; }
+.limitations { padding: 12px 12px 12px 30px; background: var(--surface-muted, #f7f8fa); border-radius: 8px; font-size: .875rem; }

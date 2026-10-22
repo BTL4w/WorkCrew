@@ -22,6 +22,53 @@ export const workEvidenceBlockSchema = strict({
   summary: z.string(),
   evidence: z.array(publicEvidenceSchema),
 });
+function publicHttpUrl(value: string): boolean {
+  try {
+    const url = new URL(value);
+    const host = url.hostname.toLowerCase();
+    if (!/^https?:\/\//i.test(value) || value.trim() !== value || /[\s\u0000-\u001f\u007f]/.test(value) ||
+      !["http:", "https:"].includes(url.protocol) || url.username || url.password || url.hash ||
+      url.port || host === "localhost" || /\.(localhost|local|internal)$/.test(host)) return false;
+    if (host.includes(":")) return /^\[?[23][0-9a-f]{3}:/.test(host) && !/^\[?2001:db8:/i.test(host);
+    if (/^\d+\.\d+\.\d+\.\d+$/.test(host)) {
+      const [a, b] = host.split(".").map(Number);
+      if ([0, 10, 127].includes(a) || a >= 224 || (a === 169 && b === 254) ||
+        (a === 172 && b >= 16 && b <= 31) || (a === 192 && b === 168) ||
+        (a === 100 && b >= 64 && b <= 127)) return false;
+    }
+    return Boolean(host);
+  } catch { return false; }
+}
+
+const retrievalClaimSchema = strict({
+  text: z.string().min(1).max(3000), evidence_ids: z.array(uuid).min(1).max(8),
+});
+const retrievalSourceSchema = strict({
+  evidence_id: uuid, title: z.string().min(1).max(500),
+  canonical_url: z.string().min(1).max(2048).refine(publicHttpUrl),
+  method: z.enum(["SEARCH_SNIPPET", "PAGE_CONTENT"]), excerpt: z.string().min(1).max(65536),
+  published_at: z.iso.datetime({offset: true}).nullable().default(null),
+  source_fetched_at: z.iso.datetime({offset: true}).nullable().default(null),
+});
+export const retrievalAnswerBlockSchema = strict({
+  kind: z.literal("retrieval_answer"), schema_version: z.literal("1.0").default("1.0"),
+  context_run_id: uuid,
+  outcome: z.enum(["ANSWER_READY", "EVIDENCE_READY", "PARTIAL", "NOT_FOUND", "SOURCE_UNAVAILABLE", "DOCUMENTS_NOT_READY", "REJECTED"]),
+  claims: z.array(retrievalClaimSchema).max(12).default([]),
+  sources: z.array(retrievalSourceSchema).max(8).default([]),
+  limitations: z.array(z.string().min(1).max(500)).max(16).default([]),
+  observed_at: z.iso.datetime({offset: true}),
+  availability: z.enum(["AVAILABLE", "EXPIRED", "UNAVAILABLE"]).default("AVAILABLE"),
+}).superRefine((block, ctx) => {
+  const ids = new Set(block.sources.map(source => source.evidence_id));
+  const bad = ids.size !== block.sources.length || block.claims.some(claim => claim.evidence_ids.some(id => !ids.has(id))) ||
+    (block.availability !== "AVAILABLE" && (block.claims.length > 0 || block.sources.length > 0)) ||
+    (block.availability === "AVAILABLE" && ((block.outcome === "ANSWER_READY" && !block.claims.length) ||
+      (block.outcome === "EVIDENCE_READY" && (!block.sources.length || block.claims.length > 0)) ||
+      (!["ANSWER_READY", "PARTIAL"].includes(block.outcome) && block.claims.length > 0)));
+  if (bad) ctx.addIssue({code: "custom", message: "Invalid retrieval evidence bindings"});
+});
+
 export const questionBlockSchema = strict({
   kind: z.literal("question"),
   question: z.string(),
@@ -129,6 +176,7 @@ export const assistantBlockSchema = z.discriminatedUnion("kind", [
   textBlockSchema,
   activityBlockSchema,
   workEvidenceBlockSchema,
+  retrievalAnswerBlockSchema,
   questionBlockSchema,
   capabilityUnavailableBlockSchema,
   planningRunBlockSchema,

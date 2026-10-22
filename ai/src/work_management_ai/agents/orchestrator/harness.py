@@ -67,6 +67,7 @@ from work_management_ai.runtime.contracts import (
     QuestionResponseBlock,
     ReportResponseBlock,
     ResponseBlock,
+    RetrievalAnswerResponseBlock,
     RiskResponseBlock,
     SafeErrorResponseBlock,
     TeamRecommendationResponseBlock,
@@ -146,32 +147,51 @@ def resolve_interaction_outcome(result: AgentResult) -> InteractionOutcome | Non
     return outcome
 
 
-def project_retrieve_result(result: RetrieveOutput) -> tuple[ResponseBlock, ...]:
-    # Task 6 adds rich citation cards. Existing evidence blocks retain source identity
-    # for permission/expiry projection without a new public API contract here.
+def project_retrieve_result(
+    result: RetrieveOutput, *, context_run_id: UUID
+) -> tuple[ResponseBlock, ...]:
     if result.question:
         return (TextResponseBlock(text=result.question),)
-    summary = "\n".join(claim.text for claim in result.summary.claims) if result.summary else ""
-    lines = [summary] if summary else [result.outcome.value]
-    if not summary:
-        lines.extend(source.excerpt for source in result.evidence)
-    lines.extend(result.limitations)
-    if result.evidence:
-        return (
-            WorkEvidenceResponseBlock(
-                summary="\n".join(lines)[:20000],
-                evidence=tuple(
-                    PublicEvidenceReference(
-                        evidence_id=str(source.evidence_id),
-                        resource_type="WEB_SOURCE_SNAPSHOT",
-                        resource_id=source.evidence_id,
-                        version=1,
-                    )
+    return (
+        RetrievalAnswerResponseBlock.model_validate(
+            dict(
+                context_run_id=context_run_id,
+                outcome=result.outcome.value,
+                claims=[
+                    dict(text=claim.text, evidence_ids=claim.evidence_ids)
+                    for claim in result.summary.claims
+                ]
+                if result.summary
+                else [],
+                sources=[
+                    {
+                        key: getattr(source, key)
+                        for key in (
+                            "evidence_id",
+                            "title",
+                            "canonical_url",
+                            "method",
+                            "excerpt",
+                            "published_at",
+                            "source_fetched_at",
+                        )
+                    }
                     for source in result.evidence
-                ),
-            ),
-        )
-    return (TextResponseBlock(text="\n".join(lines)[:20000]),)
+                ],
+                limitations=tuple(
+                    item
+                    for item in dict.fromkeys(
+                        (
+                            *result.limitations,
+                            *(result.summary.limitations if result.summary else ()),
+                        )
+                    )
+                    if item != "MODEL_USAGE_UNAVAILABLE"
+                )[:16],
+                observed_at=result.observed_at,
+            )
+        ),
+    )
 
 
 class PublicQueryError(ValueError):
@@ -954,6 +974,24 @@ class OrchestratorHarness:
             return self._failure("INTERACTION_OUTCOME_INVALID")
         if not results:
             return self._failure("SPECIALIST_EXECUTION_FAILED")
+        if (
+            len(results) == 1
+            and results[0].agent_id is AgentId.RETRIEVE
+            and results[0].status is AgentRunStatus.FAILED
+        ):
+            try:
+                retrieval = RetrieveOutput.model_validate(results[0].typed_output)
+            except ValueError:
+                return self._failure("SPECIALIST_RESULT_FAILED")
+            if retrieval.outcome.value == "SOURCE_UNAVAILABLE" and not retrieval.evidence:
+                return {
+                    "results": (*state["results"], *results),
+                    "completed_step_ids": (
+                        *state["completed_step_ids"],
+                        *(handoff.step_id for handoff in state["last_batch_handoffs"]),
+                    ),
+                    "route": "next",
+                }
         if any(
             result.status in {AgentRunStatus.FAILED, AgentRunStatus.CANCELLED} for result in results
         ):
@@ -1061,7 +1099,11 @@ class OrchestratorHarness:
         if len(state["results"]) == 1 and state["results"][0].agent_id is AgentId.RETRIEVE:
             return {
                 "blocks": project_retrieve_result(
-                    RetrieveOutput.model_validate(state["results"][0].typed_output)
+                    RetrieveOutput.model_validate(state["results"][0].typed_output),
+                    context_run_id=uuid5(
+                        NAMESPACE_URL,
+                        f"agent-run:{state['value'].turn_id}:{state['completed_step_ids'][0]}",
+                    ),
                 ),
                 "route": "execute",
             }
@@ -1184,7 +1226,11 @@ class OrchestratorHarness:
         if retrieve is not None and retrieve.typed_output:
             return {
                 "blocks": project_retrieve_result(
-                    RetrieveOutput.model_validate(retrieve.typed_output)
+                    RetrieveOutput.model_validate(retrieve.typed_output),
+                    context_run_id=uuid5(
+                        NAMESPACE_URL,
+                        f"agent-run:{state['value'].turn_id}:{state['last_batch_handoffs'][0].step_id}",
+                    ),
                 ),
                 "status": OrchestratorStatus.AWAITING_INPUT,
                 "stop_reason": "RETRIEVAL_NEEDS_INPUT",

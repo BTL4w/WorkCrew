@@ -5,7 +5,9 @@ from enum import StrEnum
 from typing import Annotated, Literal, Protocol
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, model_validator
+
+from work_management_ai.agents.retrieve.contracts import PublicURL
 
 type JsonScalar = str | int | float | bool | None
 type JsonValue = JsonScalar | list[JsonValue] | dict[str, JsonValue]
@@ -188,6 +190,62 @@ class WorkEvidenceResponseBlock(_StrictFrozenModel):
     evidence: tuple[PublicEvidenceReference, ...]
 
 
+class RetrievalClaim(_StrictFrozenModel):
+    text: str = Field(min_length=1, max_length=3000)
+    evidence_ids: tuple[UUID, ...] = Field(min_length=1, max_length=8)
+
+
+class RetrievalSource(_StrictFrozenModel):
+    evidence_id: UUID
+    title: str = Field(min_length=1, max_length=500)
+    canonical_url: PublicURL
+    method: Literal["SEARCH_SNIPPET", "PAGE_CONTENT"]
+    excerpt: str = Field(min_length=1, max_length=65536)
+    published_at: AwareDatetime | None = None
+    source_fetched_at: AwareDatetime | None = None
+
+
+class RetrievalAnswerResponseBlock(_StrictFrozenModel):
+    kind: Literal["retrieval_answer"] = "retrieval_answer"
+    schema_version: Literal["1.0"] = "1.0"
+    context_run_id: UUID
+    outcome: Literal[
+        "ANSWER_READY",
+        "EVIDENCE_READY",
+        "PARTIAL",
+        "NOT_FOUND",
+        "SOURCE_UNAVAILABLE",
+        "DOCUMENTS_NOT_READY",
+        "REJECTED",
+    ]
+    claims: tuple[RetrievalClaim, ...] = Field(default=(), max_length=12)
+    sources: tuple[RetrievalSource, ...] = Field(default=(), max_length=8)
+    limitations: tuple[str, ...] = Field(default=(), max_length=16)
+    observed_at: AwareDatetime
+    availability: Literal["AVAILABLE", "EXPIRED", "UNAVAILABLE"] = "AVAILABLE"
+
+    @model_validator(mode="after")
+    def validate_bindings(self) -> "RetrievalAnswerResponseBlock":
+        ids = {source.evidence_id for source in self.sources}
+        if len(ids) != len(self.sources) or any(
+            not set(claim.evidence_ids).issubset(ids) for claim in self.claims
+        ):
+            raise ValueError("RETRIEVAL_CITATION_INVALID")
+        if any(not 1 <= len(text) <= 500 for text in self.limitations):
+            raise ValueError("RETRIEVAL_LIMITATION_INVALID")
+        if self.availability != "AVAILABLE":
+            if self.claims or self.sources:
+                raise ValueError("unavailable evidence must be redacted")
+            return self
+        if self.outcome == "ANSWER_READY" and not self.claims:
+            raise ValueError("answer requires cited claims")
+        if self.outcome == "EVIDENCE_READY" and (not self.sources or self.claims):
+            raise ValueError("evidence-only requires sources without claims")
+        if self.outcome not in {"ANSWER_READY", "PARTIAL"} and self.claims:
+            raise ValueError("non-answer cannot carry claims")
+        return self
+
+
 class QuestionResponseBlock(_StrictFrozenModel):
     kind: Literal["question"] = "question"
     question: str = Field(min_length=1, max_length=4_000)
@@ -347,6 +405,7 @@ type ResponseBlock = Annotated[
     TextResponseBlock
     | ActivityResponseBlock
     | WorkEvidenceResponseBlock
+    | RetrievalAnswerResponseBlock
     | QuestionResponseBlock
     | CapabilityUnavailableResponseBlock
     | PlanningRunResponseBlock

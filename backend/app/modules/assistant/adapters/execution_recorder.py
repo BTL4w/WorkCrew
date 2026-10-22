@@ -153,6 +153,11 @@ class PostgreSQLExecutionRecorder(ExecutionRecorderPort):
     async def finish_orchestrator_run(self, run_id: UUID, output: OrchestratorOutput) -> None:
         if run_id != uuid5(NAMESPACE_URL, f"orchestrator:{self._identity}"):
             raise RuntimeError("ORCHESTRATOR_AGENT_RUN_SCOPE_MISMATCH")
+        stored_output = output.model_dump(mode="json")
+        if self._block_projector is not None and self._actor is not None:
+            prepare = getattr(self._block_projector, "prepare_for_storage", None)
+            if prepare is not None:
+                stored_output = await prepare(self._actor, stored_output)
         async with self._transactions(self._context) as transaction:
             await self.check_claim(transaction.repository)
             run = await transaction.repository.get_agent_run(
@@ -166,12 +171,12 @@ class PostgreSQLExecutionRecorder(ExecutionRecorderPort):
                 elif output.status.value in {"AWAITING_INPUT", "AWAITING_HUMAN"}:
                     updated = run.mark_awaiting(
                         status=DomainAgentRunStatus(output.status.value),
-                        typed_output=output.model_dump(mode="json"),
+                        typed_output=stored_output,
                         stop_reason=output.stop_reason,
                     )
                 else:
                     updated = run.mark_completed(
-                        typed_output=output.model_dump(mode="json"),
+                        typed_output=stored_output,
                         stop_reason=output.stop_reason,
                     )
                 await transaction.repository.finish_agent_run(run=updated)
@@ -407,9 +412,16 @@ class PostgreSQLExecutionRecorder(ExecutionRecorderPort):
             or turn_id != self._identity
         ):
             raise RuntimeError("ASSISTANT_PUBLIC_BLOCK_SCOPE_MISMATCH")
+        if any(block.kind == "retrieval_answer" for block in blocks):
+            self._retrieval_active = True
         projected = tuple(block.model_dump(mode="json") for block in blocks)
         if self._block_projector is not None and self._actor is not None:
-            projected = tuple(await self._block_projector.project(self._actor, projected))
+            prepare = getattr(self._block_projector, "prepare_for_storage", None)
+            projected = (
+                tuple(await prepare(self._actor, projected))
+                if prepare is not None
+                else tuple(await self._block_projector.project(self._actor, projected))
+            )
         async with self._transactions(self._context) as transaction:
             await self.check_claim(transaction.repository)
             await transaction.repository.append_assistant_blocks(
