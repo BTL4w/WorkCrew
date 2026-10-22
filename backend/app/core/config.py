@@ -104,6 +104,10 @@ class Settings(BaseSettings):
     session_secure_cookie: bool = False
     frontend_origin: str = "http://localhost:3000"
     ai_provider: Literal["disabled", "mock", "openai"] = "disabled"
+    retrieval_enabled: bool = False
+    retrieval_provider: Literal["disabled", "mock", "exa"] = "disabled"
+    retrieval_core_exit_verified: bool = False
+    exa_api_key: SecretStr | None = None
     progressive_planning_enabled: bool = False
     report_evaluation_hosted_enabled: bool = False
     report_evaluation_budget_tokens: int = Field(default=100000, ge=1, le=1000000)

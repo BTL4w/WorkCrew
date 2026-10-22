@@ -1537,6 +1537,7 @@ source = { virtual = "." }
 dependencies = [
     { name = "alembic" },
     { name = "fastapi", extra = ["standard"] },
+    { name = "httpx" },
     { name = "pillow" },
     { name = "psycopg", extra = ["binary", "pool"] },
     { name = "pwdlib", extra = ["argon2"] },
@@ -1548,7 +1549,6 @@ dependencies = [
 
 [package.dev-dependencies]
 dev = [
-    { name = "httpx" },
     { name = "pyright" },
     { name = "pytest" },
     { name = "pytest-asyncio" },
@@ -1560,6 +1560,7 @@ dev = [
 requires-dist = [
     { name = "alembic", specifier = ">=1.18,<2.0" },
     { name = "fastapi", extras = ["standard"], specifier = "==0.140.3" },
+    { name = "httpx", specifier = ">=0.28,<1.0" },
     { name = "pillow", specifier = ">=11,<13" },
     { name = "psycopg", extras = ["binary", "pool"], specifier = ">=3.3,<4.0" },
     { name = "pwdlib", extras = ["argon2"], specifier = ">=0.3,<1.0" },
@@ -1571,7 +1572,6 @@ requires-dist = [
 
 [package.metadata.requires-dev]
 dev = [
-    { name = "httpx", specifier = ">=0.28,<1.0" },
     { name = "pyright", specifier = ">=1.1,<2.0" },
     { name = "pytest", specifier = ">=9.0,<10.0" },
     { name = "pytest-asyncio", specifier = ">=1.0,<2.0" },
