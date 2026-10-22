@@ -16,7 +16,7 @@ for(const locale of ["vi","en"] as const){
   expect(weekResponse.status()).toBe(201);const week=await weekResponse.json();
   const taskResponse=await page.request.post("/api/v1/tasks",{data:{project_id:project.id,project_week_id:week.id,title:"Collect customer feedback",estimated_effort_hours:4},headers:{"Idempotency-Key":crypto.randomUUID()}});
   expect(taskResponse.status()).toBe(201);const task=await taskResponse.json();
-  await page.reload();await page.getByRole("button",{name,exact:false}).click();
+  await page.reload(); await page.getByRole("button", { name: "Projects", exact: true }).click();await page.getByRole("button",{name,exact:false}).click();
   await page.getByRole("tab",{name:locale==="vi"?"Báo cáo":"Reports",exact:true}).click();
   await page.getByRole("button",{name:locale==="vi"?"Tạo báo cáo":"Create report",exact:true}).click();
   const created=page.waitForResponse(r=>r.url().endsWith("/api/v1/reports")&&r.request().method()==="POST");
@@ -39,7 +39,7 @@ for(const locale of ["vi","en"] as const){
   expect((await rates.json()).accept_percent).toBe("100");
   const projection=await(await page.request.get(`/api/v1/reports/${initial.report.id}`)).json();
   expect(projection.feedback_outcomes).toHaveLength(1);expect(projection.review_rates.reviewed_generation_count).toBe(1);
-  await page.reload();await page.getByRole("button",{name,exact:false}).click();
+  await page.reload(); await page.getByRole("button", { name: "Projects", exact: true }).click();await page.getByRole("button",{name,exact:false}).click();
   await page.getByRole("tab",{name:locale==="vi"?"Báo cáo":"Reports",exact:true}).click();
   await expect(page.getByRole("region",{name:locale==="vi"?"Chất lượng review và kết quả thực tế":"Review quality and actual outcomes"})).toBeVisible();
   await expect(page.getByText(/ACCEPT: 100%/)).toBeVisible();

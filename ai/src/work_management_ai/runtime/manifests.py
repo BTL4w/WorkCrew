@@ -5,11 +5,12 @@ import importlib
 import json
 import re
 from importlib.resources import files
-from typing import Any, Literal
+from typing import Annotated, Any, Literal, Self
 
 import yaml
-from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+from pydantic import BaseModel, ConfigDict, Field, TypeAdapter, field_validator, model_validator
 
+from work_management_ai.runtime.activation import WEB_CAPABILITIES, WEB_TOOLS
 from work_management_ai.runtime.contracts import AgentId, RiskLevel
 
 _SEMANTIC_VERSION = re.compile(
@@ -98,8 +99,7 @@ class AgentFallbackManifest(_ManifestModel):
     strategy: str = Field(min_length=1, max_length=100)
 
 
-class AgentManifest(_ManifestModel):
-    schema_version: Literal["1.0"]
+class _AgentManifestFields(_ManifestModel):
     agent: AgentMetadata
     capabilities: tuple[str, ...] = Field(min_length=1)
     contracts: AgentContractManifest
@@ -118,7 +118,7 @@ class AgentManifest(_ManifestModel):
         return tuple(_versioned_reference(value) for value in values)
 
     @model_validator(mode="after")
-    def validate_unique_declarations(self) -> "AgentManifest":
+    def validate_unique_declarations(self) -> Self:
         declarations = (
             self.capabilities,
             self.allowed_skills,
@@ -130,6 +130,80 @@ class AgentManifest(_ManifestModel):
         if any(len(values) != len(set(values)) for values in declarations):
             raise ValueError("manifest declarations must be unique")
         return self
+
+
+class AgentManifest(_AgentManifestFields):
+    """Unchanged schema 1.0 API for the already activated Core agents."""
+
+    schema_version: Literal["1.0"]
+
+    @model_validator(mode="after")
+    def core_manifest_cannot_activate_web(self) -> Self:
+        if self.agent.id is AgentId.RETRIEVE or any(
+            capability.startswith("retrieval.") for capability in self.capabilities
+        ):
+            raise ValueError("Retrieve requires capability-gated schema 2.0")
+        if WEB_TOOLS.intersection(self.allowed_tools):
+            raise ValueError("web tools require the Retrieve capability boundary")
+        return self
+
+
+class CapabilityActivationManifest(_ManifestModel):
+    required_track: Literal["I3"]
+    requires_core_exit: Literal[True]
+    requires_provider: Literal[True]
+
+
+class WebReadLimitsManifest(_ManifestModel):
+    max_queries: int = Field(ge=0, le=2)
+    results_per_query: int = Field(ge=0, le=5)
+    max_page_reads: int = Field(ge=0, le=3)
+    max_provider_requests: int = Field(ge=0, le=8)
+    max_sources: int = Field(ge=0, le=8)
+    max_evidence_tokens: int = Field(ge=0, le=4000)
+    max_output_tokens_per_attempt: int = Field(ge=0, le=1600)
+    retrieval_timeout_seconds: int = Field(ge=0, le=8)
+    synthesis_timeout_seconds: int = Field(ge=0, le=20)
+
+
+class CapabilityAgentManifest(_AgentManifestFields):
+    schema_version: Literal["2.0"]
+    activation: CapabilityActivationManifest
+    retrieval_limits: WebReadLimitsManifest
+
+    @model_validator(mode="after")
+    def validate_web_boundary(self) -> Self:
+        runtime = self.runtime
+        if (
+            self.agent.id is not AgentId.RETRIEVE
+            or self.agent.activation_phase < 5
+            or frozenset(self.capabilities) != WEB_CAPABILITIES
+            or self.permissions.risk_ceiling is not RiskLevel.READ_ONLY
+            or self.approval.produced_writes != "NEVER"
+            or frozenset(self.allowed_tools) != WEB_TOOLS
+            or self.allowed_skills != ("web_search_and_summarize@1",)
+            or runtime.max_model_attempts > 2
+            or runtime.max_input_tokens > 12000
+            or runtime.max_output_tokens > 3200
+            or runtime.max_tool_calls > 8
+            or runtime.max_iterations > 12
+            or runtime.timeout_seconds > 25
+            or runtime.max_handoffs != 0
+            or runtime.max_replans != 0
+        ):
+            raise ValueError("invalid read-only web capability boundary")
+        return self
+
+
+type AnyAgentManifest = Annotated[
+    AgentManifest | CapabilityAgentManifest, Field(discriminator="schema_version")
+]
+
+
+def load_agent_manifest_resource(package: str, resource: str) -> AnyAgentManifest:
+    loaded = yaml.safe_load(files(package).joinpath(resource).read_text(encoding="utf-8"))
+    adapter: TypeAdapter[AnyAgentManifest] = TypeAdapter(AnyAgentManifest)
+    return adapter.validate_python(loaded)
 
 
 class SkillManifest(_ManifestModel):

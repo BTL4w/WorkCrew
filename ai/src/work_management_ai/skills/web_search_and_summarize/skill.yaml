@@ -1,0 +1,18 @@
+schema_version: "1.0"
+name: web_search_and_summarize
+version: "1.0.0"
+owner: knowledge-retrieval
+description: Find public web evidence and return a grounded bilingual summary or evidence-only fallback.
+runnable_by_agents: [retrieve]
+allowed_tools: [web.search@1, web.read_pages@1, web.revalidate@1]
+risk_level: READ_ONLY
+input_contract: work_management_ai.skills.web_search_and_summarize.contracts.WebSearchAndSummarizeInput
+output_contract: work_management_ai.skills.web_search_and_summarize.contracts.WebSearchAndSummarizeOutput
+evaluators: [retrieve_grounding@1]
+evaluation_cases: [retrieve_web_boundaries@1]
+triggers:
+  - "vi:tìm thông tin công khai, tra cứu web, tổng hợp có dẫn nguồn"
+  - "en:search public information, research the web, summarize with citations"
+required_context: [authenticated_actor, active_web_capability, validated_public_query, remaining_budget]
+approval: NONE
+stop_conditions: [actor_revoked, inactive_capability, forbidden_egress, budget_exhausted, cancelled]

@@ -5,6 +5,7 @@ import base from "./playwright.config";
 export default defineConfig({
   ...base,
   testMatch: "progressive-planning-flow.spec.ts",
+  testIgnore: [],
   webServer: Array.isArray(base.webServer)
     ? base.webServer.map((server) => ({
         ...server,

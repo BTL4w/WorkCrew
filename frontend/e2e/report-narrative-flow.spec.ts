@@ -12,7 +12,7 @@ for (const locale of ["vi", "en"] as const) {
     const created=await page.request.post("/api/v1/projects",{data:{name},headers:{"Idempotency-Key":crypto.randomUUID()}});
     expect(created.status()).toBe(201);
     const project=await created.json();
-    await page.reload();
+    await page.reload(); await page.getByRole("button", { name: "Projects", exact: true }).click();
     await page.getByRole("button",{name,exact:false}).click();
     await page.getByRole("tab",{name:locale==="vi"?"Báo cáo":"Reports",exact:true}).click();
     await page.getByRole("button",{name:locale==="vi"?"Tạo báo cáo":"Create report",exact:true}).click();

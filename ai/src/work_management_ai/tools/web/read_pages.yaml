@@ -1,0 +1,17 @@
+schema_version: "1.0"
+name: web.read_pages
+version: "1.0.0"
+owner: knowledge-retrieval
+tenant_scope: actor_membership
+roles: [ADMIN, MANAGER, EMPLOYEE]
+risk_level: READ_ONLY
+input_contract: work_management_ai.tools.web.contracts.WebReadPagesInput
+output_contract: work_management_ai.tools.web.contracts.WebReadPagesOutput
+timeout_seconds: 8
+max_attempts: 1
+retry_policy: NONE
+idempotency: NOT_APPLICABLE
+audit: SAFE_METADATA
+evidence_output: true
+freshness_output: true
+trace_metadata: [tool_id, duration_ms, result_status, evidence_count]

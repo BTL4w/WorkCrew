@@ -22,7 +22,7 @@ for (const locale of ["vi", "en"] as const) {
       data: { project_id: project.id, project_week_id: week.id, title: "Survey", estimated_effort_hours: 4, required_skill_labels: [] }, headers: headers(),
     });
     expect(taskResponse.status()).toBe(201);
-    await page.reload();
+    await page.reload(); await page.getByRole("button", { name: "Projects", exact: true }).click();
     await page.getByRole("button", { name, exact: false }).click();
     await page.getByRole("tab", { name: locale === "vi" ? "Báo cáo" : "Reports", exact: true }).click();
     await page.getByRole("button", { name: locale === "vi" ? "Tạo báo cáo" : "Create report", exact: true }).click();
@@ -84,7 +84,7 @@ for (const locale of ["vi", "en"] as const) {
       const dimensions = await detail.evaluate(element => ({ width: element.clientWidth, scroll: element.scrollWidth }));
       expect(dimensions.scroll).toBeLessThanOrEqual(dimensions.width + 1);
     }
-    await page.reload();
+    await page.reload(); await page.getByRole("button", { name: "Projects", exact: true }).click();
     await page.getByRole("button", { name, exact: false }).click();
     await page.getByRole("tab", { name: locale === "vi" ? "Báo cáo" : "Reports", exact: true }).click();
     await expect(page.getByRole("article", { name: locale === "vi" ? "Chi tiết báo cáo" : "Report detail" })).toBeVisible();

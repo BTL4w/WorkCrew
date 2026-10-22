@@ -2,11 +2,13 @@
 
 from dataclasses import dataclass
 
+from work_management_ai.runtime.activation import ActivationContext, capability_enabled
 from work_management_ai.runtime.contracts import AgentId, RiskLevel
 from work_management_ai.runtime.manifests import (
-    AgentManifest,
+    AnyAgentManifest,
+    CapabilityAgentManifest,
     canonical_manifest_fingerprint,
-    load_yaml_resource,
+    load_agent_manifest_resource,
     resolve_contract,
 )
 from work_management_ai.runtime.skill_registry import (
@@ -34,7 +36,7 @@ _RISK_ORDER = {
 
 @dataclass(frozen=True, slots=True)
 class RegisteredAgent:
-    manifest: AgentManifest
+    manifest: AnyAgentManifest
     fingerprint: str
 
 
@@ -52,7 +54,7 @@ class AgentRegistry:
         self._entries: dict[tuple[AgentId, str], RegisteredAgent] = {}
 
     def register_resource(self, package: str, resource: str) -> RegisteredAgent:
-        manifest = load_yaml_resource(package, resource, AgentManifest)
+        manifest = load_agent_manifest_resource(package, resource)
         for contract_path in (
             manifest.contracts.input,
             manifest.contracts.output,
@@ -118,15 +120,33 @@ class AgentRegistry:
         self._entries[key] = registered
         return registered
 
-    def resolve(self, agent_id: AgentId, version: str, active_phase: int) -> RegisteredAgent:
+    def resolve(
+        self,
+        agent_id: AgentId,
+        version: str,
+        active_phase: int,
+        *,
+        activation: ActivationContext | None = None,
+    ) -> RegisteredAgent:
         registered = self._entries.get((agent_id, version))
         if registered is None:
             raise AgentRegistryError("AGENT_VERSION_NOT_REGISTERED")
         if registered.manifest.agent.activation_phase > active_phase:
             raise AgentRegistryError("AGENT_PHASE_INACTIVE")
+        if isinstance(registered.manifest, CapabilityAgentManifest) and not all(
+            capability_enabled(capability, activation)
+            for capability in registered.manifest.capabilities
+        ):
+            raise AgentRegistryError("AGENT_CAPABILITY_INACTIVE")
         return registered
 
-    def planning_catalog(self, *, active_phase: int, role: str) -> tuple[dict[str, object], ...]:
+    def planning_catalog(
+        self,
+        *,
+        active_phase: int,
+        role: str,
+        activation: ActivationContext | None = None,
+    ) -> tuple[dict[str, object], ...]:
         """Return model context only; registry resolution remains authoritative."""
         catalog: list[dict[str, object]] = []
         for registered in self._entries.values():
@@ -135,6 +155,10 @@ class AgentRegistry:
                 manifest.agent.id is AgentId.ORCHESTRATOR
                 or manifest.agent.activation_phase > active_phase
                 or role not in manifest.permissions.roles
+            ):
+                continue
+            if isinstance(manifest, CapabilityAgentManifest) and not all(
+                capability_enabled(capability, activation) for capability in manifest.capabilities
             ):
                 continue
             catalog.append(

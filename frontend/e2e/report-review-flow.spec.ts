@@ -7,7 +7,7 @@ for(const locale of ["vi","en"] as const){
   if(locale==="en")await page.getByRole("button",{name:"en",exact:true}).click();
   const name=`Review ${locale} ${Date.now()}`;
   const create=await page.request.post("/api/v1/projects",{data:{name},headers:{"Idempotency-Key":crypto.randomUUID()}});expect(create.status()).toBe(201);const project=await create.json();
-  await page.reload();await page.getByRole("button",{name,exact:false}).click();await page.getByRole("tab",{name:locale==="vi"?"Báo cáo":"Reports",exact:true}).click();
+  await page.reload(); await page.getByRole("button", { name: "Projects", exact: true }).click();await page.getByRole("button",{name,exact:false}).click();await page.getByRole("tab",{name:locale==="vi"?"Báo cáo":"Reports",exact:true}).click();
   async function createReport(){
    await page.getByRole("button",{name:locale==="vi"?"Tạo báo cáo":"Create report",exact:true}).click();
    const response=page.waitForResponse(r=>r.url().endsWith("/api/v1/reports")&&r.request().method()==="POST");

@@ -14,7 +14,7 @@ for (const locale of ["vi", "en"] as const) {
     });
     expect(response.status()).toBe(201);
     const project = await response.json();
-    await page.reload();
+    await page.reload(); await page.getByRole("button", { name: "Projects", exact: true }).click();
     await page.getByRole("button", { name: new RegExp(name) }).click();
     const automationTab = locale === "vi" ? "Tổng hợp hằng ngày" : "Daily summaries";
     await page.getByRole("tab", { name: automationTab, exact: true }).click();

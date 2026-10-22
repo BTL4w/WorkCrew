@@ -84,6 +84,7 @@ for (const locale of ["vi", "en"] as const) {
     expect(employeeEmail).toMatch(/@example\.test$/);
     await logout(page);
     await login(page, employeeEmail, locale);
+    await page.getByRole("button", { name: locale === "vi" ? "Task của tôi" : "My Tasks", exact: true }).click();
     await page.getByRole("button", { name: tasks[0].title, exact: false }).click();
     await page.getByRole("button", { name: l("work.task.start"), exact: true }).click();
     const form = page.locator("#daily-update-form");

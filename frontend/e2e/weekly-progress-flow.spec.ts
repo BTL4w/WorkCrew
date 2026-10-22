@@ -27,7 +27,7 @@ import { expect, test } from "@playwright/test";
   expect(data.original.baseline).toEqual(original.baseline);
   expect(data.current_plan.total_effort_hours).toBe("10");
   expect(data.current_plan.reported_percent).toBeNull();
-  await page.reload();
+  await page.reload(); await page.getByRole("button", { name: "Projects", exact: true }).click();
   await page.getByRole("button", {name, exact: false}).click();
   await page.getByRole("tab", {name: "Kế hoạch"}).click();
   await expect(page.getByRole("heading", {name: "Tiến độ tuần"})).toBeVisible();

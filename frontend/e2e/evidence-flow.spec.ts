@@ -9,6 +9,7 @@ test("employee uploads and downloads a private original; spoofed bytes are rejec
   await page.getByLabel("Mật khẩu").fill("WorkDemo123!");
   await page.getByRole("button", { name: "Đăng nhập" }).click();
   await expect(page.getByRole("button", { name: "Đăng xuất" })).toBeVisible();
+  await page.getByRole("button", { name: "Task của tôi", exact: true }).click();
   const input = page.getByLabel("Chọn bằng chứng");
   await expect(input).toBeVisible();
   await input.setInputFiles({ name: "proof.png", mimeType: "image/png", buffer: png });

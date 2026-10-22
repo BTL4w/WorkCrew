@@ -990,6 +990,67 @@ APIs:
 
 - GraphRAG, knowledge-graph extraction and automatic Work Graph mutation.
 
+### I3 — Public Web Search and Grounded Retrieve Agent
+
+> **Status: SCOPE AUTHORIZED — 2026-10-22; runtime inactive.** This item declares
+> the user-authorized web slice. Core MVP Exit Gate evidence must be recorded
+> before product implementation. This declaration does not complete a Core phase,
+> activate I1/I2, enable hosted calls, or authorize model promotion or deployment.
+
+#### User-visible outcome
+
+An authenticated user asks a public web question in the Assistant and receives
+a Vietnamese/English answer with source-bound citations, or verified sources and
+excerpts with explicit limitations when synthesis is unavailable.
+
+#### Scope
+
+- Activate one read-only Retrieve Specialist through Orchestrator-only handoffs,
+  with independently tested manifest, contracts, Harness, skill/tool allowlists,
+  workflow, prompt, verifier and evaluation boundaries.
+- Use Exa Auto Search with highlights and cache-only Contents behind typed
+  application-owned ports; retain the current Model Gateway and main/title models.
+- Cap searches, results, page reads, provider requests, model attempts, cumulative
+  tokens, iterations and run duration across retries, cancellation and resume.
+- Enforce public-query egress policy, tenant/actor authorization, PostgreSQL RLS,
+  immutable source snapshots, durable usage reservations and safe operational audit.
+- Render citations and evidence-only fallbacks in the existing Assistant; keep
+  current Work facts on direct services and all downstream mutation human gates.
+- Preserve schema 1.0 core manifests while adding capability-scoped activation;
+  catalog, resolution, policy, tools and replay must agree and fail closed.
+- Apply context expiry, safe trace redaction and bilingual mock/hosted evaluation.
+
+#### Main files/modules
+
+- `ai/`: Retrieve Agent, web skill/tool contracts, runtime activation and evaluation.
+- `backend/app/modules/retrieval`: application services, Exa/mock adapters,
+  tenant-owned snapshots and durable budgets.
+- Existing Assistant API/worker adapters and frontend citation blocks.
+- Forward Alembic migrations only for state required by the slice.
+
+#### Tests and Definition of Done
+
+- Core MVP Exit Gate has evidence applicable to the implementation revision;
+  provider-disabled manual flows remain usable.
+- Required contract, runtime, tenant/RLS, authorization, budget, replay, cancellation,
+  retention and primary/failure E2E checks pass with no hosted credentials.
+- Approval bypass, peer/self delegation, unauthorized tools and tenant leakage
+  have zero measured violations; every delivered citation binds to a valid source.
+- OpenAPI/event/client schemas and Vietnamese/English UI agree; verified web
+  answers do not require another model call merely to rewrite them.
+- Hosted rollout stays off until held-out routing reaches at least 95%, safety
+  routes and citation identity/hash binding reach 100%, grounded semantic support
+  reaches at least 95%, and the retrieval p95 target of 3 seconds is measured.
+  Record provider/model/configuration, sample sizes, costs and latency separately;
+  mock success is not hosted quality. All applicable Global DoD conditions apply.
+- Rollback disables new/resumed consumption without deleting business data/audit.
+
+#### Explicit non-goals
+
+- Document upload/indexing/RAG/Qdrant, Gmail/Drive/Teams, personalized memory,
+  automatic page storage, live origin fetching, Exa Answer/Agent/Deep Search,
+  model changes, business mutations and automatic provider fallback.
+
 ## 5. Post-MVP Deployment Track
 
 This track may begin after the Core MVP Exit Gate. It does not wait for I1 or I2.

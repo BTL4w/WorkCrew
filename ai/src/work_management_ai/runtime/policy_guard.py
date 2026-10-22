@@ -3,6 +3,7 @@
 from dataclasses import dataclass
 from typing import cast
 
+from work_management_ai.runtime.activation import ActivationContext, capability_enabled
 from work_management_ai.runtime.contracts import (
     AgentBudget,
     AgentHandoff,
@@ -10,10 +11,21 @@ from work_management_ai.runtime.contracts import (
     JsonValue,
     ResolvedActorContext,
 )
-from work_management_ai.runtime.manifests import AgentManifest
+from work_management_ai.runtime.manifests import AnyAgentManifest, CapabilityAgentManifest
 
 _RESERVED_AUTHORITY_KEYS = frozenset(
-    {"organization_id", "role", "allowed_tools", "approved", "approval_id"}
+    {
+        "organization_id",
+        "role",
+        "allowed_tools",
+        "approved",
+        "approval_id",
+        "activation",
+        "core_exit_verified",
+        "active_tracks",
+        "active_phase",
+        "provider_ready",
+    }
 )
 
 
@@ -61,9 +73,10 @@ class PolicyGuard:
         current_actor: ResolvedActorContext,
         parent_agent_id: AgentId,
         handoff: AgentHandoff,
-        manifest: AgentManifest,
+        manifest: AnyAgentManifest,
         requested_skill_ids: tuple[str, ...] = (),
         requested_tool_ids: tuple[str, ...] = (),
+        activation: ActivationContext | None = None,
     ) -> None:
         if parent_agent_id is not AgentId.ORCHESTRATOR:
             raise AgentPolicyError("ORCHESTRATOR_REQUIRED")
@@ -82,6 +95,10 @@ class PolicyGuard:
             raise AgentPolicyError("AGENT_VERSION_MISMATCH")
         if handoff.capability not in manifest.capabilities:
             raise AgentPolicyError("CAPABILITY_NOT_ALLOWED")
+        if isinstance(manifest, CapabilityAgentManifest) and not capability_enabled(
+            handoff.capability, activation
+        ):
+            raise AgentPolicyError("AGENT_CAPABILITY_INACTIVE")
         self._validate_budget(handoff.budget, manifest)
         if not set(requested_skill_ids).issubset(manifest.allowed_skills):
             raise AgentPolicyError("SKILL_NOT_ALLOWED")
@@ -90,7 +107,7 @@ class PolicyGuard:
         self._reject_reserved_keys(handoff.typed_input)
 
     @staticmethod
-    def _validate_budget(budget: AgentBudget, manifest: AgentManifest) -> None:
+    def _validate_budget(budget: AgentBudget, manifest: AnyAgentManifest) -> None:
         maximum = manifest.runtime
         if (
             budget.max_model_attempts > maximum.max_model_attempts

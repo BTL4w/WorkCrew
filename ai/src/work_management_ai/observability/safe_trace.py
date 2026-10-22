@@ -56,6 +56,7 @@ class SafeTraceRecord(BaseModel):
         "daily_update",
         "risk",
         "reporting",
+        "retrieve",
     ]
     agent_version: _VERSION
     workflow_version: _VERSION
@@ -107,6 +108,7 @@ class TraceSpanRecord(BaseModel):
             "daily_update",
             "risk",
             "reporting",
+            "retrieve",
         ]
         | None
     ) = None

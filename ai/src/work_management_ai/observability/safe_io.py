@@ -76,6 +76,7 @@ _ENUMS: dict[str, frozenset[str]] = {
             "daily_update",
             "risk",
             "reporting",
+            "retrieve",
         }
     ),
     "target_agent_id": frozenset(
@@ -87,6 +88,7 @@ _ENUMS: dict[str, frozenset[str]] = {
             "daily_update",
             "risk",
             "reporting",
+            "retrieve",
         }
     ),
     "status": frozenset(

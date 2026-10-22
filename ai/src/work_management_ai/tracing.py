@@ -120,6 +120,7 @@ async def trace_span(
         "daily_update",
         "risk",
         "reporting",
+        "retrieve",
     ]
     | None = None,
     agent_version: str | None = None,
