@@ -163,7 +163,7 @@ class RetrievalReservation:
 
     def __post_init__(self) -> None:
         if (
-            self.kind not in {"SEARCH", "PAGE_READ"}
+            self.kind not in {"SEARCH", "PAGE_READ", "MODEL", "NODE", "TOOL"}
             or not 1 <= len(self.operation_key) <= 200
             or type(self.attempt_no) is not int
             or not 1 <= self.attempt_no <= 2

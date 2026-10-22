@@ -466,6 +466,7 @@ class ToolInvocationModel(Base):
             ondelete="CASCADE",
         ),
         UniqueConstraint("organization_id", "id"),
+        UniqueConstraint("organization_id", "agent_run_id", "id"),
         UniqueConstraint("organization_id", "agent_run_id", "dedupe_key"),
         CheckConstraint("status IN ('RUNNING', 'SUCCEEDED', 'REJECTED', 'FAILED')", name="status"),
         Index("ix_tool_invocations_run", "organization_id", "agent_run_id", "created_at", "id"),

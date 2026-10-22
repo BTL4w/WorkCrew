@@ -33,6 +33,7 @@ from app.modules.progress.adapters import (
 )
 from app.modules.reporting.adapters import database_models as reporting_models
 from app.modules.reporting.adapters import usage_models as reporting_usage_models
+from app.modules.retrieval.adapters import database_models as retrieval_models
 from app.modules.risk.adapters import database_models as risk_models
 from app.modules.work.adapters import database_models as work_models
 from app.modules.work.planning.adapters import database_models as planning_models
@@ -40,6 +41,7 @@ from app.modules.work.planning.assignment.adapters import database_models as tea
 from app.modules.work.planning.assignment.adapters import recommendation_models
 
 _MODEL_MODULES = (
+    retrieval_models,
     reporting_usage_models,
     reporting_models,
     feedback_models,

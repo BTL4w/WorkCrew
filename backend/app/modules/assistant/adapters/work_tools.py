@@ -7,11 +7,19 @@ worker actor and then uses the same application services as the manual product.
 import json
 from datetime import UTC, datetime
 from hashlib import sha256
-from typing import Protocol, cast
+from typing import Literal, Protocol, cast
 from uuid import NAMESPACE_URL, UUID, uuid5
 
-from app.modules.assistant.application.ports import AssistantTransactionFactory
-from app.modules.assistant.domain.models import InvocationStatus, ToolInvocation
+from app.modules.assistant.application.ports import (
+    AssistantTransaction,
+    AssistantTransactionFactory,
+)
+from app.modules.assistant.domain.models import (
+    AssistantJob,
+    AssistantJobClaimLost,
+    InvocationStatus,
+    ToolInvocation,
+)
 from app.modules.identity.domain.auth import AuthenticatedActor
 from app.modules.work.application.project_service import ProjectService
 from app.modules.work.application.task_service import TaskService
@@ -47,6 +55,12 @@ class CurrentActorResolverPort(Protocol):
     ) -> AuthenticatedActor | None: ...
 
 
+class ToolReplayValidator(Protocol):
+    async def revalidate_cached(
+        self, request: ToolExecutionRequest, result: ToolExecutionResult
+    ) -> ToolExecutionResult: ...
+
+
 class RecordingToolExecutor:
     """Persist a stable Tool-call identity and replay its terminal safe result."""
 
@@ -56,10 +70,36 @@ class RecordingToolExecutor:
         transaction_factory: AssistantTransactionFactory,
         tool_registry: ToolRegistry,
         backend: ToolExecutorPort,
+        replay_validator: ToolReplayValidator | None = None,
+        job_claim: AssistantJob | None = None,
     ) -> None:
         self._transactions = transaction_factory
         self._registry = tool_registry
         self._backend = backend
+        self._replay_validator = replay_validator
+        self._job_claim = job_claim
+
+    async def _web_claim(
+        self, transaction: AssistantTransaction, request: ToolExecutionRequest
+    ) -> bool:
+        # Repository owns SQL and atomically fences publication in this transaction.
+        if (
+            self._job_claim is None
+            or self._job_claim.organization_id != request.actor.organization_id
+            or self._job_claim.requester_membership_id != request.actor.membership_id
+        ):
+            return False
+        repository = transaction.repository
+        try:
+            await repository.assert_job_claim(job=self._job_claim)
+            run = await repository.get_agent_run(
+                organization_id=request.actor.organization_id, run_id=request.agent_run_id
+            )
+            return (
+                run is not None and run.orchestration_run_id == self._job_claim.orchestration_run_id
+            )
+        except (AssistantJobClaimLost, ValueError):
+            return False
 
     async def execute(self, request: ToolExecutionRequest) -> ToolExecutionResult:
         try:
@@ -91,7 +131,19 @@ class RecordingToolExecutor:
             return ToolExecutionResult(
                 status="REJECTED", typed_output={}, safe_error_code="TOOL_NOT_ALLOWED"
             )
+        if request.tool_id.startswith("web.") and self._replay_validator is None:
+            return ToolExecutionResult(
+                status="REJECTED",
+                typed_output={},
+                safe_error_code="RETRIEVAL_REVALIDATION_REQUIRED",
+            )
         async with self._transactions(request.actor.organization_id) as transaction:
+            if request.tool_id.startswith("web.") and not await self._web_claim(
+                transaction, request
+            ):
+                return ToolExecutionResult(
+                    status="REJECTED", typed_output={}, safe_error_code="RETRIEVAL_JOB_CLAIM_LOST"
+                )
             invocation = await transaction.repository.get_tool_invocation(
                 organization_id=request.actor.organization_id,
                 agent_run_id=request.agent_run_id,
@@ -126,6 +178,27 @@ class RecordingToolExecutor:
                 )
             elif invocation.status.is_terminal:
                 await transaction.commit()
+                if request.tool_id.startswith("web."):
+                    if self._replay_validator is None:
+                        return ToolExecutionResult(
+                            status="REJECTED",
+                            typed_output={},
+                            safe_error_code="RETRIEVAL_REVALIDATION_REQUIRED",
+                        )
+                    return await self._replay_validator.revalidate_cached(
+                        request,
+                        ToolExecutionResult(
+                            status=cast(
+                                Literal["SUCCEEDED", "REJECTED", "FAILED"], invocation.status.value
+                            ),
+                            typed_output=cast(dict[str, JsonValue], invocation.typed_output or {}),
+                            evidence=tuple(
+                                ContextReference.model_validate(value)
+                                for value in invocation.context_references
+                            ),
+                            safe_error_code=invocation.safe_error_code,
+                        ),
+                    )
                 if request.tool_id in {
                     "risk.read",
                     "automation.preview",
@@ -153,7 +226,22 @@ class RecordingToolExecutor:
                 typed_output={},
                 safe_error_code="TOOL_EXECUTION_FAILED",
             )
+        if (
+            request.tool_id.startswith("web.")
+            and self._replay_validator is not None
+            and result.safe_error_code != "RETRIEVAL_ATTEMPT_IN_PROGRESS"
+        ):
+            result = await self._replay_validator.revalidate_cached(request, result)
         async with self._transactions(request.actor.organization_id) as transaction:
+            if request.tool_id.startswith("web."):
+                if result.safe_error_code == "RETRIEVAL_ATTEMPT_IN_PROGRESS":
+                    return result
+                if not await self._web_claim(transaction, request):
+                    return ToolExecutionResult(
+                        status="REJECTED",
+                        typed_output={},
+                        safe_error_code="RETRIEVAL_JOB_CLAIM_LOST",
+                    )
             await transaction.repository.finish_tool_invocation(
                 organization_id=request.actor.organization_id,
                 invocation_id=invocation.id,

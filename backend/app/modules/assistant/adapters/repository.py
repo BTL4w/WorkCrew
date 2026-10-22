@@ -1909,6 +1909,10 @@ class PostgreSQLAssistantRepository:
     async def get_tool_invocation(
         self, *, organization_id: UUID, agent_run_id: UUID, dedupe_key: str
     ) -> ToolInvocation | None:
+        await self._session.execute(
+            text("SELECT pg_advisory_xact_lock(hashtextextended(:key,0))"),
+            {"key": f"tool:{organization_id}:{agent_run_id}:{dedupe_key}"},
+        )
         await assert_context_live(self._session, organization_id, "agent_runs", agent_run_id)
         model = await self._session.scalar(
             select(ToolInvocationModel).where(

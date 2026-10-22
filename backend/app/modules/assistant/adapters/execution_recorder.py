@@ -1,6 +1,6 @@
 """Reusable durable step/checkpoint recording with separate chat and typed sinks."""
 
-from typing import Any, cast
+from typing import Any, Protocol, cast
 from uuid import NAMESPACE_URL, UUID, uuid5
 
 from app.modules.assistant.application.ports import AssistantRepository, AssistantTransactionFactory
@@ -15,6 +15,7 @@ from app.modules.identity.domain.auth import AuthenticatedActor
 from work_management_ai.agents.orchestrator.contracts import OrchestratorOutput
 from work_management_ai.runtime.agent_registry import AgentRegistry
 from work_management_ai.runtime.contracts import (
+    ActorReference,
     AgentHandoff,
     AgentId,
     AgentResult,
@@ -29,6 +30,12 @@ from work_management_ai.runtime.execution_engine import (
 from work_management_ai.runtime.triggers import ChatTurnTrigger, ExecutionScope
 
 
+class RetrievalResultRevalidator(Protocol):
+    async def revalidate_agent_result(
+        self, run_id: UUID, reference: ActorReference, result: AgentResult
+    ) -> AgentResult: ...
+
+
 class PostgreSQLExecutionRecorder(ExecutionRecorderPort):
     """Persist exact step identities using one short transaction per boundary."""
 
@@ -41,11 +48,14 @@ class PostgreSQLExecutionRecorder(ExecutionRecorderPort):
         scope: ExecutionScope | None = None,
         block_projector: Any = None,
         actor: AuthenticatedActor | None = None,
+        retrieval_replay_validator: RetrievalResultRevalidator | None = None,
     ) -> None:
         self._transactions = transaction_factory
         self._registry = registry
         self._job = job
         self._report_chat_active = False
+        self._retrieval_active = False
+        self._retrieval_replay_validator = retrieval_replay_validator
         if scope is None:
             if job is None:
                 raise ValueError("EXECUTION_SCOPE_REQUIRED")
@@ -81,6 +91,32 @@ class PostgreSQLExecutionRecorder(ExecutionRecorderPort):
         )
         if self._report_chat_active and self._job is not None:
             await repository.assert_job_claim(job=self._job)
+        if self._retrieval_active:
+            if (
+                self._job is None
+                or self._job.requester_membership_id != self._scope.actor_membership_id
+            ):
+                raise ValueError("RETRIEVAL_JOB_CLAIM_REQUIRED")
+            await repository.assert_job_claim(job=self._job)
+
+    async def _revalidate_retrieval(self, run_id: UUID, result: AgentResult) -> AgentResult:
+        if self._retrieval_replay_validator is not None:
+            return await self._retrieval_replay_validator.revalidate_agent_result(
+                run_id,
+                ActorReference(
+                    organization_id=self._scope.organization_id,
+                    membership_id=self._scope.actor_membership_id,
+                ),
+                result,
+            )
+        return AgentResult(
+            agent_id=AgentId.RETRIEVE,
+            agent_version="1.0.0",
+            status=AgentRunStatus.FAILED,
+            typed_output={},
+            stop_reason="RETRIEVAL_REPLAY_REJECTED",
+            safe_error_code="RETRIEVAL_REVALIDATION_REQUIRED",
+        )
 
     async def ensure_orchestrator_run(self) -> UUID:
         run_id = uuid5(NAMESPACE_URL, f"orchestrator:{self._identity}")
@@ -153,6 +189,8 @@ class PostgreSQLExecutionRecorder(ExecutionRecorderPort):
         return ExecutionCheckpoint.model_validate(value)
 
     async def start_agent_run(self, handoff: AgentHandoff) -> RecordedAgentRun:
+        if handoff.target_agent_id is AgentId.RETRIEVE:
+            self._retrieval_active = True
         if handoff.capability in {"reporting.prepare_report", "reporting.explain_snapshot"}:
             self._report_chat_active = True
         if (
@@ -195,9 +233,13 @@ class PostgreSQLExecutionRecorder(ExecutionRecorderPort):
                     and existing.typed_output is not None
                     else None
                 )
+                if replayed is not None and handoff.target_agent_id is AgentId.RETRIEVE:
+                    replayed = await self._revalidate_retrieval(existing.id, replayed)
                 return RecordedAgentRun(
                     id=existing.id,
-                    status=AgentRunStatus(existing.status.value),
+                    status=replayed.status
+                    if replayed is not None
+                    else AgentRunStatus(existing.status.value),
                     replayed_result=replayed,
                 )
             registered = self._registry.resolve(
@@ -242,6 +284,9 @@ class PostgreSQLExecutionRecorder(ExecutionRecorderPort):
         return RecordedAgentRun(id=run.id, status=AgentRunStatus.RUNNING)
 
     async def finish_agent_run(self, run_id: UUID, result: AgentResult) -> None:
+        if result.agent_id is AgentId.RETRIEVE:
+            self._retrieval_active = True
+            result = await self._revalidate_retrieval(run_id, result)
         if result.agent_id is AgentId.REPORTING and self._job is not None:
             self._report_chat_active = True
         async with self._transactions(self._context) as transaction:
