@@ -296,11 +296,21 @@ async def _run_worker_with_tracing(trace_adapter: LangSmithTraceAdapter | None) 
 
     scopes = set(organization_ids)
 
+    from app.modules.assistant.adapters.retrieval_planning import PlanningRetrievalContext
+    from app.modules.retrieval.adapters.composition import build_retrieval_budgets
+
+    planning_retrieval = PlanningRetrievalContext(
+        sessions=session_factory, budgets=build_retrieval_budgets(settings, session_factory)
+    )
     # Initialize services
     planning_job_service = JobService(
         transaction_factory=planning_transaction_factory,
         handlers=build_planning_job_handlers(
-            settings, planning_transaction_factory, actor_resolver, trace_adapter=trace_adapter
+            settings,
+            planning_transaction_factory,
+            actor_resolver,
+            trace_adapter=trace_adapter,
+            retrieval_context=planning_retrieval,
         ),
         organization_scopes=scopes,
         lease_seconds=settings.worker_lease_seconds,
@@ -342,7 +352,18 @@ async def _run_worker_with_tracing(trace_adapter: LangSmithTraceAdapter | None) 
             timezone=settings.reporting_timezone,
         ),
     )
-    registry, tool_registry = build_agent_registry()
+    from app.modules.retrieval.adapters.composition import build_retrieval_runtime
+    from app.modules.retrieval.adapters.transaction import RetrievalActivationPolicy
+
+    retrieval_activation = RetrievalActivationPolicy(lambda: settings).context()
+    registry, tool_registry = build_agent_registry(activation=retrieval_activation)
+    retrieval_runtime = build_retrieval_runtime(
+        settings=settings,
+        sessions=session_factory,
+        actors=actor_resolver,
+        tools=tool_registry,
+        transactions=assistant_transaction_factory,
+    )
     planning_runtime = PlanningAIRuntime(progressive_enabled=settings.progressive_planning_enabled)
     from app.modules.planning_runs.adapters.draft_repository import build_draft_transaction_factory
     from app.modules.planning_runs.application.draft_service import PlanningDraftService
@@ -401,6 +422,7 @@ async def _run_worker_with_tracing(trace_adapter: LangSmithTraceAdapter | None) 
             planning_run_service=planning_run_service,
             proposal_service=proposal_service,
             planning_drafts=planning_drafts,
+            retrieval_context=planning_retrieval,
         ),
     )
     assignment_application = AssignmentApplicationService(
@@ -488,6 +510,9 @@ async def _run_worker_with_tracing(trace_adapter: LangSmithTraceAdapter | None) 
     planning_projector = PlanningBlockProjector(
         drafts=planning_drafts, transactions=planning_transaction_factory, previous=report_projector
     )
+    from app.modules.assistant.adapters.retrieval_projection import RetrievalBlockProjector
+
+    retrieval_projector = RetrievalBlockProjector(retrieval_runtime.budgets, planning_projector)
     turn_executor = AssistantTurnExecutor(
         trace_sink=trace_adapter,
         transaction_factory=assistant_transaction_factory,
@@ -504,11 +529,17 @@ async def _run_worker_with_tracing(trace_adapter: LangSmithTraceAdapter | None) 
             risk_tool_executor=risk_tools,
             reporting_tool_executor=chat_tools,
             reporting_usage_factory=ReportChatUsageFactory(session_factory),
+            retrieval_tools=retrieval_runtime,
+            retrieval_usage=retrieval_runtime.usage,
+            public_query_validator=retrieval_runtime,
+            activation=retrieval_activation,
             automation_tool_executor=automation_tools,
             daily_usage_store=daily_usage,
             daily_image_token_bound=image_token_bound(settings),
         ),
-        block_projector=planning_projector,
+        block_projector=retrieval_projector,
+        retrieval_runtime=retrieval_runtime,
+        activation=retrieval_activation,
         planning_drafts=planning_drafts,
         planning_runs=planning_run_service,
         progressive_planning_enabled=settings.progressive_planning_enabled,

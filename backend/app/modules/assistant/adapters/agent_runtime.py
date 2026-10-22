@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable, Generator, Mapping
+from collections.abc import Awaitable, Callable, Generator, Mapping
 from contextlib import contextmanager
 from contextvars import ContextVar
 from time import monotonic
@@ -14,6 +14,7 @@ from pydantic import BaseModel
 from app.modules.assistant.adapters.daily_update_tools import DailyUpdateContextResolver
 from app.modules.assistant.adapters.execution_recorder import PostgreSQLExecutionRecorder
 from app.modules.assistant.adapters.report_chat_usage import report_chat_job_scope
+from app.modules.assistant.adapters.retrieval_runtime import RetrievalRuntime, retrieval_job_scope
 from app.modules.assistant.application.ports import AssistantTransactionFactory
 from app.modules.assistant.domain.models import (
     AgentModelInvocation,
@@ -39,11 +40,17 @@ from work_management_ai.agents.orchestrator.contracts import (
     OrchestratorOutput,
     OrchestratorTriggerInput,
     PendingFollowup,
+    PublicQueryValidatorPort,
 )
 from work_management_ai.agents.orchestrator.harness import OrchestratorHarness
+from work_management_ai.agents.orchestrator.prompts import (
+    PROMPT_VERSION as ORCHESTRATOR_PROMPT_VERSION,
+)
 from work_management_ai.agents.planning.harness import PlanningAgentHarness
 from work_management_ai.agents.reporting.harness import ReportingHarness
 from work_management_ai.agents.reporting.usage import ReportingUsagePort
+from work_management_ai.agents.retrieve.budget import RetrievalUsagePort
+from work_management_ai.agents.retrieve.harness import RetrieveHarness
 from work_management_ai.agents.risk.harness import RiskHarness
 from work_management_ai.agents.work_intelligence.harness import WorkIntelligenceHarness
 from work_management_ai.model_gateway.contracts import (
@@ -57,6 +64,7 @@ from work_management_ai.model_gateway.errors import (
     ModelTimeoutError,
     ModelUnavailableError,
 )
+from work_management_ai.runtime.activation import ActivationContext, capability_enabled
 from work_management_ai.runtime.agent_registry import AgentRegistry
 from work_management_ai.runtime.budgeted_gateway import BudgetedDailyGateway
 from work_management_ai.runtime.contracts import (
@@ -369,7 +377,9 @@ class AgentRecordingModelGateway:
                 agent_run_id=agent_run_id,
                 provider=provider or "unknown",
                 model=model if separator else "unavailable",
-                prompt_version=request.invocation_key[:64],
+                prompt_version=ORCHESTRATOR_PROMPT_VERSION
+                if request.invocation_key.startswith("orchestrator.")
+                else request.invocation_key[:64],
                 schema_version="1.0",
                 invocation_key=(
                     f"{request.invocation_key}:attempt:{MODEL_ATTEMPT_SCOPE.get()}"
@@ -509,21 +519,44 @@ class _ScopedOrchestrator:
             return result
 
 
-def build_agent_registry() -> tuple[AgentRegistry, ToolRegistry]:
+def build_agent_registry(
+    *, activation: ActivationContext | None = None
+) -> tuple[AgentRegistry, ToolRegistry]:
     """Load and validate every Phase-3 activated runtime resource at startup."""
+    enabled = capability_enabled("retrieval.search_web", activation)
+    skills = (
+        (*_SKILL_RESOURCES, ("work_management_ai.skills.web_search_and_summarize", "skill.yaml"))
+        if enabled
+        else _SKILL_RESOURCES
+    )
+    tools = (
+        (
+            *_TOOL_RESOURCES,
+            *(
+                ("work_management_ai.tools.web", name)
+                for name in ("search.yaml", "read_pages.yaml", "revalidate.yaml")
+            ),
+        )
+        if enabled
+        else _TOOL_RESOURCES
+    )
+    agents = (
+        (*_AGENT_RESOURCES, ("work_management_ai.agents.retrieve", "agent.yaml"))
+        if enabled
+        else _AGENT_RESOURCES
+    )
     skill_registry = SkillRegistry(
-        load_yaml_resource(package, resource, SkillManifest)
-        for package, resource in _SKILL_RESOURCES
+        load_yaml_resource(package, resource, SkillManifest) for package, resource in skills
     )
     tool_registry = ToolRegistry(
-        load_yaml_resource(package, resource, ToolManifest) for package, resource in _TOOL_RESOURCES
+        load_yaml_resource(package, resource, ToolManifest) for package, resource in tools
     )
     registry = AgentRegistry(
         skill_registry=skill_registry,
         tool_registry=tool_registry,
-        evaluator_ids=_EVALUATORS,
+        evaluator_ids=_EVALUATORS | {"retrieve_grounding@1"},
     )
-    for package, resource in _AGENT_RESOURCES:
+    for package, resource in agents:
         registry.register_resource(package, resource)
     return registry, tool_registry
 
@@ -595,6 +628,10 @@ def build_execution_engine_factory(
     reporting_tool_executor: ToolExecutorPort | None = None,
     reporting_usage: ReportingUsagePort | None = None,
     reporting_usage_factory: Callable[[AgentHandoff], ReportingUsagePort] | None = None,
+    retrieval_tools: ToolExecutorPort | None = None,
+    retrieval_usage: Callable[[AgentHandoff], Awaitable[RetrievalUsagePort]] | None = None,
+    activation: ActivationContext | None = None,
+    public_query_validator: PublicQueryValidatorPort | None = None,
 ) -> Callable[[ExecutionRecorderPort], AgentExecutionEngine]:
     """Compose hub-and-spoke Harnesses without opening a database transaction."""
     agent_actor_resolver = CurrentAgentActorResolver(actor_resolver)
@@ -678,6 +715,26 @@ def build_execution_engine_factory(
             ),
         }
 
+    if (
+        capability_enabled("retrieval.search_web", activation)
+        and retrieval_tools is not None
+        and retrieval_usage is not None
+    ):
+
+        class ScopedRetrieve:
+            async def run(self, handoff: AgentHandoff) -> AgentResult:
+                run_id = uuid5(NAMESPACE_URL, f"agent-run:{handoff.idempotency_key}")
+                with agent_model_scope(handoff.actor.organization_id, run_id):
+                    return await RetrieveHarness(
+                        model_gateway=recording_gateway,
+                        tool_executor=retrieval_tools,
+                        usage_port=await retrieval_usage(handoff),
+                        actor_resolver=agent_actor_resolver,
+                        activation=activation,
+                    ).run(handoff)
+
+        harnesses = {**harnesses, AgentId.RETRIEVE: _ScopedAgentHarness(ScopedRetrieve())}
+
     def factory(recorder: ExecutionRecorderPort) -> AgentExecutionEngine:
         specialists = DurableSpecialistRunner(recorder=recorder, harnesses=harnesses)
         orchestrator = _ScopedOrchestrator(
@@ -688,6 +745,8 @@ def build_execution_engine_factory(
                 actor_resolver=agent_actor_resolver,
                 specialists=specialists,
                 automation_tools=automation_tool_executor,
+                activation=activation,
+                public_query_validator=public_query_validator,
             )
         )
         return AgentExecutionEngine(orchestrator)
@@ -725,7 +784,10 @@ class AssistantTurnExecutor:
         planning_runs: PlanningRunService | None = None,
         progressive_planning_enabled: bool = False,
         trace_sink: SpanSink | None = None,
+        retrieval_runtime: RetrievalRuntime | None = None,
+        activation: ActivationContext | None = None,
     ) -> None:
+        self._retrieval_runtime, self._activation = retrieval_runtime, activation
         self._block_projector = block_projector
         self._planning_drafts, self._planning_runs = planning_drafts, planning_runs
         self._progressive_enabled = progressive_planning_enabled
@@ -737,6 +799,10 @@ class AssistantTurnExecutor:
         self._daily_update_context_resolver = daily_update_context_resolver
 
     async def execute_job(self, *, job: AssistantJob, actor: AuthenticatedActor) -> None:
+        with retrieval_job_scope(job):
+            await self._execute_scoped_job(job=job, actor=actor)
+
+    async def _execute_scoped_job(self, *, job: AssistantJob, actor: AuthenticatedActor) -> None:
         async with trace_session(
             self._trace_sink if job.organization_id == actor.organization_id else None,
             organization_id=actor.organization_id,
@@ -931,6 +997,8 @@ class AssistantTurnExecutor:
             job=job,
             block_projector=self._block_projector,
             actor=actor,
+            activation=self._activation,
+            retrieval_replay_validator=self._retrieval_runtime,
         )
         root_run_id = await recorder.ensure_orchestrator_run()
         await recorder.append_public_blocks(

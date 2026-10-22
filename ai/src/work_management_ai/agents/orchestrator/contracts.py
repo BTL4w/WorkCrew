@@ -8,6 +8,7 @@ from uuid import UUID
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from work_management_ai.agents.daily_update.contracts import DailyUpdateHandoff
+from work_management_ai.agents.retrieve.contracts import RetrieveRequirement, SourceFilters
 from work_management_ai.runtime.contracts import (
     ActorReference,
     AgentHandoff,
@@ -22,6 +23,40 @@ from work_management_ai.runtime.triggers import NonChatTrigger
 
 class _StrictFrozenModel(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
+
+
+class MessageSpan(_StrictFrozenModel):
+    start: int = Field(ge=0, strict=True)
+    end: int = Field(gt=0, strict=True)
+    text: str = Field(min_length=1, max_length=500)
+
+
+class PublicSearchIntent(_StrictFrozenModel):
+    search_queries: tuple[str, ...] = Field(min_length=1, max_length=2)
+    message_spans: tuple[MessageSpan, ...] = Field(min_length=1, max_length=2)
+    requirements: tuple[RetrieveRequirement, ...] = Field(min_length=1, max_length=8)
+    source_mode: Literal["WEB", "DOCUMENTS", "BOTH", "AUTO"] = "WEB"
+    answer_mode: Literal["SUMMARY", "EVIDENCE_ONLY"] = "SUMMARY"
+    filters: SourceFilters = Field(default_factory=SourceFilters)
+
+    def validate_message(self, message: str) -> None:
+        if len(self.search_queries) != len(self.message_spans):
+            raise ValueError("PUBLIC_QUERY_PROVENANCE_REQUIRED")
+        for query, span in zip(self.search_queries, self.message_spans, strict=True):
+            if (
+                span.end > len(message)
+                or span.end - span.start != len(query)
+                or query != span.text
+                or message[span.start : span.end] != query
+            ):
+                raise ValueError("PUBLIC_QUERY_PROVENANCE_REQUIRED")
+            query.encode("utf-8", errors="strict")
+        for domain in (*self.filters.include_domains, *self.filters.exclude_domains):
+            if domain not in message:
+                raise ValueError("PUBLIC_QUERY_PROVENANCE_REQUIRED")
+        for at in (self.filters.published_after, self.filters.published_before):
+            if at and at.date().isoformat() not in message:
+                raise ValueError("PUBLIC_QUERY_PROVENANCE_REQUIRED")
 
 
 class ReportIntent(_StrictFrozenModel):
@@ -314,3 +349,9 @@ class OrchestratorTriggerInput(_StrictFrozenModel):
     actor: ActorReference
     locale: Literal["vi", "en"]
     trigger: NonChatTrigger
+
+
+class PublicQueryValidatorPort(Protocol):
+    async def validate_public_intent(
+        self, intent: dict[str, JsonValue], message: str, reference: ActorReference
+    ) -> None: ...

@@ -150,7 +150,9 @@ class AssistantService:
         block_projector: Any = None,
         orchestrator_version: str,
         orchestrator_fingerprint: str,
+        retrieval_enabled: bool = False,
     ) -> None:
+        self._retrieval_enabled = retrieval_enabled
         self._transactions = transaction_factory
         self.block_projector = block_projector
         self._planning_snapshot = planning_snapshot
@@ -454,10 +456,26 @@ class AssistantService:
             orchestrator_version=self._orchestrator_version,
             orchestrator_fingerprint=self._orchestrator_fingerprint,
             execution_plan={"steps": [], "schema_version": "1.0"},
-            budget={"max_iterations": 8, "timeout_seconds": 120},
+            budget={
+                "max_iterations": 12,
+                "max_tool_calls": 8,
+                "max_model_attempts": 2,
+                "max_input_tokens": 12000,
+                "max_output_tokens": 3200,
+                "timeout_seconds": 120,
+            }
+            if self._retrieval_enabled
+            else {"max_iterations": 8, "timeout_seconds": 120},
             id=run_id,
         )
 
+        if self._retrieval_enabled:
+            run = replace(
+                run,
+                usage=dict(
+                    model_attempts=0, input_tokens=0, output_tokens=0, iterations=0, tool_calls=0
+                ),
+            )
         job = AssistantJob.create(
             organization_id=actor.organization_id,
             conversation_id=conversation_id,

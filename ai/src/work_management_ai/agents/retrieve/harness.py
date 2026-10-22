@@ -576,6 +576,10 @@ class _RetrieveRun:
                 code = (
                     "MODEL_INVALID_OUTPUT"
                     if isinstance(error, ModelInvalidOutputError)
+                    else "MODEL_TIMEOUT"
+                    if isinstance(error, ModelTimeoutError)
+                    else "MODEL_RATE_LIMITED"
+                    if isinstance(error, ModelRateLimitError)
                     else "MODEL_UNAVAILABLE"
                 )
                 try:

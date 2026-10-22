@@ -67,6 +67,23 @@ def _public_scope(scope: RetrievalRunScope) -> dict[str, Any]:
         if _normalized(query) not in text:
             raise RetrievalPolicyError("PUBLIC_QUERY_PROVENANCE_REQUIRED")
         queries.append(query)
+    from app.modules.retrieval.application.query_policy import (
+        validate_public_query as validate_intent,
+    )
+
+    spans: list[dict[str, Any]] = []
+    for query in queries:
+        start = scope.user_text.find(query)
+        spans.append(dict(start=start, end=start + len(query), text=query))
+    validate_intent(
+        dict(
+            search_queries=queries,
+            message_spans=spans,
+            filters=scope.typed_input.get("filters", {}),
+        ),
+        scope.user_text,
+        scope.protected_terms,
+    )
     raw_filters: object = scope.typed_input.get("filters", {})
     if not isinstance(raw_filters, dict):
         raise RetrievalPolicyError("PUBLIC_QUERY_PROVENANCE_REQUIRED")
@@ -511,3 +528,58 @@ class RetrievalBudgetService:
                         raise RetrievalPolicyError("RETRIEVAL_JOB_CLAIM_LOST")
             await repo.audit("RETRIEVAL_EVIDENCE_REVALIDATED", expected_run_id)
             return sources
+
+    async def remaining_seconds(
+        self,
+        actor: AuthenticatedActor,
+        run_id: UUID,
+        lease: RetrievalLease,
+        *,
+        retrieval: bool = False,
+    ) -> float:
+        await self.start_run(actor, run_id, lease)
+        async with self._transaction(actor, run_id) as repo:
+            scope, state = await self._state(repo, run_id, lease)
+            deadline = state.deadline
+            if retrieval:
+                deadline = min(
+                    deadline,
+                    state.started_at
+                    + timedelta(
+                        seconds=state.scope.get("limits", {}).get("retrieval_timeout_seconds", 8)
+                    ),
+                )
+            return max(0.0, (deadline - scope.now).total_seconds())
+
+    async def load_checkpoint(
+        self, actor: AuthenticatedActor, run_id: UUID, lease: RetrievalLease
+    ) -> dict[str, Any] | None:
+        await self.start_run(actor, run_id, lease)
+        async with self._transaction(actor, run_id) as repo:
+            await self._state(repo, run_id, lease)
+            return await repo.load_checkpoint(run_id)
+
+    async def save_checkpoint(
+        self, actor: AuthenticatedActor, run_id: UUID, lease: RetrievalLease, value: dict[str, Any]
+    ) -> None:
+        async with self._transaction(actor, run_id) as repo:
+            await self._state(repo, run_id, lease)
+            await repo.save_checkpoint(run_id, value)
+
+    async def validate_source_ids(self, actor: AuthenticatedActor, refs: tuple[UUID, ...]) -> None:
+        async with self._transaction(actor, None) as repo:
+            sources = await repo.load_sources(refs)
+        await self.load_evidence(
+            actor, refs, expected_hashes=tuple(source.source.fingerprint for source in sources)
+        )
+
+    async def validate_public_intent(
+        self, actor: AuthenticatedActor, intent: dict[str, Any], message: str
+    ) -> None:
+        from app.modules.retrieval.application.query_policy import (
+            validate_public_query as validate_intent,
+        )
+
+        async with self._transaction(actor, None) as repo:
+            terms = await repo.protected_terms()
+            validate_intent(intent, message, terms)

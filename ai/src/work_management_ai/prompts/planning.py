@@ -6,7 +6,7 @@ from typing import Literal
 from work_management_ai.model_gateway.contracts import ModelMessage
 from work_management_ai.schemas.planning import PlanningModelOutput
 
-PLANNING_PROMPT_VERSION = "2.2.0"
+PLANNING_PROMPT_VERSION = "2.3.0"
 PLANNING_REVISION_PROMPT_VERSION = "planning-revision.v2"
 
 _TRUSTED_INSTRUCTIONS = {
@@ -58,7 +58,11 @@ def build_planning_messages(
     }[mode]
     trusted_context = json.dumps(
         {
-            "context": structured_context,
+            "context": {
+                key: value
+                for key, value in structured_context.items()
+                if key != "untrusted_web_evidence"
+            },
             "validation_codes": validation_codes,
         },
         ensure_ascii=False,
@@ -66,7 +70,11 @@ def build_planning_messages(
         default=str,
     )
     untrusted_input = json.dumps(
-        {"user_brief": user_brief, "manager_answers": manager_answers},
+        {
+            "user_brief": user_brief,
+            "manager_answers": manager_answers,
+            "untrusted_web_evidence": structured_context.get("untrusted_web_evidence", []),
+        },
         ensure_ascii=False,
         sort_keys=True,
     )

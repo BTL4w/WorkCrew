@@ -969,3 +969,42 @@ async def test_rejected_sensitive_attempt_writes_safe_audit_in_separate_transact
     }
     assert len(repo.conversations) == 1
     assert len(repo.messages) == 0
+
+
+@pytest.mark.asyncio
+async def test_retrieval_enabled_turn_has_finite_parent_allocation() -> None:
+    repo = FakeRepository()
+
+    def transactions(_: AuthenticatedActor) -> FakeTransaction:
+        return FakeTransaction(repo)
+
+    svc = AssistantService(
+        transaction_factory=transactions,
+        planning_snapshot=FixedPlanningSnapshot(None),
+        orchestrator_version="1.0.0",
+        orchestrator_fingerprint="test",
+        retrieval_enabled=True,
+    )
+    actor = _actor()
+    conversation = await svc.create_conversation(
+        actor=actor,
+        locale="en",
+        title=None,
+        request_id="retrieve-conv",
+        idempotency_key="retrieve-conv",
+    )
+    result = await svc.post_message(
+        actor=actor,
+        conversation_id=conversation.conversation.id,
+        message="Search public web for public planning",
+        locale="en",
+        card_action=None,
+        if_match_version=None,
+        request_id="retrieve-message",
+        idempotency_key="retrieve-message",
+    )
+    assert result.run.budget["max_model_attempts"] == 2
+    assert result.run.budget["max_tool_calls"] == 8
+    assert result.run.usage == dict(
+        model_attempts=0, input_tokens=0, output_tokens=0, iterations=0, tool_calls=0
+    )

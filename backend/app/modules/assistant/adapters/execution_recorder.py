@@ -13,6 +13,7 @@ from app.modules.assistant.domain.models import (
 from app.modules.assistant.domain.models import AgentRunStatus as DomainAgentRunStatus
 from app.modules.identity.domain.auth import AuthenticatedActor
 from work_management_ai.agents.orchestrator.contracts import OrchestratorOutput
+from work_management_ai.runtime.activation import ActivationContext
 from work_management_ai.runtime.agent_registry import AgentRegistry
 from work_management_ai.runtime.contracts import (
     ActorReference,
@@ -49,7 +50,9 @@ class PostgreSQLExecutionRecorder(ExecutionRecorderPort):
         block_projector: Any = None,
         actor: AuthenticatedActor | None = None,
         retrieval_replay_validator: RetrievalResultRevalidator | None = None,
+        activation: ActivationContext | None = None,
     ) -> None:
+        self._activation = activation
         self._transactions = transaction_factory
         self._registry = registry
         self._job = job
@@ -243,7 +246,10 @@ class PostgreSQLExecutionRecorder(ExecutionRecorderPort):
                     replayed_result=replayed,
                 )
             registered = self._registry.resolve(
-                handoff.target_agent_id, handoff.target_agent_version, self._phase
+                handoff.target_agent_id,
+                handoff.target_agent_version,
+                self._phase,
+                activation=self._activation,
             )
             await transaction.repository.append_handoff(
                 handoff=AgentHandoffRecord(
@@ -284,9 +290,12 @@ class PostgreSQLExecutionRecorder(ExecutionRecorderPort):
         return RecordedAgentRun(id=run.id, status=AgentRunStatus.RUNNING)
 
     async def finish_agent_run(self, run_id: UUID, result: AgentResult) -> None:
+        rejected_retrieval = False
         if result.agent_id is AgentId.RETRIEVE:
             self._retrieval_active = True
+            original = result
             result = await self._revalidate_retrieval(run_id, result)
+            rejected_retrieval = result != original
         if result.agent_id is AgentId.REPORTING and self._job is not None:
             self._report_chat_active = True
         async with self._transactions(self._context) as transaction:
@@ -321,6 +330,18 @@ class PostgreSQLExecutionRecorder(ExecutionRecorderPort):
                         "iterations": result.iterations_used,
                         "tool_calls": result.tool_calls_used,
                         "model_attempts": result.model_attempts_used,
+                        **(
+                            {
+                                "versions": {
+                                    "workflow": "retrieve.web.v1",
+                                    "skill": "web_search_and_summarize@1",
+                                    "prompt": "retrieve.synthesis.v1",
+                                    "verifier": "retrieve_grounding@1",
+                                }
+                            }
+                            if result.agent_id is AgentId.RETRIEVE
+                            else {}
+                        ),
                     },
                 )
             elif result.status in {
@@ -341,6 +362,9 @@ class PostgreSQLExecutionRecorder(ExecutionRecorderPort):
                 updated = run.mark_failed(result.safe_error_code or "AGENT_EXECUTION_FAILED")
             await transaction.repository.finish_agent_run(run=updated)
             await transaction.commit()
+
+        if rejected_retrieval:
+            raise ValueError("RETRIEVAL_RESULT_REJECTED")
 
     async def save_checkpoint(self, checkpoint: ExecutionCheckpoint) -> None:
         if checkpoint.orchestration_run_id != self._scope.orchestration_run_id:

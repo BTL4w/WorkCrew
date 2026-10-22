@@ -262,6 +262,10 @@ def create_app(
                 team_recommendation_snapshot=TeamRecommendationSnapshotAdapter(
                     resolved_team_recommendation_service
                 ),
+                retrieval_enabled=bool(
+                    resolved_settings.retrieval_enabled
+                    and resolved_settings.retrieval_core_exit_verified
+                ),
                 orchestrator_version=orchestrator_manifest.agent.version,
                 orchestrator_fingerprint=canonical_manifest_fingerprint(orchestrator_manifest),
             )
@@ -348,8 +352,15 @@ def create_app(
         ),
         previous=report_projector,
     )
-    resolved_assistant_service.block_projector = planning_projector
-    resolved_assistant_event_service.block_projector = planning_projector
+    from app.modules.assistant.adapters.retrieval_projection import RetrievalBlockProjector
+    from app.modules.retrieval.adapters.composition import build_retrieval_budgets
+
+    retrieval_projector = RetrievalBlockProjector(
+        build_retrieval_budgets(resolved_settings, create_session_factory(database_engine)),
+        planning_projector,
+    )
+    resolved_assistant_service.block_projector = retrieval_projector
+    resolved_assistant_event_service.block_projector = retrieval_projector
     app.state.report_generation_service = GenerationService(
         GenerationTransactions(
             create_session_factory(database_engine), resolved_settings.reporting_timezone

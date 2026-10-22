@@ -16,6 +16,8 @@ from work_management_ai.agents.orchestrator.contracts import (
     OrchestratorTriggerInput,
     PendingFollowup,
     PlanningIntent,
+    PublicQueryValidatorPort,
+    PublicSearchIntent,
     ScheduleIntent,
     SpecialistRunnerPort,
     StepMode,
@@ -36,12 +38,14 @@ from work_management_ai.agents.orchestrator.workflows.graph import (
     OrchestratorState,
     OrchestratorTriggerGraph,
 )
+from work_management_ai.agents.retrieve.contracts import RetrieveInput, RetrieveOutput
 from work_management_ai.agents.risk.contracts import RiskCardContent, RiskReplanRequest
 from work_management_ai.model_gateway.contracts import (
     ModelGateway,
     StructuredModelRequest,
 )
 from work_management_ai.model_gateway.errors import ModelGatewayError
+from work_management_ai.runtime.activation import ActivationContext
 from work_management_ai.runtime.agent_registry import AgentRegistry
 from work_management_ai.runtime.contracts import (
     ActivityResponseBlock,
@@ -142,6 +146,38 @@ def resolve_interaction_outcome(result: AgentResult) -> InteractionOutcome | Non
     return outcome
 
 
+def project_retrieve_result(result: RetrieveOutput) -> tuple[ResponseBlock, ...]:
+    # Task 6 adds rich citation cards. Existing evidence blocks retain source identity
+    # for permission/expiry projection without a new public API contract here.
+    if result.question:
+        return (TextResponseBlock(text=result.question),)
+    summary = "\n".join(claim.text for claim in result.summary.claims) if result.summary else ""
+    lines = [summary] if summary else [result.outcome.value]
+    if not summary:
+        lines.extend(source.excerpt for source in result.evidence)
+    lines.extend(result.limitations)
+    if result.evidence:
+        return (
+            WorkEvidenceResponseBlock(
+                summary="\n".join(lines)[:20000],
+                evidence=tuple(
+                    PublicEvidenceReference(
+                        evidence_id=str(source.evidence_id),
+                        resource_type="WEB_SOURCE_SNAPSHOT",
+                        resource_id=source.evidence_id,
+                        version=1,
+                    )
+                    for source in result.evidence
+                ),
+            ),
+        )
+    return (TextResponseBlock(text="\n".join(lines)[:20000]),)
+
+
+class PublicQueryError(ValueError):
+    pass
+
+
 class OrchestratorHarness:
     def __init__(
         self,
@@ -152,6 +188,8 @@ class OrchestratorHarness:
         actor_resolver: ActorContextResolverPort,
         specialists: SpecialistRunnerPort,
         automation_tools: ToolExecutorPort | None = None,
+        activation: ActivationContext | None = None,
+        public_query_validator: PublicQueryValidatorPort | None = None,
     ) -> None:
         self._model_gateway = model_gateway
         self._registry = registry
@@ -159,6 +197,8 @@ class OrchestratorHarness:
         self._actor_resolver = actor_resolver
         self._specialists = specialists
         self._automation_tools = automation_tools
+        self._activation = activation
+        self._public_query_validator = public_query_validator
         self._graph = OrchestratorGraph(self)
         self._trigger_graph = OrchestratorTriggerGraph(self)
 
@@ -307,6 +347,7 @@ class OrchestratorHarness:
                 prior_plan=state["prior_plan"],
                 specialist_catalog=self._registry.planning_catalog(
                     active_phase=_ACTIVE_PHASE,
+                    activation=self._activation,
                     role=(state["current_actor"].role if state["current_actor"] else "EMPLOYEE"),
                 ),
             ),
@@ -362,6 +403,7 @@ class OrchestratorHarness:
         actor = state["current_actor"]
         catalog = self._registry.planning_catalog(
             active_phase=_ACTIVE_PHASE,
+            activation=self._activation,
             role=(actor.role if actor is not None else "EMPLOYEE"),
         )
         planning_agent = next(
@@ -424,6 +466,7 @@ class OrchestratorHarness:
         actor = state["current_actor"]
         catalog = self._registry.planning_catalog(
             active_phase=_ACTIVE_PHASE,
+            activation=self._activation,
             role=(actor.role if actor is not None else "EMPLOYEE"),
         )
         registered = next(
@@ -470,7 +513,32 @@ class OrchestratorHarness:
         if actor is None:
             return self._failure("ACTOR_CONTEXT_UNAVAILABLE")
         try:
-            validate_execution_plan(plan, self._registry, actor)
+            validate_execution_plan(plan, self._registry, actor, self._activation)
+            self._validate_retrieval_plan(plan, state["value"])
+            if any(
+                step.target_agent_id is AgentId.RETRIEVE
+                and PublicSearchIntent.model_validate(step.typed_input).source_mode
+                in {"DOCUMENTS", "BOTH"}
+                for step in plan.steps
+            ):
+                return {
+                    "plan": plan.model_copy(
+                        update={"steps": (), "unavailable_capabilities": ("retrieval.documents",)}
+                    ),
+                    "route": "capability_unavailable",
+                }
+            if self._public_query_validator is not None:
+                for step in plan.steps:
+                    if step.target_agent_id is AgentId.RETRIEVE:
+                        intent = PublicSearchIntent.model_validate(step.typed_input)
+                        if intent.source_mode in {"DOCUMENTS", "BOTH"}:
+                            continue
+                        try:
+                            await self._public_query_validator.validate_public_intent(
+                                step.typed_input, state["value"].message, state["value"].actor
+                            )
+                        except ValueError:
+                            raise PublicQueryError() from None
             if plan.response_language != state["value"].locale:
                 raise ExecutionPlanError("RESPONSE_LANGUAGE_MISMATCH")
             for step in plan.steps:
@@ -490,6 +558,8 @@ class OrchestratorHarness:
                     completed_step_ids=frozenset(state["completed_step_ids"]),
                     requested_handoff=requested,
                 )
+        except PublicQueryError:
+            return {"route": "ask_user", "stop_reason": "PUBLIC_QUERY_REQUIRED"}
         except ExecutionPlanError:
             if (
                 state["repair_attempts"] < _MAX_PLAN_REPAIRS
@@ -502,6 +572,48 @@ class OrchestratorHarness:
         if not plan.steps and plan.unavailable_capabilities:
             return {"route": "capability_unavailable"}
         return {"route": "execute", "pending_requested_handoff": None}
+
+    @staticmethod
+    def _validate_retrieval_plan(plan: ExecutionPlan, value: OrchestratorInput) -> None:
+        retrieval = {
+            step.step_id: step for step in plan.steps if step.target_agent_id is AgentId.RETRIEVE
+        }
+        if len(retrieval) > 1:
+            raise PublicQueryError()
+        for step in retrieval.values():
+            try:
+                intent = PublicSearchIntent.model_validate(step.typed_input)
+                intent.validate_message(value.message)
+                if step.mode is not StepMode.READ_ONLY:
+                    raise ValueError()
+            except ValueError:
+                raise PublicQueryError() from None
+        for step in plan.steps:
+            if step.target_agent_id is AgentId.PLANNING:
+                if step.typed_input.get("retrieval_context_refs"):
+                    raise PublicQueryError()
+                for dependency in step.depends_on:
+                    if dependency in retrieval:
+                        public_intent = PublicSearchIntent.model_validate(
+                            retrieval[dependency].typed_input
+                        )
+                        instruction = value.message
+                        for span in sorted(
+                            public_intent.message_spans, key=lambda span: span.start, reverse=True
+                        ):
+                            instruction = instruction[: span.start] + instruction[span.end :]
+                        if not re.search(
+                            r"create (?:a )?plan|and plan\b|"
+                            r"tạo (?:kế hoạch|plan)|lập (?:kế hoạch|plan)",
+                            instruction,
+                            re.I,
+                        ):
+                            raise PublicQueryError()
+                        intent = PublicSearchIntent.model_validate(
+                            retrieval[dependency].typed_input
+                        )
+                        if intent.answer_mode != "EVIDENCE_ONLY":
+                            raise PublicQueryError()
 
     @staticmethod
     def _validate_planning_context(plan: ExecutionPlan, value: OrchestratorInput) -> None:
@@ -598,6 +710,7 @@ class OrchestratorHarness:
                 step.target_agent_id,
                 step.target_agent_version,
                 active_phase=_ACTIVE_PHASE,
+                activation=self._activation,
             )
             runtime = registered.manifest.runtime
             handoff = AgentHandoff(
@@ -613,7 +726,14 @@ class OrchestratorHarness:
                 typed_input=self._trusted_specialist_input(
                     step, state["value"], state["risk_replan"]
                 ),
-                context_references=(),
+                context_references=tuple(
+                    ref
+                    for dependency, result in zip(
+                        state["completed_step_ids"], state["results"], strict=True
+                    )
+                    if dependency in step.depends_on and result.agent_id is AgentId.RETRIEVE
+                    for ref in result.evidence
+                ),
                 actor=state["value"].actor,
                 budget=AgentBudget(
                     max_model_attempts=runtime.max_model_attempts,
@@ -628,12 +748,36 @@ class OrchestratorHarness:
                 step_id=step.step_id,
                 idempotency_key=f"{state['value'].turn_id}:{step.step_id}",
             )
+            if step.target_agent_id is AgentId.PLANNING and any(
+                dep in step.depends_on
+                and result.agent_id is AgentId.RETRIEVE
+                and (
+                    not result.evidence
+                    or RetrieveOutput.model_validate(result.typed_output).outcome.value
+                    not in {"EVIDENCE_READY", "ANSWER_READY"}
+                )
+                for dep, result in zip(state["completed_step_ids"], state["results"], strict=True)
+            ):
+                return {"route": "ask_user", "stop_reason": "PUBLIC_QUERY_REQUIRED"}
+            if step.target_agent_id is AgentId.PLANNING and handoff.context_references:
+                handoff = handoff.model_copy(
+                    update={
+                        "typed_input": {
+                            **handoff.typed_input,
+                            "retrieval_context_refs": [
+                                dict(evidence_id=str(ref.resource_id), fingerprint=ref.fingerprint)
+                                for ref in handoff.context_references
+                            ],
+                        }
+                    }
+                )
             try:
                 self._guard.authorize_handoff(
                     current_actor=actor,
                     parent_agent_id=AgentId.ORCHESTRATOR,
                     handoff=handoff,
                     manifest=registered.manifest,
+                    activation=self._activation,
                 )
             except AgentPolicyError:
                 return self._failure("HANDOFF_POLICY_REJECTED")
@@ -662,6 +806,21 @@ class OrchestratorHarness:
         step: ExecutionStep, value: OrchestratorInput, risk_replan: RiskReplanRequest | None = None
     ) -> dict[str, JsonValue]:
         """Reconstruct mutation contracts from trusted turn/card context."""
+        if step.target_agent_id is AgentId.RETRIEVE:
+            intent = PublicSearchIntent.model_validate(step.typed_input)
+            intent.validate_message(value.message)
+            return cast(
+                dict[str, JsonValue],
+                RetrieveInput(
+                    query=intent.search_queries[0],
+                    locale=value.locale,
+                    search_queries=intent.search_queries,
+                    requirements=intent.requirements,
+                    source_mode=intent.source_mode,
+                    answer_mode=intent.answer_mode,
+                    filters=intent.filters,
+                ).model_dump(mode="json"),
+            )
         if step.target_agent_id is AgentId.REPORTING:
             from work_management_ai.agents.orchestrator.contracts import ReportIntent
 
@@ -899,6 +1058,13 @@ class OrchestratorHarness:
         plan = state["plan"]
         if plan is None:
             return self._failure("EXECUTION_PLAN_MISSING")
+        if len(state["results"]) == 1 and state["results"][0].agent_id is AgentId.RETRIEVE:
+            return {
+                "blocks": project_retrieve_result(
+                    RetrieveOutput.model_validate(state["results"][0].typed_output)
+                ),
+                "route": "execute",
+            }
         reporting = self._reporting_blocks(state["results"])
         if reporting:
             return {"blocks": reporting, "route": "execute"}
@@ -995,6 +1161,34 @@ class OrchestratorHarness:
 
     async def ask_user(self, state: OrchestratorState) -> dict[str, object]:
         plan = state["plan"]
+        if state["stop_reason"] == "PUBLIC_QUERY_REQUIRED":
+            return {
+                "blocks": (
+                    TextResponseBlock(
+                        text="Vui lòng cung cấp query web công khai đã bỏ dữ liệu riêng."
+                        if state["value"].locale == "vi"
+                        else "Please provide a public web query with private data removed."
+                    ),
+                ),
+                "status": OrchestratorStatus.AWAITING_INPUT,
+                "stop_reason": "PUBLIC_QUERY_REQUIRED",
+            }
+        retrieve = next(
+            (
+                result
+                for result in state["last_batch_results"]
+                if result.agent_id is AgentId.RETRIEVE
+            ),
+            None,
+        )
+        if retrieve is not None and retrieve.typed_output:
+            return {
+                "blocks": project_retrieve_result(
+                    RetrieveOutput.model_validate(retrieve.typed_output)
+                ),
+                "status": OrchestratorStatus.AWAITING_INPUT,
+                "stop_reason": "RETRIEVAL_NEEDS_INPUT",
+            }
         if plan is not None and plan.goal_question is not None:
             return {
                 "blocks": (

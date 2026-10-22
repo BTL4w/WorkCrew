@@ -9,7 +9,9 @@ from work_management_ai.agents.orchestrator.contracts import (
 from work_management_ai.model_gateway.contracts import ModelMessage
 from work_management_ai.runtime.contracts import AgentResult, RequestedHandoff
 
-PROMPT_VERSION = "orchestrator-system-v4"
+from .retrieval_v1 import RETRIEVAL_INSTRUCTIONS
+
+PROMPT_VERSION = "orchestrator-system-v5"
 
 _SYSTEM = """You are the work-management Orchestrator Agent.
 Create only a bounded typed execution plan using phase-activated Specialist Agents.
@@ -76,7 +78,7 @@ def build_plan_messages(
         "specialist_catalog": specialist_catalog,
     }
     return (
-        ModelMessage(role="system", content=_SYSTEM),
+        ModelMessage(role="system", content=_SYSTEM + RETRIEVAL_INSTRUCTIONS),
         ModelMessage(role="user", content=json.dumps(payload, ensure_ascii=False, sort_keys=True)),
     )
 

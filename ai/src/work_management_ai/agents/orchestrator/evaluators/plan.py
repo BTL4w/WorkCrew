@@ -5,6 +5,7 @@ from work_management_ai.agents.orchestrator.contracts import (
     ExecutionStep,
     StepMode,
 )
+from work_management_ai.runtime.activation import ActivationContext
 from work_management_ai.runtime.agent_registry import AgentRegistry, AgentRegistryError
 from work_management_ai.runtime.contracts import (
     AgentId,
@@ -22,6 +23,7 @@ def validate_execution_plan(
     plan: ExecutionPlan,
     registry: AgentRegistry,
     actor: ResolvedActorContext,
+    activation: ActivationContext | None = None,
 ) -> None:
     if not actor.is_active:
         raise ExecutionPlanError("ACTOR_INACTIVE")
@@ -43,6 +45,7 @@ def validate_execution_plan(
                 step.target_agent_id,
                 step.target_agent_version,
                 active_phase=5,
+                activation=activation,
             )
         except AgentRegistryError as exc:
             raise ExecutionPlanError("UNKNOWN_OR_INACTIVE_AGENT") from exc

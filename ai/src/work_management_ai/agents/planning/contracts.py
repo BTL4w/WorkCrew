@@ -7,6 +7,7 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from work_management_ai.agents.retrieve.contracts import SourceBinding
 from work_management_ai.agents.risk.contracts import RiskReplanRequest
 from work_management_ai.runtime.contracts import JsonValue, RequestedHandoff
 
@@ -25,6 +26,7 @@ class PlanningOperation(StrEnum):
 
 
 class PlanningAgentInput(_StrictFrozenModel):
+    retrieval_context_refs: tuple[SourceBinding, ...] = Field(default=(), max_length=8)
     progressive: bool = False
     operation: PlanningOperation
     locale: Literal["vi", "en"]

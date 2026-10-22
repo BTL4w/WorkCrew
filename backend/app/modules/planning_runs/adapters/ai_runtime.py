@@ -13,6 +13,7 @@ from uuid import UUID, uuid4
 from pydantic import BaseModel, ValidationError
 
 from app.core.config import Settings
+from app.modules.assistant.adapters.retrieval_planning import PlanningRetrievalContext
 from app.modules.identity.domain.auth import AuthenticatedActor
 from app.modules.organization.domain.roles import MembershipRole
 from app.modules.planning_runs.application.job_service import JobHandler
@@ -306,6 +307,22 @@ class _Phase2MockModelGateway:
         key = request.invocation_key
         payload = self._payload(request)
         locale = "vi" if ".vi." in key else "en"
+        if key == "retrieve.synthesis.v1":
+            sources = cast(list[dict[str, Any]], payload.get("untrusted_sources", []))
+            if not sources:
+                return dict(claims=[], limitations=[], insufficient_evidence=True)
+            return dict(
+                claims=[
+                    dict(
+                        text="Hướng dẫn công khai khuyến nghị xem lại mục tiêu và ràng buộc."
+                        if payload.get("locale") == "vi"
+                        else "The public guide recommends reviewing the goal and constraints.",
+                        evidence_ids=[sources[0]["evidence_id"]],
+                    )
+                ],
+                limitations=[],
+                insufficient_evidence=False,
+            )
         if key.startswith("reporting."):
             data = cast(dict[str, Any], payload["UNTRUSTED_CONTEXT"])
             if key.endswith(".draft"):
@@ -536,6 +553,39 @@ class _Phase2MockModelGateway:
                 entry.get("agent_id") == "planning"
                 and isinstance(capabilities, list)
                 and "planning.create" in cast(list[object], capabilities)
+            )
+
+        original = str(payload.get("message", ""))
+        match = re.search(r"(?:search public web for |tìm trên web về )(.+)", original, re.I)
+        web_enabled = any(
+            isinstance(item, dict) and cast(dict[str, object], item).get("agent_id") == "retrieve"
+            for item in catalog
+        )
+        if match is not None and web_enabled:
+            query = match.group(1).strip()
+            start = original.index(query, match.start())
+            return dict(
+                objectives=["Public web research"],
+                response_language=locale,
+                steps=[
+                    dict(
+                        step_id="retrieve-1",
+                        target_agent_id="retrieve",
+                        target_agent_version="1.0.0",
+                        capability="retrieval.search_web",
+                        objective="Public web research",
+                        mode="READ_ONLY",
+                        typed_input=dict(
+                            search_queries=[query],
+                            message_spans=[dict(start=start, end=start + len(query), text=query)],
+                            requirements=[
+                                dict(requirement_id="topic", description="Public guidance")
+                            ],
+                            source_mode="WEB",
+                            answer_mode="SUMMARY",
+                        ),
+                    )
+                ],
             )
 
         if any(
@@ -868,9 +918,16 @@ class WorkflowRecordingModelGateway:
 
 
 class _PlanningContextAdapter:
-    def __init__(self, transaction_factory: PlanningTransactionFactory, run: WorkflowRun) -> None:
+    def __init__(
+        self,
+        transaction_factory: PlanningTransactionFactory,
+        run: WorkflowRun,
+        retrieval_context: PlanningRetrievalContext | None = None,
+        actor: AuthenticatedActor | None = None,
+    ) -> None:
         self._transactions = transaction_factory
         self._run = run
+        self._retrieval_context, self._actor = retrieval_context, actor
 
     async def load_permitted_context(
         self, request: PlanningContextRequest
@@ -881,10 +938,18 @@ class _PlanningContextAdapter:
             or request.actor_membership_id != self._run.requested_by_membership_id
         ):
             raise PermissionError("planning context scope mismatch")
+        facts = (
+            await self._retrieval_context.load(self._actor, self._run.id)
+            if self._retrieval_context is not None and self._actor is not None
+            else {}
+        )
         return PermittedPlanningContext(
-            reference_ids=(),
+            reference_ids=tuple(
+                f"web:{source['evidence_id']}:{source['fingerprint']}"
+                for source in facts.get("untrusted_web_evidence", [])
+            ),
             required_questions=(),
-            structured_facts={},
+            structured_facts=facts,
         )
 
 
@@ -1038,7 +1103,9 @@ class PlanningJobHandler:
         transaction_factory: PlanningTransactionFactory,
         actor_resolver: CurrentActorResolver,
         trace_adapter: LangSmithTraceAdapter | None = None,
+        retrieval_context: PlanningRetrievalContext | None = None,
     ) -> None:
+        self._retrieval_context = retrieval_context
         self._settings = settings
         self._transactions = transaction_factory
         self._actors = actor_resolver
@@ -1067,6 +1134,7 @@ class PlanningJobHandler:
 
             await execute_progressive_job(
                 settings=self._settings,
+                retrieval_context=self._retrieval_context,
                 transactions=self._transactions,
                 actor=actor,
                 run=run,
@@ -1081,7 +1149,9 @@ class PlanningJobHandler:
         )
         graph = PlanningGraph(
             model_gateway=gateway,
-            context_port=_PlanningContextAdapter(self._transactions, run),
+            context_port=_PlanningContextAdapter(
+                self._transactions, run, self._retrieval_context, actor
+            ),
             persistence_port=_PlanningPersistenceAdapter(self._transactions, actor),
             trace_port=self._trace_adapter,
         )
@@ -1494,8 +1564,11 @@ def build_planning_job_handlers(
     actor_resolver: CurrentActorResolver,
     *,
     trace_adapter: LangSmithTraceAdapter | None = None,
+    retrieval_context: PlanningRetrievalContext | None = None,
 ) -> dict[str, JobHandler]:
-    planning = PlanningJobHandler(settings, transaction_factory, actor_resolver, trace_adapter)
+    planning = PlanningJobHandler(
+        settings, transaction_factory, actor_resolver, trace_adapter, retrieval_context
+    )
     runtime = PlanningAIRuntime()
 
     def revision_graph(run: WorkflowRun) -> PlanningGraph:

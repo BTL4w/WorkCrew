@@ -12,6 +12,7 @@ from pydantic import BaseModel
 from sqlalchemy import select
 
 from app.core.config import Settings
+from app.modules.assistant.adapters.retrieval_planning import PlanningRetrievalContext
 from app.modules.identity.domain.auth import AuthenticatedActor
 from app.modules.planning_runs.adapters.database_models import PlanningDraftModel
 from app.modules.planning_runs.adapters.draft_repository import (
@@ -71,7 +72,9 @@ class ProgressiveContext:
         run: WorkflowRun,
         job: WorkflowJob,
         refs: tuple[str, ...],
+        retrieval_context: PlanningRetrievalContext | None = None,
     ) -> None:
+        self.retrieval_context = retrieval_context
         self.transactions, self.actor, self.run, self.job, self.refs = (
             transactions,
             actor,
@@ -91,10 +94,22 @@ class ProgressiveContext:
             raise PermissionError("planning context unavailable")
         async with self.transactions(self.actor) as transaction:
             await PostgreSQLPlanningDraftRepository(transaction).authorize(self.actor, self.run.id)
+        facts = (
+            await self.retrieval_context.load(self.actor, self.run.id)
+            if self.retrieval_context is not None
+            else {}
+        )
         return PermittedPlanningContext(
-            self.refs,
+            (
+                *self.refs,
+                *(
+                    f"web:{source['evidence_id']}:{source['fingerprint']}"
+                    for source in facts.get("untrusted_web_evidence", [])
+                ),
+            ),
             (),
             {
+                **facts,
                 "initial_goal_source": f"brief:{self.run.id}",
                 "initial_goal": self.run.input_goal_text,
                 "current_message_ref": f"message:{self.job.id}",
@@ -304,6 +319,7 @@ class ProgressivePersistence:
 async def execute_progressive_job(
     *,
     settings: Settings,
+    retrieval_context: PlanningRetrievalContext | None = None,
     transactions: TransactionFactory,
     actor: AuthenticatedActor,
     run: WorkflowRun,
@@ -390,7 +406,7 @@ async def execute_progressive_job(
     persistence = ProgressivePersistence(transactions, actor, job)
     graph = PlanningGraph(
         model_gateway=gateway,
-        context_port=ProgressiveContext(transactions, actor, run, job, refs),
+        context_port=ProgressiveContext(transactions, actor, run, job, refs, retrieval_context),
         persistence_port=persistence,
         progressive_persistence_port=persistence,
     )

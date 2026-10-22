@@ -5,6 +5,7 @@ from uuid import UUID
 
 from pydantic import ValidationError
 
+from app.modules.assistant.adapters.retrieval_planning import PlanningRetrievalContext
 from app.modules.assistant.application.ports import AssistantTransactionFactory
 from app.modules.identity.domain.auth import AuthenticatedActor
 from app.modules.planning_runs.application.draft_service import PlanningDraftService
@@ -45,7 +46,9 @@ class AssistantPlanningToolAdapter:
         planning_run_service: PlanningRunService,
         proposal_service: ProposalService,
         planning_drafts: PlanningDraftService | None = None,
+        retrieval_context: PlanningRetrievalContext | None = None,
     ) -> None:
+        self._retrieval_context = retrieval_context
         self._actors = actor_resolver
         self._assistant_transactions = assistant_transaction_factory
         self._planning_runs = planning_run_service
@@ -74,6 +77,12 @@ class AssistantPlanningToolAdapter:
         if agent_run.agent_id != "planning" or agent_run.organization_id != actor.organization_id:
             return self._reject("PLANNING_RUN_NOT_FOUND")
         try:
+            if value.retrieval_context_refs:
+                if self._retrieval_context is None:
+                    return self._reject("PLANNING_EVIDENCE_UNAVAILABLE")
+                await self._retrieval_context.load_bound(
+                    actor, request.agent_run_id, value.retrieval_context_refs
+                )
             if value.risk_context is not None:
                 result = await self._proposals.request_risk_revision(
                     actor=actor,

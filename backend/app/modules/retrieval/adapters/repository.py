@@ -258,6 +258,7 @@ class PostgreSQLRetrievalRepository:
             parent.started_at or parent.created_at,
             now,
             lease_until,
+            await self.protected_terms(),
         )
 
     async def get_budget(self, run_id: UUID, *, lock: bool = True) -> RetrievalBudgetState | None:
@@ -556,3 +557,67 @@ class PostgreSQLRetrievalRepository:
             )
         )
         await self.session.flush()
+
+    async def load_checkpoint(self, run_id: UUID) -> dict[str, Any] | None:
+        from app.modules.assistant.adapters.database_models import AgentCheckpointModel
+
+        row = await self.session.scalar(
+            select(AgentCheckpointModel)
+            .where(
+                AgentCheckpointModel.organization_id == self.actor.organization_id,
+                AgentCheckpointModel.agent_run_id == run_id,
+                AgentCheckpointModel.checkpoint_version == "retrieve.web.v1",
+            )
+            .order_by(AgentCheckpointModel.sequence.desc())
+            .limit(1)
+        )
+        return dict(row.typed_state) if row else None
+
+    async def save_checkpoint(self, run_id: UUID, value: dict[str, Any]) -> None:
+        from uuid import uuid4
+
+        from app.modules.assistant.adapters.database_models import (
+            AgentCheckpointModel,
+            AgentRunModel,
+        )
+
+        previous = await self.load_checkpoint(run_id)
+        if (
+            type(value.get("version")) is not int
+            or value["version"] != (previous["version"] if previous else 0) + 1
+        ):
+            raise RetrievalPolicyError("RETRIEVAL_CHECKPOINT_CONFLICT")
+        run = await self.session.scalar(
+            select(AgentRunModel).where(
+                AgentRunModel.organization_id == self.actor.organization_id,
+                AgentRunModel.id == run_id,
+            )
+        )
+        if run is None:
+            raise RetrievalPolicyError("RETRIEVAL_RUN_UNAVAILABLE")
+        self.session.add(
+            AgentCheckpointModel(
+                id=uuid4(),
+                organization_id=self.actor.organization_id,
+                orchestration_run_id=run.orchestration_run_id,
+                agent_run_id=run_id,
+                sequence=value["version"],
+                node="retrieve",
+                typed_state=value,
+                checkpoint_version="retrieve.web.v1",
+            )
+        )
+
+    async def protected_terms(self) -> tuple[str, ...]:
+        return tuple(
+            str(value)
+            for value in (
+                await self.session.execute(
+                    text(
+                        "SELECT name FROM projects WHERE organization_id=:org "
+                        "UNION SELECT title FROM tasks WHERE organization_id=:org"
+                    ),
+                    {"org": self.actor.organization_id},
+                )
+            ).scalars()
+        )

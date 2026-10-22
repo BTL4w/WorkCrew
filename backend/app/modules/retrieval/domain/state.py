@@ -99,6 +99,7 @@ class RetrievalRunScope:
     parent_started_at: datetime
     now: datetime
     lease_until: datetime | None
+    protected_terms: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True, slots=True)

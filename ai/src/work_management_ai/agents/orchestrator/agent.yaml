@@ -49,4 +49,5 @@ evaluators:
 stop_conditions:
   - ambiguous_assignment_reference
   - inactive_or_unavailable_specialist
+# Public-query provenance is checked by the Orchestrator before optional I3 handoff.
   - dependent_human_gate

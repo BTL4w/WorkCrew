@@ -19,9 +19,9 @@ class RetrievalActivationPolicy:
     def __init__(self, settings: Callable[[], Settings]) -> None:
         self._settings = settings
 
-    def ensure_enabled(self) -> None:
+    def context(self) -> ActivationContext:
         settings = self._settings()
-        context = ActivationContext(
+        return ActivationContext(
             active_phase=5,
             core_exit_verified=settings.retrieval_core_exit_verified,
             active_tracks=frozenset({"I3"}) if settings.retrieval_enabled else frozenset(),
@@ -32,6 +32,9 @@ class RetrievalActivationPolicy:
                 and bool(settings.exa_api_key.get_secret_value().strip())
             ),
         )
+
+    def ensure_enabled(self) -> None:
+        context = self.context()
         if not capability_enabled("retrieval.search_web", context):
             raise RetrievalPolicyError("RETRIEVAL_CAPABILITY_INACTIVE")
 

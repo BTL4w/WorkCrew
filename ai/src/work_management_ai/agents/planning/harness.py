@@ -138,6 +138,18 @@ class PlanningAgentHarness:
             for reference in state["handoff"].context_references
         ):
             return self._failure("PLANNING_CONTEXT_TENANT_MISMATCH")
+        value = state["value"]
+        if value is not None and value.retrieval_context_refs:
+            expected = tuple(
+                (ref.evidence_id, ref.fingerprint) for ref in value.retrieval_context_refs
+            )
+            actual = tuple(
+                (ref.resource_id, ref.fingerprint)
+                for ref in state["handoff"].context_references
+                if ref.resource_type == "WEB_SOURCE_SNAPSHOT" and ref.version == 1
+            )
+            if expected != actual:
+                return self._failure("PLANNING_EVIDENCE_BINDING_INVALID")
         return {"route": "execute"}
 
     async def select_create_or_revision_skill(self, state: PlanningAgentState) -> dict[str, object]:
