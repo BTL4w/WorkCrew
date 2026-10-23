@@ -422,7 +422,8 @@ class PostgreSQLExecutionRecorder(ExecutionRecorderPort):
                 if prepare is not None
                 else tuple(await self._block_projector.project(self._actor, projected))
             )
-        async with self._transactions(self._context) as transaction:
+        context = self._actor if self._retrieval_active and self._actor else self._context
+        async with self._transactions(context) as transaction:
             await self.check_claim(transaction.repository)
             await transaction.repository.append_assistant_blocks(
                 job=self._job,

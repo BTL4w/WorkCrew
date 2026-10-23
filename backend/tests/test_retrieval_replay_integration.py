@@ -423,7 +423,7 @@ async def test_snapshot_ttl_and_all_owner_rls_boundaries(
             "source": found.evidence[0].resource_id,
         },
     )
-    with pytest.raises(RetrievalPolicyError, match="SOURCE_UNAVAILABLE"):
+    with pytest.raises(RetrievalPolicyError, match="RETRIEVAL_CONTEXT_EXPIRED"):
         await h.service().load_evidence(h.actor, (expired,), expected_hashes=(fingerprint,))
 
 

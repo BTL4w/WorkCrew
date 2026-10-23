@@ -391,12 +391,17 @@ async def execute_progressive_job(
         pending_question=question,
         model_calls_used=initial_used,
     )
+
+    async def guard_retrieval() -> object:
+        return await retrieval_context.load(actor, run.id) if retrieval_context else {}
+
     gateway = ProgressiveBudgetGateway(
         WorkflowRecordingModelGateway(
             gateway=build_model_gateway(settings),
             transaction_factory=transactions,
             organization_id=run.organization_id,
             workflow_run_id=run.id,
+            context_guard=guard_retrieval if retrieval_context else None,
         ),
         transactions,
         actor,

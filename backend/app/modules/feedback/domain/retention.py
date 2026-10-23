@@ -14,6 +14,9 @@ class PayloadClass(StrEnum):
 
 # Static adapter map, never caller-provided SQL. Entries identify real persisted copies.
 PAYLOAD_FIELDS: dict[str, dict[str, object]] = {
+    # These two adapters use deterministic SQL tombstones; unrelated message blocks survive.
+    "retrieval_source_snapshots": {"payload": {}, "canonical_url": ""},
+    "assistant_messages": {"content_blocks": []},
     "assistant_turns": {"objective": ""},
     "orchestration_runs": {"execution_plan": {}, "checkpoint": {}},
     "agent_runs": {"typed_input": {}, "typed_output": None},

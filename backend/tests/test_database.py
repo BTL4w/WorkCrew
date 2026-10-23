@@ -54,5 +54,5 @@ def test_alembic_environment_has_one_retrieval_scope_head() -> None:
     config = Config(backend_root / "alembic.ini")
     scripts = ScriptDirectory.from_config(config)
 
-    assert scripts.get_heads() == ["48c2370fd5f9"]
+    assert scripts.get_heads() == ["a1b7c9d3e501"]
     assert scripts.get_bases() == ["0001"]

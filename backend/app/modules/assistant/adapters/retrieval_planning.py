@@ -11,6 +11,7 @@ from app.modules.assistant.adapters.database_models import (
     AgentRunModel,
     OrchestrationRunModel,
 )
+from app.modules.feedback.adapters.payload_repository import assert_context_live
 from app.modules.identity.domain.auth import AuthenticatedActor
 from app.modules.organization.domain.roles import MembershipRole
 from app.modules.retrieval.application.budget_service import RetrievalBudgetService
@@ -153,6 +154,12 @@ class PlanningRetrievalContext:
                     )
                 )
             ).all()
+            # A scrubbed binding is expired execution context, not an unbound manual flow.
+            for run in runs:
+                await assert_context_live(session, actor.organization_id, "agent_runs", run.id)
+                await assert_context_live(
+                    session, actor.organization_id, "orchestration_runs", run.orchestration_run_id
+                )
             refs = tuple(
                 SourceBinding.model_validate(ref)
                 for run in runs

@@ -64,6 +64,26 @@ async def test_summary_synthesizes_once_with_bound_citations(locale: Literal["vi
 
 
 @pytest.mark.asyncio
+async def test_source_revoked_during_model_call_never_saves_completed_summary():
+    request, sources = handoff(), (source(),)
+    tools, usage = Tools(request, sources), Usage()
+
+    class RevokingGateway(Gateway):
+        async def generate_structured[T: BaseModel](
+            self, request: StructuredModelRequest[T]
+        ) -> StructuredModelResponse[T]:
+            response = await super().generate_structured(request)
+            tools.revoked = True
+            return response
+
+    result = await harness(request, tools, RevokingGateway(sources), usage).run(request)
+    assert result.status == AgentRunStatus.FAILED
+    assert not result.evidence
+    assert usage.checkpoint is not None
+    assert usage.checkpoint.summary is None
+
+
+@pytest.mark.asyncio
 async def test_evidence_only_and_empty_search_have_zero_model_calls() -> None:
     for sources in ((source(),), ()):
         request = handoff(answer_mode="EVIDENCE_ONLY")

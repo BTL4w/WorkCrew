@@ -110,6 +110,15 @@ class SQLRetentionRepository:
             kind = row["storage_kind"]
             if kind not in PAYLOAD_FIELDS:
                 raise ValueError("UNKNOWN_PAYLOAD_STORAGE")
+            if kind in {"retrieval_source_snapshots", "assistant_messages"}:
+                # Shares a transaction lock with public source consumption without
+                # granting UPDATE on immutable snapshots to the application role.
+                locked_web = await self.session.scalar(
+                    text("SELECT pg_try_advisory_xact_lock(hashtextextended(:key,0))"),
+                    {"key": f"{organization_id}:{kind}:{row['owner_id']}"},
+                )
+                if not locked_web:
+                    continue
             locked = await self.session.scalar(
                 text(
                     f"SELECT id FROM {kind} WHERE organization_id=:org AND id=:id "
@@ -144,6 +153,12 @@ class SQLRetentionRepository:
         assignments: list[str] = []
         values: dict[str, object] = {"org": self.organization_id, "owner": locator.owner_id}
         for field, replacement in fields.items():
+            if locator.storage_kind == "assistant_messages" and field == "content_blocks":
+                assignments.append("content_blocks=expired_retrieval_blocks(content_blocks)")
+                continue
+            if locator.storage_kind == "retrieval_source_snapshots" and field == "canonical_url":
+                assignments.append("canonical_url='urn:expired:'||id::text")
+                continue
             if isinstance(replacement, (dict, list)):
                 assignments.append(f"{field}=CAST(:{field} AS jsonb)")
                 values[field] = json.dumps(replacement)

@@ -519,6 +519,9 @@ class PostgreSQLRetrievalRepository:
                 await assert_context_live(
                     self.session, self.actor.organization_id, "agent_runs", row.agent_run_id
                 )
+                await assert_context_live(
+                    self.session, self.actor.organization_id, "retrieval_source_snapshots", row.id
+                )
             except ValueError:
                 raise RetrievalPolicyError("RETRIEVAL_CONTEXT_EXPIRED") from None
             if not row.payload:

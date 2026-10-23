@@ -6,7 +6,7 @@ from datetime import UTC, datetime, timedelta
 from typing import Literal, cast
 from uuid import UUID, uuid4
 
-from sqlalchemy import func, select, text, update
+from sqlalchemy import case, func, select, text, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules.assistant.adapters.database_models import (
@@ -81,14 +81,16 @@ def _conversation(model: AssistantConversationModel) -> AssistantConversation:
     )
 
 
-def _message(model: AssistantMessageModel) -> AssistantMessage:
+def _message(
+    model: AssistantMessageModel, *, content_blocks: list[dict[str, object]] | None = None
+) -> AssistantMessage:
     return AssistantMessage(
         id=model.id,
         organization_id=model.organization_id,
         conversation_id=model.conversation_id,
         sequence=model.sequence,
         role=MessageRole(model.role),
-        content_blocks=tuple(model.content_blocks),
+        content_blocks=tuple(model.content_blocks if content_blocks is None else content_blocks),
         created_by_membership_id=model.created_by_membership_id,
         turn_id=model.turn_id,
         dedupe_key=model.dedupe_key,
@@ -896,8 +898,17 @@ class PostgreSQLAssistantRepository:
         )
         if conversation_model is None:
             return None
-        message_models = await self._session.scalars(
-            select(AssistantMessageModel)
+        message_rows = await self._session.execute(
+            select(
+                AssistantMessageModel,
+                case(
+                    (
+                        live_payload(AssistantMessageModel, "assistant_messages"),
+                        AssistantMessageModel.content_blocks,
+                    ),
+                    else_=func.expired_retrieval_blocks(AssistantMessageModel.content_blocks),
+                ),
+            )
             .where(
                 AssistantMessageModel.organization_id == actor.organization_id,
                 AssistantMessageModel.conversation_id == conversation_id,
@@ -939,7 +950,9 @@ class PostgreSQLAssistantRepository:
         )
         return AssistantConversationSnapshot(
             conversation=_conversation(conversation_model),
-            messages=tuple(_message(model) for model in message_models),
+            messages=tuple(
+                _message(model, content_blocks=blocks) for model, blocks in message_rows
+            ),
             turns=turns,
             orchestration_runs=tuple(orchestration_domain(model) for model in run_models),
             events=tuple(_event(model) for model in event_models),

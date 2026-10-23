@@ -148,6 +148,12 @@ class RetrievalBlockProjector:
         value = cast(dict[str, Any], value)
         if value.get("kind") == "retrieval_answer":
             try:
+                if value.get("availability") in {"EXPIRED", "UNAVAILABLE"}:
+                    # A scrubbed, metadata-only placeholder is already a public value.
+                    # It cannot be rehydrated or promoted back to available evidence.
+                    return RetrievalAnswerResponseBlock.model_validate(value).model_dump(
+                        mode="json"
+                    )
                 stored = (
                     value
                     if "source_refs" in value

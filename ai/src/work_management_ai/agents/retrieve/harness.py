@@ -567,6 +567,9 @@ class _RetrieveRun:
                 await self.budget.record_model(receipt, response.usage)
                 if response.usage is None:
                     await self.warn("MODEL_USAGE_UNAVAILABLE")
+                # Provider work may finish after a source was purged or access revoked.
+                # Account for the paid attempt, then recheck before saving derived claims.
+                await self.revalidate("post-synthesis")
                 summary = GroundedSummary.model_validate(response.parsed.model_dump())
                 await self.budget.save(model_state="COMPLETED", summary=summary)
                 self.state.summary = summary

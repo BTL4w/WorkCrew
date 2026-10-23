@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 import re
-from collections.abc import Callable
+from collections.abc import Awaitable, Callable
 from datetime import UTC, datetime
 from time import monotonic
 from typing import Any, Protocol, cast
@@ -866,15 +866,19 @@ class WorkflowRecordingModelGateway:
         transaction_factory: PlanningTransactionFactory,
         organization_id: UUID,
         workflow_run_id: UUID,
+        context_guard: Callable[[], Awaitable[object]] | None = None,
     ) -> None:
         self._gateway = gateway
         self._transactions = transaction_factory
         self._organization_id = organization_id
         self._run_id = workflow_run_id
+        self._context_guard = context_guard
 
     async def generate_structured[StructuredOutputT: BaseModel](
         self, request: StructuredModelRequest[StructuredOutputT]
     ) -> StructuredModelResponse[StructuredOutputT]:
+        if self._context_guard is not None:
+            await self._context_guard()
         async with self._transactions(self._organization_id) as transaction:
             await transaction.repository.assert_execution_context(
                 organization_id=self._organization_id, run_id=self._run_id
@@ -885,6 +889,8 @@ class WorkflowRecordingModelGateway:
         try:
             response = await self._gateway.generate_structured(request)
             model_ref = response.model_ref
+            if self._context_guard is not None:
+                await self._context_guard()
         except Exception:
             status = "FAILED"
             model_ref = "unavailable"
@@ -1141,11 +1147,22 @@ class PlanningJobHandler:
                 job=job,
             )
             return
+
+        guard_run_id = run.id
+
+        async def guard_retrieval() -> object:
+            return (
+                await self._retrieval_context.load(actor, guard_run_id)
+                if self._retrieval_context
+                else {}
+            )
+
         gateway = WorkflowRecordingModelGateway(
             gateway=build_model_gateway(self._settings),
             transaction_factory=self._transactions,
             organization_id=run.organization_id,
             workflow_run_id=run.id,
+            context_guard=guard_retrieval if self._retrieval_context else None,
         )
         graph = PlanningGraph(
             model_gateway=gateway,

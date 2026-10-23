@@ -22,6 +22,8 @@ _IDS = frozenset(
         "conversation_id",
         "turn_id",
         "membership_id",
+        "evidence_id",
+        "context_run_id",
     }
 )
 _NUMBERS = frozenset(
@@ -48,6 +50,9 @@ _NUMBERS = frozenset(
         "iterations_used",
         "tool_calls_used",
         "model_attempts_used",
+        "source_count",
+        "provider_requests",
+        "cost_usd",
     }
 )
 _BOOLS = frozenset({"requires_human_gate", "verifier_passed", "passed", "truncated"})
@@ -66,6 +71,10 @@ _CONTAINERS = frozenset(
     }
 )
 _ENUMS: dict[str, frozenset[str]] = {
+    # Fixed protocol identities, never provider/source-supplied free-form strings.
+    "workflow_version": frozenset({"retrieve.web.v1"}),
+    "prompt_version": frozenset({"retrieve.synthesis.v1"}),
+    "verifier_version": frozenset({"retrieve_grounding@1"}),
     "locale": frozenset({"vi", "en"}),
     "agent_id": frozenset(
         {
