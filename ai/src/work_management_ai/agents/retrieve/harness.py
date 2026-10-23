@@ -372,8 +372,10 @@ class _RetrieveRun:
             self.accept(result, "web.search")
             output = WebSearchOutput.model_validate(result.typed_output)
             if output.limitations:
+                # An empty successful search is a normal result, not a provider outage.
                 await self.warn(
-                    *(_safe(code, "SOURCE_LIMITATION") for code in output.limitations), partial=True
+                    *(_safe(code, "SOURCE_LIMITATION") for code in output.limitations),
+                    partial=bool(set(output.limitations) - {"NOT_FOUND"}),
                 )
 
     async def read(self) -> None:

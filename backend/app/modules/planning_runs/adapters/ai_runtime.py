@@ -311,6 +311,15 @@ class _Phase2MockModelGateway:
             sources = cast(list[dict[str, Any]], payload.get("untrusted_sources", []))
             if not sources:
                 return dict(claims=[], limitations=[], insufficient_evidence=True)
+            if payload.get("public_query") == "public planning invalid summary":
+                return dict(
+                    claims=[
+                        dict(
+                            text="Unsupported synthetic claim",
+                            evidence_ids=["99999999-9999-4999-8999-999999999999"],
+                        )
+                    ]
+                )
             return dict(
                 claims=[
                     dict(
@@ -563,6 +572,14 @@ class _Phase2MockModelGateway:
         )
         if match is not None and web_enabled:
             query = match.group(1).strip()
+            planning_suffix = re.search(
+                r" (?:then create a plan for a workshop|rồi tạo kế hoạch cho hội thảo)$",
+                query,
+                re.I,
+            )
+            research_and_plan = planning_suffix is not None
+            if planning_suffix is not None:
+                query = query[: planning_suffix.start()]
             start = original.index(query, match.start())
             return dict(
                 objectives=["Public web research"],
@@ -582,9 +599,25 @@ class _Phase2MockModelGateway:
                                 dict(requirement_id="topic", description="Public guidance")
                             ],
                             source_mode="WEB",
-                            answer_mode="SUMMARY",
+                            answer_mode="EVIDENCE_ONLY" if research_and_plan else "SUMMARY",
                         ),
-                    )
+                    ),
+                    *(
+                        [
+                            dict(
+                                step_id="create-plan",
+                                target_agent_id="planning",
+                                target_agent_version="1.0.0",
+                                capability="planning.create",
+                                objective="Create a workshop plan using verified evidence",
+                                mode="PROPOSAL",
+                                typed_input={},
+                                depends_on=["retrieve-1"],
+                            )
+                        ]
+                        if research_and_plan
+                        else []
+                    ),
                 ],
             )
 

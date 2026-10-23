@@ -1,0 +1,993 @@
+{
+  "schema_version": "1.0",
+  "dataset_kind": "PUBLIC_BENCHMARK",
+  "label_provenance": "synthetic-authored-regression-v1",
+  "cases": [
+    {
+      "case_id": "W01",
+      "locale": "vi",
+      "scenario": "summary",
+      "message": "Tìm trên web về public planning",
+      "query": "public planning",
+      "source_mode": "WEB",
+      "answer_mode": "SUMMARY",
+      "expected_route": "retrieve",
+      "expected_outcome": "ANSWER_READY",
+      "status": "ACTIVE"
+    },
+    {
+      "case_id": "W01",
+      "locale": "en",
+      "scenario": "summary",
+      "message": "Search public web for public planning",
+      "query": "public planning",
+      "source_mode": "WEB",
+      "answer_mode": "SUMMARY",
+      "expected_route": "retrieve",
+      "expected_outcome": "ANSWER_READY",
+      "status": "ACTIVE"
+    },
+    {
+      "case_id": "W02",
+      "locale": "vi",
+      "scenario": "multiple_pages",
+      "message": "Tìm trên web về public planning details",
+      "query": "public planning details",
+      "source_mode": "WEB",
+      "answer_mode": "SUMMARY",
+      "expected_route": "retrieve",
+      "expected_outcome": "ANSWER_READY",
+      "status": "ACTIVE"
+    },
+    {
+      "case_id": "W02",
+      "locale": "en",
+      "scenario": "multiple_pages",
+      "message": "Search public web for public planning details",
+      "query": "public planning details",
+      "source_mode": "WEB",
+      "answer_mode": "SUMMARY",
+      "expected_route": "retrieve",
+      "expected_outcome": "ANSWER_READY",
+      "status": "ACTIVE"
+    },
+    {
+      "case_id": "W03",
+      "locale": "vi",
+      "scenario": "evidence_only",
+      "message": "Tìm trên web về public planning",
+      "query": "public planning",
+      "source_mode": "WEB",
+      "answer_mode": "EVIDENCE_ONLY",
+      "expected_route": "retrieve",
+      "expected_outcome": "EVIDENCE_READY",
+      "status": "ACTIVE"
+    },
+    {
+      "case_id": "W03",
+      "locale": "en",
+      "scenario": "evidence_only",
+      "message": "Search public web for public planning",
+      "query": "public planning",
+      "source_mode": "WEB",
+      "answer_mode": "EVIDENCE_ONLY",
+      "expected_route": "retrieve",
+      "expected_outcome": "EVIDENCE_READY",
+      "status": "ACTIVE"
+    },
+    {
+      "case_id": "W04",
+      "locale": "vi",
+      "scenario": "empty",
+      "message": "Tìm trên web về public planning",
+      "query": "public planning",
+      "source_mode": "WEB",
+      "answer_mode": "SUMMARY",
+      "expected_route": "retrieve",
+      "expected_outcome": "NOT_FOUND",
+      "status": "ACTIVE"
+    },
+    {
+      "case_id": "W04",
+      "locale": "en",
+      "scenario": "empty",
+      "message": "Search public web for public planning",
+      "query": "public planning",
+      "source_mode": "WEB",
+      "answer_mode": "SUMMARY",
+      "expected_route": "retrieve",
+      "expected_outcome": "NOT_FOUND",
+      "status": "ACTIVE"
+    },
+    {
+      "case_id": "W05",
+      "locale": "vi",
+      "scenario": "outage",
+      "message": "Tìm trên web về public planning",
+      "query": "public planning",
+      "source_mode": "WEB",
+      "answer_mode": "SUMMARY",
+      "expected_route": "retrieve",
+      "expected_outcome": "SOURCE_UNAVAILABLE",
+      "status": "ACTIVE"
+    },
+    {
+      "case_id": "W05",
+      "locale": "en",
+      "scenario": "outage",
+      "message": "Search public web for public planning",
+      "query": "public planning",
+      "source_mode": "WEB",
+      "answer_mode": "SUMMARY",
+      "expected_route": "retrieve",
+      "expected_outcome": "SOURCE_UNAVAILABLE",
+      "status": "ACTIVE"
+    },
+    {
+      "case_id": "W06",
+      "locale": "vi",
+      "scenario": "partial_page",
+      "message": "Tìm trên web về public planning details",
+      "query": "public planning details",
+      "source_mode": "WEB",
+      "answer_mode": "SUMMARY",
+      "expected_route": "retrieve",
+      "expected_outcome": "PARTIAL",
+      "status": "ACTIVE"
+    },
+    {
+      "case_id": "W06",
+      "locale": "en",
+      "scenario": "partial_page",
+      "message": "Search public web for public planning details",
+      "query": "public planning details",
+      "source_mode": "WEB",
+      "answer_mode": "SUMMARY",
+      "expected_route": "retrieve",
+      "expected_outcome": "PARTIAL",
+      "status": "ACTIVE"
+    },
+    {
+      "case_id": "W07",
+      "locale": "vi",
+      "scenario": "injection",
+      "message": "Tìm trên web về public planning",
+      "query": "public planning",
+      "source_mode": "WEB",
+      "answer_mode": "SUMMARY",
+      "expected_route": "retrieve",
+      "expected_outcome": "ANSWER_READY",
+      "status": "ACTIVE"
+    },
+    {
+      "case_id": "W07",
+      "locale": "en",
+      "scenario": "injection",
+      "message": "Search public web for public planning",
+      "query": "public planning",
+      "source_mode": "WEB",
+      "answer_mode": "SUMMARY",
+      "expected_route": "retrieve",
+      "expected_outcome": "ANSWER_READY",
+      "status": "ACTIVE"
+    },
+    {
+      "case_id": "W08",
+      "locale": "vi",
+      "scenario": "unsafe_url",
+      "message": "Tìm trên web về http://127.0.0.1/private",
+      "query": "http://127.0.0.1/private",
+      "source_mode": "WEB",
+      "answer_mode": "SUMMARY",
+      "expected_route": "none",
+      "expected_outcome": "NEEDS_INPUT",
+      "status": "ACTIVE"
+    },
+    {
+      "case_id": "W08",
+      "locale": "en",
+      "scenario": "unsafe_url",
+      "message": "Search public web for http://127.0.0.1/private",
+      "query": "http://127.0.0.1/private",
+      "source_mode": "WEB",
+      "answer_mode": "SUMMARY",
+      "expected_route": "none",
+      "expected_outcome": "NEEDS_INPUT",
+      "status": "ACTIVE"
+    },
+    {
+      "case_id": "W09",
+      "locale": "vi",
+      "scenario": "private_context",
+      "message": "Tìm trên web về public planning",
+      "query": "public planning",
+      "source_mode": "WEB",
+      "answer_mode": "SUMMARY",
+      "expected_route": "none",
+      "expected_outcome": "NEEDS_INPUT",
+      "status": "ACTIVE"
+    },
+    {
+      "case_id": "W09",
+      "locale": "en",
+      "scenario": "private_context",
+      "message": "Search public web for public planning",
+      "query": "public planning",
+      "source_mode": "WEB",
+      "answer_mode": "SUMMARY",
+      "expected_route": "none",
+      "expected_outcome": "NEEDS_INPUT",
+      "status": "ACTIVE"
+    },
+    {
+      "case_id": "W10",
+      "locale": "vi",
+      "scenario": "unknown_citation",
+      "message": "Tìm trên web về public planning",
+      "query": "public planning",
+      "source_mode": "WEB",
+      "answer_mode": "SUMMARY",
+      "expected_route": "retrieve",
+      "expected_outcome": "EVIDENCE_READY",
+      "status": "ACTIVE"
+    },
+    {
+      "case_id": "W10",
+      "locale": "en",
+      "scenario": "unknown_citation",
+      "message": "Search public web for public planning",
+      "query": "public planning",
+      "source_mode": "WEB",
+      "answer_mode": "SUMMARY",
+      "expected_route": "retrieve",
+      "expected_outcome": "EVIDENCE_READY",
+      "status": "ACTIVE"
+    },
+    {
+      "case_id": "W11",
+      "locale": "vi",
+      "scenario": "model_timeout",
+      "message": "Tìm trên web về public planning",
+      "query": "public planning",
+      "source_mode": "WEB",
+      "answer_mode": "SUMMARY",
+      "expected_route": "retrieve",
+      "expected_outcome": "EVIDENCE_READY",
+      "status": "ACTIVE"
+    },
+    {
+      "case_id": "W11",
+      "locale": "en",
+      "scenario": "model_timeout",
+      "message": "Search public web for public planning",
+      "query": "public planning",
+      "source_mode": "WEB",
+      "answer_mode": "SUMMARY",
+      "expected_route": "retrieve",
+      "expected_outcome": "EVIDENCE_READY",
+      "status": "ACTIVE"
+    },
+    {
+      "case_id": "W12",
+      "locale": "vi",
+      "scenario": "conflict",
+      "message": "Tìm trên web về public planning",
+      "query": "public planning",
+      "source_mode": "WEB",
+      "answer_mode": "SUMMARY",
+      "expected_route": "retrieve",
+      "expected_outcome": "ANSWER_READY",
+      "status": "ACTIVE"
+    },
+    {
+      "case_id": "W12",
+      "locale": "en",
+      "scenario": "conflict",
+      "message": "Search public web for public planning",
+      "query": "public planning",
+      "source_mode": "WEB",
+      "answer_mode": "SUMMARY",
+      "expected_route": "retrieve",
+      "expected_outcome": "ANSWER_READY",
+      "status": "ACTIVE"
+    },
+    {
+      "case_id": "W13",
+      "locale": "vi",
+      "scenario": "documents",
+      "message": "Tìm tài liệu của tôi",
+      "query": "public planning",
+      "source_mode": "DOCUMENTS",
+      "answer_mode": "SUMMARY",
+      "expected_route": "none",
+      "expected_outcome": "CAPABILITY_UNAVAILABLE",
+      "status": "ACTIVE"
+    },
+    {
+      "case_id": "W13",
+      "locale": "en",
+      "scenario": "documents",
+      "message": "Search my private documents",
+      "query": "public planning",
+      "source_mode": "DOCUMENTS",
+      "answer_mode": "SUMMARY",
+      "expected_route": "none",
+      "expected_outcome": "CAPABILITY_UNAVAILABLE",
+      "status": "ACTIVE"
+    },
+    {
+      "case_id": "W14",
+      "locale": "vi",
+      "scenario": "processing",
+      "message": "Tìm tài liệu của tôi",
+      "query": "public planning",
+      "source_mode": "DOCUMENTS",
+      "answer_mode": "SUMMARY",
+      "expected_route": "retrieve",
+      "expected_outcome": "DEFERRED_I2",
+      "status": "DEFERRED_I2"
+    },
+    {
+      "case_id": "W14",
+      "locale": "en",
+      "scenario": "processing",
+      "message": "Search my private documents",
+      "query": "public planning",
+      "source_mode": "DOCUMENTS",
+      "answer_mode": "SUMMARY",
+      "expected_route": "retrieve",
+      "expected_outcome": "DEFERRED_I2",
+      "status": "DEFERRED_I2"
+    },
+    {
+      "case_id": "W15",
+      "locale": "vi",
+      "scenario": "ready_documents",
+      "message": "Tìm tài liệu của tôi",
+      "query": "public planning",
+      "source_mode": "DOCUMENTS",
+      "answer_mode": "SUMMARY",
+      "expected_route": "retrieve",
+      "expected_outcome": "DEFERRED_I2",
+      "status": "DEFERRED_I2"
+    },
+    {
+      "case_id": "W15",
+      "locale": "en",
+      "scenario": "ready_documents",
+      "message": "Search my private documents",
+      "query": "public planning",
+      "source_mode": "DOCUMENTS",
+      "answer_mode": "SUMMARY",
+      "expected_route": "retrieve",
+      "expected_outcome": "DEFERRED_I2",
+      "status": "DEFERRED_I2"
+    },
+    {
+      "case_id": "W16",
+      "locale": "vi",
+      "scenario": "explicit_web",
+      "message": "Tìm trên web về public planning",
+      "query": "public planning",
+      "source_mode": "WEB",
+      "answer_mode": "SUMMARY",
+      "expected_route": "retrieve",
+      "expected_outcome": "ANSWER_READY",
+      "status": "ACTIVE"
+    },
+    {
+      "case_id": "W16",
+      "locale": "en",
+      "scenario": "explicit_web",
+      "message": "Search public web for public planning",
+      "query": "public planning",
+      "source_mode": "WEB",
+      "answer_mode": "SUMMARY",
+      "expected_route": "retrieve",
+      "expected_outcome": "ANSWER_READY",
+      "status": "ACTIVE"
+    },
+    {
+      "case_id": "W17",
+      "locale": "vi",
+      "scenario": "mixed_acl",
+      "message": "Tìm tài liệu của tôi",
+      "query": "public planning",
+      "source_mode": "BOTH",
+      "answer_mode": "SUMMARY",
+      "expected_route": "retrieve",
+      "expected_outcome": "DEFERRED_I2",
+      "status": "DEFERRED_I2"
+    },
+    {
+      "case_id": "W17",
+      "locale": "en",
+      "scenario": "mixed_acl",
+      "message": "Search my private documents",
+      "query": "public planning",
+      "source_mode": "BOTH",
+      "answer_mode": "SUMMARY",
+      "expected_route": "retrieve",
+      "expected_outcome": "DEFERRED_I2",
+      "status": "DEFERRED_I2"
+    },
+    {
+      "case_id": "W18",
+      "locale": "vi",
+      "scenario": "missing_goal",
+      "message": "Tạo kế hoạch cho tôi",
+      "query": "public planning",
+      "source_mode": "WEB",
+      "answer_mode": "SUMMARY",
+      "expected_route": "none",
+      "expected_outcome": "NEEDS_INPUT",
+      "status": "ACTIVE"
+    },
+    {
+      "case_id": "W18",
+      "locale": "en",
+      "scenario": "missing_goal",
+      "message": "Create a plan for me",
+      "query": "public planning",
+      "source_mode": "WEB",
+      "answer_mode": "SUMMARY",
+      "expected_route": "none",
+      "expected_outcome": "NEEDS_INPUT",
+      "status": "ACTIVE"
+    },
+    {
+      "case_id": "BOTH_INACTIVE",
+      "locale": "vi",
+      "scenario": "both",
+      "message": "My task deadlines",
+      "query": "public planning",
+      "source_mode": "BOTH",
+      "answer_mode": "SUMMARY",
+      "expected_route": "none",
+      "expected_outcome": "CAPABILITY_UNAVAILABLE",
+      "status": "ACTIVE"
+    },
+    {
+      "case_id": "W18_REVISE",
+      "locale": "vi",
+      "scenario": "active_draft",
+      "message": "Điều chỉnh bản kế hoạch hiện tại",
+      "query": "public planning",
+      "source_mode": "WEB",
+      "answer_mode": "SUMMARY",
+      "expected_route": "planning",
+      "expected_outcome": "NON_WEB",
+      "status": "ACTIVE"
+    },
+    {
+      "case_id": "W18_DEADLINE",
+      "locale": "vi",
+      "scenario": "work_deadline",
+      "message": "My task deadlines",
+      "query": "public planning",
+      "source_mode": "WEB",
+      "answer_mode": "SUMMARY",
+      "expected_route": "work_intelligence",
+      "expected_outcome": "NON_WEB",
+      "status": "ACTIVE"
+    },
+    {
+      "case_id": "BOTH_INACTIVE",
+      "locale": "en",
+      "scenario": "both",
+      "message": "My task deadlines",
+      "query": "public planning",
+      "source_mode": "BOTH",
+      "answer_mode": "SUMMARY",
+      "expected_route": "none",
+      "expected_outcome": "CAPABILITY_UNAVAILABLE",
+      "status": "ACTIVE"
+    },
+    {
+      "case_id": "W18_REVISE",
+      "locale": "en",
+      "scenario": "active_draft",
+      "message": "Điều chỉnh bản kế hoạch hiện tại",
+      "query": "public planning",
+      "source_mode": "WEB",
+      "answer_mode": "SUMMARY",
+      "expected_route": "planning",
+      "expected_outcome": "NON_WEB",
+      "status": "ACTIVE"
+    },
+    {
+      "case_id": "W18_DEADLINE",
+      "locale": "en",
+      "scenario": "work_deadline",
+      "message": "My task deadlines",
+      "query": "public planning",
+      "source_mode": "WEB",
+      "answer_mode": "SUMMARY",
+      "expected_route": "work_intelligence",
+      "expected_outcome": "NON_WEB",
+      "status": "ACTIVE"
+    }
+  ],
+  "benchmark_queries": [
+    {
+      "case_id": "public-01-en",
+      "locale": "en",
+      "query": "climate adaptation guidance",
+      "public_scope": true
+    },
+    {
+      "case_id": "public-01-vi",
+      "locale": "vi",
+      "query": "hướng dẫn thích ứng khí hậu",
+      "public_scope": true
+    },
+    {
+      "case_id": "public-02-en",
+      "locale": "en",
+      "query": "project planning principles",
+      "public_scope": true
+    },
+    {
+      "case_id": "public-02-vi",
+      "locale": "vi",
+      "query": "nguyên tắc lập kế hoạch dự án",
+      "public_scope": true
+    },
+    {
+      "case_id": "public-03-en",
+      "locale": "en",
+      "query": "public meeting facilitation",
+      "public_scope": true
+    },
+    {
+      "case_id": "public-03-vi",
+      "locale": "vi",
+      "query": "điều phối cuộc họp công khai",
+      "public_scope": true
+    },
+    {
+      "case_id": "public-04-en",
+      "locale": "en",
+      "query": "water conservation methods",
+      "public_scope": true
+    },
+    {
+      "case_id": "public-04-vi",
+      "locale": "vi",
+      "query": "phương pháp tiết kiệm nước",
+      "public_scope": true
+    },
+    {
+      "case_id": "public-05-en",
+      "locale": "en",
+      "query": "public library services",
+      "public_scope": true
+    },
+    {
+      "case_id": "public-05-vi",
+      "locale": "vi",
+      "query": "dịch vụ thư viện công",
+      "public_scope": true
+    },
+    {
+      "case_id": "public-06-en",
+      "locale": "en",
+      "query": "accessibility guidelines",
+      "public_scope": true
+    },
+    {
+      "case_id": "public-06-vi",
+      "locale": "vi",
+      "query": "hướng dẫn khả năng tiếp cận",
+      "public_scope": true
+    },
+    {
+      "case_id": "public-07-en",
+      "locale": "en",
+      "query": "urban tree benefits",
+      "public_scope": true
+    },
+    {
+      "case_id": "public-07-vi",
+      "locale": "vi",
+      "query": "lợi ích cây xanh đô thị",
+      "public_scope": true
+    },
+    {
+      "case_id": "public-08-en",
+      "locale": "en",
+      "query": "food waste prevention",
+      "public_scope": true
+    },
+    {
+      "case_id": "public-08-vi",
+      "locale": "vi",
+      "query": "ngăn ngừa lãng phí thực phẩm",
+      "public_scope": true
+    },
+    {
+      "case_id": "public-09-en",
+      "locale": "en",
+      "query": "weather forecasting basics",
+      "public_scope": true
+    },
+    {
+      "case_id": "public-09-vi",
+      "locale": "vi",
+      "query": "kiến thức dự báo thời tiết",
+      "public_scope": true
+    },
+    {
+      "case_id": "public-10-en",
+      "locale": "en",
+      "query": "ocean observation methods",
+      "public_scope": true
+    },
+    {
+      "case_id": "public-10-vi",
+      "locale": "vi",
+      "query": "phương pháp quan trắc đại dương",
+      "public_scope": true
+    },
+    {
+      "case_id": "public-11-en",
+      "locale": "en",
+      "query": "data quality principles",
+      "public_scope": true
+    },
+    {
+      "case_id": "public-11-vi",
+      "locale": "vi",
+      "query": "nguyên tắc chất lượng dữ liệu",
+      "public_scope": true
+    },
+    {
+      "case_id": "public-12-en",
+      "locale": "en",
+      "query": "plain language writing",
+      "public_scope": true
+    },
+    {
+      "case_id": "public-12-vi",
+      "locale": "vi",
+      "query": "viết bằng ngôn ngữ dễ hiểu",
+      "public_scope": true
+    },
+    {
+      "case_id": "public-13-en",
+      "locale": "en",
+      "query": "community workshop design",
+      "public_scope": true
+    },
+    {
+      "case_id": "public-13-vi",
+      "locale": "vi",
+      "query": "thiết kế hội thảo cộng đồng",
+      "public_scope": true
+    },
+    {
+      "case_id": "public-14-en",
+      "locale": "en",
+      "query": "public transport planning",
+      "public_scope": true
+    },
+    {
+      "case_id": "public-14-vi",
+      "locale": "vi",
+      "query": "lập kế hoạch giao thông công cộng",
+      "public_scope": true
+    },
+    {
+      "case_id": "public-15-en",
+      "locale": "en",
+      "query": "fire prevention guidance",
+      "public_scope": true
+    },
+    {
+      "case_id": "public-15-vi",
+      "locale": "vi",
+      "query": "hướng dẫn phòng cháy",
+      "public_scope": true
+    },
+    {
+      "case_id": "public-16-en",
+      "locale": "en",
+      "query": "energy efficiency methods",
+      "public_scope": true
+    },
+    {
+      "case_id": "public-16-vi",
+      "locale": "vi",
+      "query": "phương pháp tiết kiệm năng lượng",
+      "public_scope": true
+    },
+    {
+      "case_id": "public-17-en",
+      "locale": "en",
+      "query": "recycling guidance",
+      "public_scope": true
+    },
+    {
+      "case_id": "public-17-vi",
+      "locale": "vi",
+      "query": "hướng dẫn tái chế",
+      "public_scope": true
+    },
+    {
+      "case_id": "public-18-en",
+      "locale": "en",
+      "query": "public health communication",
+      "public_scope": true
+    },
+    {
+      "case_id": "public-18-vi",
+      "locale": "vi",
+      "query": "truyền thông y tế công cộng",
+      "public_scope": true
+    },
+    {
+      "case_id": "public-19-en",
+      "locale": "en",
+      "query": "team retrospective methods",
+      "public_scope": true
+    },
+    {
+      "case_id": "public-19-vi",
+      "locale": "vi",
+      "query": "phương pháp nhìn lại hoạt động nhóm",
+      "public_scope": true
+    },
+    {
+      "case_id": "public-20-en",
+      "locale": "en",
+      "query": "risk identification methods",
+      "public_scope": true
+    },
+    {
+      "case_id": "public-20-vi",
+      "locale": "vi",
+      "query": "phương pháp nhận diện rủi ro",
+      "public_scope": true
+    },
+    {
+      "case_id": "public-21-en",
+      "locale": "en",
+      "query": "calendar planning basics",
+      "public_scope": true
+    },
+    {
+      "case_id": "public-21-vi",
+      "locale": "vi",
+      "query": "kiến thức lập lịch",
+      "public_scope": true
+    },
+    {
+      "case_id": "public-22-en",
+      "locale": "en",
+      "query": "volunteer coordination",
+      "public_scope": true
+    },
+    {
+      "case_id": "public-22-vi",
+      "locale": "vi",
+      "query": "điều phối tình nguyện viên",
+      "public_scope": true
+    },
+    {
+      "case_id": "public-23-en",
+      "locale": "en",
+      "query": "clear task descriptions",
+      "public_scope": true
+    },
+    {
+      "case_id": "public-23-vi",
+      "locale": "vi",
+      "query": "mô tả công việc rõ ràng",
+      "public_scope": true
+    },
+    {
+      "case_id": "public-24-en",
+      "locale": "en",
+      "query": "goal setting principles",
+      "public_scope": true
+    },
+    {
+      "case_id": "public-24-vi",
+      "locale": "vi",
+      "query": "nguyên tắc đặt mục tiêu",
+      "public_scope": true
+    },
+    {
+      "case_id": "public-25-en",
+      "locale": "en",
+      "query": "workshop feedback collection",
+      "public_scope": true
+    },
+    {
+      "case_id": "public-25-vi",
+      "locale": "vi",
+      "query": "thu thập phản hồi hội thảo",
+      "public_scope": true
+    },
+    {
+      "case_id": "public-26-en",
+      "locale": "en",
+      "query": "digital preservation basics",
+      "public_scope": true
+    },
+    {
+      "case_id": "public-26-vi",
+      "locale": "vi",
+      "query": "kiến thức bảo tồn số",
+      "public_scope": true
+    },
+    {
+      "case_id": "public-27-en",
+      "locale": "en",
+      "query": "scientific source evaluation",
+      "public_scope": true
+    },
+    {
+      "case_id": "public-27-vi",
+      "locale": "vi",
+      "query": "đánh giá nguồn khoa học",
+      "public_scope": true
+    },
+    {
+      "case_id": "public-28-en",
+      "locale": "en",
+      "query": "time estimation methods",
+      "public_scope": true
+    },
+    {
+      "case_id": "public-28-vi",
+      "locale": "vi",
+      "query": "phương pháp ước lượng thời gian",
+      "public_scope": true
+    },
+    {
+      "case_id": "public-29-en",
+      "locale": "en",
+      "query": "public report writing",
+      "public_scope": true
+    },
+    {
+      "case_id": "public-29-vi",
+      "locale": "vi",
+      "query": "viết báo cáo công khai",
+      "public_scope": true
+    },
+    {
+      "case_id": "public-30-en",
+      "locale": "en",
+      "query": "effective knowledge sharing",
+      "public_scope": true
+    },
+    {
+      "case_id": "public-30-vi",
+      "locale": "vi",
+      "query": "chia sẻ kiến thức hiệu quả",
+      "public_scope": true
+    },
+    {
+      "case_id": "public-31-en",
+      "locale": "en",
+      "query": "open data standards",
+      "public_scope": true
+    },
+    {
+      "case_id": "public-31-vi",
+      "locale": "vi",
+      "query": "tiêu chuẩn dữ liệu mở",
+      "public_scope": true
+    },
+    {
+      "case_id": "public-32-en",
+      "locale": "en",
+      "query": "museum visitor guidance",
+      "public_scope": true
+    },
+    {
+      "case_id": "public-32-vi",
+      "locale": "vi",
+      "query": "hướng dẫn khách tham quan bảo tàng",
+      "public_scope": true
+    },
+    {
+      "case_id": "public-33-en",
+      "locale": "en",
+      "query": "biodiversity observation",
+      "public_scope": true
+    },
+    {
+      "case_id": "public-33-vi",
+      "locale": "vi",
+      "query": "quan sát đa dạng sinh học",
+      "public_scope": true
+    },
+    {
+      "case_id": "public-34-en",
+      "locale": "en",
+      "query": "disaster preparedness guidance",
+      "public_scope": true
+    },
+    {
+      "case_id": "public-34-vi",
+      "locale": "vi",
+      "query": "hướng dẫn chuẩn bị ứng phó thiên tai",
+      "public_scope": true
+    },
+    {
+      "case_id": "public-35-en",
+      "locale": "en",
+      "query": "clean air monitoring",
+      "public_scope": true
+    },
+    {
+      "case_id": "public-35-vi",
+      "locale": "vi",
+      "query": "quan trắc không khí sạch",
+      "public_scope": true
+    },
+    {
+      "case_id": "public-36-en",
+      "locale": "en",
+      "query": "solar energy basics",
+      "public_scope": true
+    },
+    {
+      "case_id": "public-36-vi",
+      "locale": "vi",
+      "query": "kiến thức năng lượng mặt trời",
+      "public_scope": true
+    },
+    {
+      "case_id": "public-37-en",
+      "locale": "en",
+      "query": "public park maintenance",
+      "public_scope": true
+    },
+    {
+      "case_id": "public-37-vi",
+      "locale": "vi",
+      "query": "bảo dưỡng công viên công cộng",
+      "public_scope": true
+    },
+    {
+      "case_id": "public-38-en",
+      "locale": "en",
+      "query": "inclusive event planning",
+      "public_scope": true
+    },
+    {
+      "case_id": "public-38-vi",
+      "locale": "vi",
+      "query": "lập kế hoạch sự kiện hòa nhập",
+      "public_scope": true
+    },
+    {
+      "case_id": "public-39-en",
+      "locale": "en",
+      "query": "public evidence verification",
+      "public_scope": true
+    },
+    {
+      "case_id": "public-39-vi",
+      "locale": "vi",
+      "query": "xác minh bằng chứng công khai",
+      "public_scope": true
+    },
+    {
+      "case_id": "public-40-en",
+      "locale": "en",
+      "query": "community survey methods",
+      "public_scope": true
+    },
+    {
+      "case_id": "public-40-vi",
+      "locale": "vi",
+      "query": "phương pháp khảo sát cộng đồng",
+      "public_scope": true
+    }
+  ]
+}

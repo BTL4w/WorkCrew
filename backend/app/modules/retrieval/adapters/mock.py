@@ -1,5 +1,6 @@
 """Synthetic local adapter behind the same ports; never reads keys or uses network."""
 
+import asyncio
 import hashlib
 from datetime import UTC, datetime
 
@@ -8,6 +9,7 @@ from app.modules.retrieval.domain.models import (
     ProviderUsage,
     PublicPageRequest,
     PublicSearchRequest,
+    RetrievalProviderError,
     RetrievedSource,
     SearchBatch,
 )
@@ -17,7 +19,14 @@ from app.modules.retrieval.domain.public_urls import validate_public_url
 class MockRetrievalAdapter:
     async def search(self, request: PublicSearchRequest, *, timeout_seconds: float) -> SearchBatch:
         request = PublicSearchRequest(request.query, request.validated_filters, request.limit)
+        # Explicit synthetic demo scenarios only; the Exa adapter never reads these labels.
+        if request.query == "public planning slow":
+            await asyncio.sleep(2)
+        if request.query == "public planning quota":
+            raise RetrievalProviderError("RETRIEVAL_RATE_LIMITED", provider_requests=0)
         now = datetime.now(UTC)
+        if request.query == "public planning no results":
+            return SearchBatch((), (), now, ProviderUsage(0), safe_code="NOT_FOUND")
         url = validate_public_url("https://example.org/guide")
         text = "Public planning guide: review the goal and constraints."
         source = RetrievedSource(

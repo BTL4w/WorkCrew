@@ -51,3 +51,17 @@ async def test_default_mock_supports_real_public_route(locale: Literal["vi", "en
     result = await gateway.generate_structured(request)
     assert result.parsed.steps[0].target_agent_id.value == "retrieve"
     assert result.parsed.steps[0].typed_input["search_queries"] == ["public planning"]
+
+
+@pytest.mark.asyncio
+async def test_browser_mock_distinguishes_empty_and_quota():
+    from app.modules.retrieval.adapters.mock import MockRetrievalAdapter
+    from app.modules.retrieval.domain.models import PublicSearchRequest, RetrievalProviderError
+
+    provider = MockRetrievalAdapter()
+    empty = await provider.search(
+        PublicSearchRequest("public planning no results"), timeout_seconds=8
+    )
+    assert empty.sources == () and empty.safe_code == "NOT_FOUND"
+    with pytest.raises(RetrievalProviderError):
+        await provider.search(PublicSearchRequest("public planning quota"), timeout_seconds=8)

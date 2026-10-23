@@ -4,7 +4,7 @@ UV := uv
 
 .DEFAULT_GOAL := check
 
-.PHONY: sync lint format-check typecheck test eval check
+.PHONY: sync lint format-check typecheck test eval eval-retrieve check
 
 sync:
 	$(UV) sync --locked
@@ -24,4 +24,7 @@ test:
 eval:
 	$(UV) run --locked python -m work_management_ai.evaluation.core_mvp
 
-check: lint format-check typecheck test eval
+eval-retrieve:
+	$(UV) run --locked python -m work_management_ai.evaluation.retrieve_web
+
+check: lint format-check typecheck test eval eval-retrieve

@@ -1,0 +1,17 @@
+{
+  "schema_version": "1.0",
+  "review_status": "SYNTHETIC_DRAFT_NOT_HELD_OUT_HUMAN_REVIEW",
+  "claims": {
+    "en": "Review public goals before choosing a deadline.",
+    "vi": "Xem lại mục tiêu công khai trước khi chọn hạn chót."
+  },
+  "conflict_claims": {
+    "en": "Review public goals monthly rather than weekly.",
+    "vi": "Xem lại mục tiêu công khai hàng tháng thay vì hàng tuần."
+  },
+  "expected_support": {
+    "valid": true,
+    "unknown_source": false
+  },
+  "freshness_label": "UNKNOWN"
+}
