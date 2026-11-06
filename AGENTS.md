@@ -98,6 +98,14 @@ These rules govern product actions; coding-assistant permissions are governed by
 - Use one bounded hub-and-spoke Agent Runtime: only the Orchestrator creates typed Specialist
   handoffs; all Specialist results return to it. No peer delegation, self-created agents or unrestricted swarm.
   Core MVP agents share the application/worker runtime; packages do not imply network services.
+- Prefer goal-directed agent execution within activated capability boundaries. The Orchestrator
+  selects Specialists and delegates objectives, relevant context, resource/version references and
+  constraints; Specialists own how to accomplish their delegated objectives. A capability boundary
+  defines permitted work, not a mandatory operation, tool or sequence selected by the Orchestrator.
+- Agents may decompose objectives, select allowed tools/skills, choose action order, ask for input
+  and revise their execution plans based on observed results within runtime budgets. Do not hard-code
+  business-action sequences unless explicitly required by business policy or an authorized requirement.
+  Agent autonomy never expands activation, permissions, tenant scope, risk ceilings or approval authority.
 - Distributed services, graph databases, advanced retrieval/training and deployment infrastructure
   require the activation specified in `PLAN.md` or an explicit architecture revision under precedence above.
   Use direct queries for transactional facts; do not substitute GraphRAG for simple lookup.
@@ -122,7 +130,14 @@ These rules govern product actions; coding-assistant permissions are governed by
   Models cannot grant roles, tenant scope, tools, skills or activation status.
 - An Assistant Turn owns one durable Orchestration Run with bounded Agent Runs. Harnesses enforce
   manifests, context/policy guards, iteration/token/tool/time budgets, retries, checkpoints and verifiers.
-  Workflows define typed state, nodes/edges, approval points, retry limits, stops and fallback.
+  Graphs/workflows define typed execution state, model/tool observation loops, mandatory control
+  boundaries, approval points, retry limits, stops and fallback; they need not prescribe a fixed
+  business-action path. Models choose the next permitted action; deterministic runtime/application
+  code validates and authorizes execution and enforces required gates before effects occur.
+- When input or a human decision is needed, persist structured continuation state and return a typed
+  result to the Orchestrator. Continue from the relevant authorized state and exact resource versions
+  on a later turn, rechecking permissions, policy and staleness. Do not persist hidden reasoning or
+  treat a resumed session as authorization to execute a previously planned action.
 - Tools declare typed input/output, tenant scope, permission, risk, timeout, retry, idempotency and
   audit behavior. Skills declare trigger, schemas, required context, allowed tools, risk/approval,
   owner, semantic version and evaluation cases. Neither is a source of authority.
