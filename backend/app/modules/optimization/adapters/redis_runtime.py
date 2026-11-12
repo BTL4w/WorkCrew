@@ -32,7 +32,11 @@ class RedisRuntime:
 def create_redis_runtime(settings: Settings) -> RedisRuntime:
     namespace = f"{settings.environment}:{settings.redis_namespace}"
     if (
-        not (settings.read_cache_enabled or settings.ai_admission_enabled)
+        not (
+            settings.read_cache_enabled
+            or settings.ai_admission_enabled
+            or settings.retrieval_admission_enabled
+        )
         or settings.redis_url is None
     ):
         return RedisRuntime(None, namespace, DisabledReadCache())

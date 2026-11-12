@@ -27,6 +27,10 @@ class RetrievalActivationPort(Protocol):
     def ensure_enabled(self) -> None: ...
 
 
+class RetrievalAdmissionPort(Protocol):
+    async def require_provider_call(self, actor: AuthenticatedActor) -> None: ...
+
+
 class RetrievalRepository(Protocol):
     async def bind(
         self, run_id: UUID, lease: RetrievalLease | None, *, allow_terminal: bool = False

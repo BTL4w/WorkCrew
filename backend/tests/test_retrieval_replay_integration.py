@@ -12,6 +12,7 @@ if TYPE_CHECKING:
     from app.modules.assistant.adapters.retrieval_tools import RetrievalToolExecutor
     from app.modules.assistant.adapters.work_tools import RecordingToolExecutor
     from app.modules.retrieval.adapters.mock import MockRetrievalAdapter
+    from app.modules.retrieval.application.ports import RetrievalAdmissionPort
     from work_management_ai.runtime.contracts import ToolExecutionRequest
 
 __all__ = ["pytestmark", "retrieval_harness"]
@@ -33,11 +34,12 @@ def _request(h: RetrievalHarness, call: str = "search-1") -> ToolExecutionReques
     )
 
 
-def _executor_parts(
+def executor_parts(
     h: RetrievalHarness,
     provider: MockRetrievalAdapter | None = None,
     *,
     revalidate: bool = True,
+    admission: RetrievalAdmissionPort | None = None,
 ) -> tuple[RecordingToolExecutor, RetrievalToolExecutor]:
     from app.core.database import create_session_factory
     from app.modules.assistant.adapters.retrieval_tools import RetrievalToolExecutor
@@ -64,7 +66,9 @@ def _executor_parts(
     adapter = provider or MockRetrievalAdapter()
     backend = RetrievalToolExecutor(
         budgets=budget,
-        service=RetrievalService(search=adapter, pages=adapter, access=budget, dns=DNS()),
+        service=RetrievalService(
+            search=adapter, pages=adapter, access=budget, dns=DNS(), admission=admission
+        ),
         actor_resolver=CurrentActorResolver(
             CurrentActorService(SqlAlchemyAuthTransactionFactory(sessions))
         ),
@@ -81,8 +85,12 @@ def _executor_parts(
     return recording, backend
 
 
+# Existing retention/projection fixtures also import the original helper name.
+_executor_parts = executor_parts
+
+
 def _executor(h: RetrievalHarness) -> RecordingToolExecutor:
-    return _executor_parts(h)[0]
+    return executor_parts(h)[0]
 
 
 @pytest.mark.asyncio
@@ -232,7 +240,7 @@ async def test_lease_lost_during_io_cannot_publish_a_snapshot(
             )
             return await super().search(request, timeout_seconds=timeout_seconds)
 
-    executor, _ = _executor_parts(h, Reclaimed())
+    executor, _ = executor_parts(h, Reclaimed())
     result = await executor.execute(_request(h))
     assert result.status == "REJECTED" and result.evidence == ()
     assert (
@@ -263,7 +271,7 @@ async def test_concurrent_recorded_call_does_not_finalize_the_active_owner(
             await release.wait()
             return await super().search(request, timeout_seconds=timeout_seconds)
 
-    executor, _ = _executor_parts(h, Waiting())
+    executor, _ = executor_parts(h, Waiting())
     request = _request(h)
     first = asyncio.create_task(executor.execute(request))
     try:
@@ -305,7 +313,7 @@ async def test_completed_specialist_result_cannot_bypass_source_revalidation(
     )
 
     h = retrieval_harness
-    executor, backend = _executor_parts(h)
+    executor, backend = executor_parts(h)
     found = await executor.execute(_request(h))
     assert found.status == "SUCCEEDED", found.safe_error_code
     output = RetrieveOutput.model_validate(
@@ -481,7 +489,7 @@ async def test_replay_rejects_a_source_copy_with_changed_text(
     from work_management_ai.runtime.contracts import AgentId, AgentResult, AgentRunStatus, JsonValue
 
     h = retrieval_harness
-    executor, backend = _executor_parts(h)
+    executor, backend = executor_parts(h)
     found = await executor.execute(_request(h))
     assert found.status == "SUCCEEDED", found.safe_error_code
     output = RetrieveOutput.model_validate(
@@ -534,7 +542,7 @@ async def test_observation_clock_skew_keeps_snapshot_within_retention(
             )
 
     h = retrieval_harness
-    executor, _ = _executor_parts(h, EarlierClock())
+    executor, _ = executor_parts(h, EarlierClock())
     result = await executor.execute(_request(h))
     assert result.status == "SUCCEEDED", result.safe_error_code
     row = (
@@ -554,7 +562,7 @@ async def test_cached_tool_rejects_changed_source_copy(retrieval_harness: Retrie
     from work_management_ai.tools.web.contracts import WebSearchOutput
 
     h = retrieval_harness
-    executor, backend = _executor_parts(h)
+    executor, backend = executor_parts(h)
     found = await executor.execute(_request(h))
     assert found.status == "SUCCEEDED", found.safe_error_code
     body = WebSearchOutput.model_validate(found.typed_output).model_dump(mode="json")
@@ -643,7 +651,7 @@ async def test_lower_source_cap_applies_to_persisted_evidence(
         "UPDATE agent_runs SET typed_input=typed_input||CAST(:limits AS jsonb) WHERE id=:id",
         {"id": h.run_id, "limits": json.dumps({"limits": {"max_sources": 1}})},
     )
-    executor, _ = _executor_parts(h, TwoSources())
+    executor, _ = executor_parts(h, TwoSources())
     result = await executor.execute(_request(h))
     assert result.status == "SUCCEEDED", result.safe_error_code
     assert len(result.evidence) == 1
@@ -657,7 +665,7 @@ async def test_web_executor_without_revalidator_fails_before_io(
     retrieval_harness: RetrievalHarness,
 ) -> None:
     h = retrieval_harness
-    executor, _ = _executor_parts(h, revalidate=False)
+    executor, _ = executor_parts(h, revalidate=False)
     result = await executor.execute(_request(h))
     assert result.status == "REJECTED"
     assert result.safe_error_code == "RETRIEVAL_REVALIDATION_REQUIRED"

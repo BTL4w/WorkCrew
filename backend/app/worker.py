@@ -366,6 +366,7 @@ async def _run_worker_with_tracing(
     retrieval_activation = RetrievalActivationPolicy(lambda: settings).context()
     registry, tool_registry = build_agent_registry(activation=retrieval_activation)
     retrieval_runtime = build_retrieval_runtime(
+        redis_runtime=redis_runtime,
         settings=settings,
         sessions=session_factory,
         actors=actor_resolver,

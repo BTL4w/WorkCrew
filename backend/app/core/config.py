@@ -101,6 +101,9 @@ class Settings(BaseSettings):
     ai_admission_enabled: bool = False
     ai_admission_actor_limit: int = Field(default=20, ge=1, le=1_000_000)
     ai_admission_org_limit: int = Field(default=200, ge=1, le=1_000_000)
+    retrieval_admission_enabled: bool = False
+    retrieval_admission_actor_limit: int = Field(default=30, ge=1, le=1_000_000)
+    retrieval_admission_org_limit: int = Field(default=300, ge=1, le=1_000_000)
     read_cache_families: list[Literal["workload.weekly"]] = Field(
         default_factory=lambda: list[Literal["workload.weekly"]]()
     )
@@ -208,7 +211,9 @@ class Settings(BaseSettings):
     @model_validator(mode="after")
     def validate_redis_configuration(self) -> "Settings":
         value = self.redis_url.get_secret_value().strip() if self.redis_url is not None else ""
-        if (self.read_cache_enabled or self.ai_admission_enabled) and not value:
+        if (
+            self.read_cache_enabled or self.ai_admission_enabled or self.retrieval_admission_enabled
+        ) and not value:
             raise ValueError("REDIS_URL_REQUIRED")
         if value:
             try:

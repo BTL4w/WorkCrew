@@ -42,7 +42,12 @@ def test_admission_requires_explicit_url_and_positive_trusted_limits() -> None:
         Settings(ai_admission_enabled=True)
     with pytest.raises(ValidationError):
         Settings(ai_admission_actor_limit=0)
+    with pytest.raises(ValidationError):
+        Settings(retrieval_admission_enabled=True)
+    with pytest.raises(ValidationError):
+        Settings(retrieval_admission_org_limit=0)
     assert not Settings().ai_admission_enabled
+    assert not Settings().retrieval_admission_enabled
 
 
 @pytest.mark.asyncio
@@ -58,3 +63,20 @@ async def test_admission_can_run_with_read_cache_disabled() -> None:
         assert await runtime.read_cache.get("wm:test:key") is None
     finally:
         await runtime.aclose()
+
+
+def test_enabled_retrieval_admission_requires_runtime_injection() -> None:
+    from typing import Any, cast
+
+    from app.modules.retrieval.adapters.composition import build_retrieval_runtime
+
+    with pytest.raises(ValueError, match="RETRIEVAL_LIMITER_REQUIRED"):
+        build_retrieval_runtime(
+            settings=Settings(
+                retrieval_admission_enabled=True, redis_url=SecretStr("redis://localhost:1/0")
+            ),
+            sessions=cast(Any, None),
+            actors=cast(Any, None),
+            tools=cast(Any, None),
+            transactions=cast(Any, None),
+        )

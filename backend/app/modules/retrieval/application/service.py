@@ -9,6 +9,7 @@ from app.modules.retrieval.application.ports import (
     PublicDNSResolver,
     PublicPageReadPort,
     RetrievalAccessPort,
+    RetrievalAdmissionPort,
     WebSearchPort,
 )
 from app.modules.retrieval.domain.models import (
@@ -31,11 +32,13 @@ class RetrievalService:
         pages: PublicPageReadPort,
         access: RetrievalAccessPort,
         dns: PublicDNSResolver,
+        admission: RetrievalAdmissionPort | None = None,
     ) -> None:
         self._search = search
         self._pages = pages
         self._access = access
         self._dns = dns
+        self._admission = admission
 
     @staticmethod
     def _remaining(actor: AuthenticatedActor, receipt: RetrievalReservation, kind: str) -> float:
@@ -63,6 +66,8 @@ class RetrievalService:
         try:
             async with asyncio.timeout(timeout):
                 await self._access.authorize(actor, budget, request)
+                if self._admission is not None:
+                    await self._admission.require_provider_call(actor)
                 remaining = self._remaining(actor, budget, "SEARCH")
                 provider_started = True
                 return await self._search.search(request, timeout_seconds=remaining)
@@ -93,6 +98,8 @@ class RetrievalService:
                     validate_public_addresses(addresses)
                 except ValueError:
                     raise RetrievalPolicyError("UNSAFE_PUBLIC_URL") from None
+                if self._admission is not None:
+                    await self._admission.require_provider_call(actor)
                 remaining = self._remaining(actor, budget, "PAGE_READ")
                 provider_started = True
                 return await self._pages.read(request, timeout_seconds=remaining)
