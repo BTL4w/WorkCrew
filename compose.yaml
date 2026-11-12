@@ -1,6 +1,21 @@
 name: ai-native-work-management
 
 services:
+  redis:
+    image: redis:8.2.11-alpine@sha256:da23c2478319ceb4903857d77a2fd7aa5137d9e9d4c8165dafbacedac6403e95
+    profiles: [redis]
+    command: [redis-server, --aclfile, /usr/local/etc/redis/users.acl, --save, "", --appendonly, "no", --maxmemory, 256mb, --maxmemory-policy, noeviction]
+    volumes:
+      - ./backend/redis.acl:/usr/local/etc/redis/users.acl:ro
+    ports:
+      - "127.0.0.1:${REDIS_PORT:-6379}:6379"
+    healthcheck:
+      test: [CMD, redis-cli, -e, --user, workcrew, --pass, "", --no-auth-warning, ping]
+      interval: 2s
+      timeout: 3s
+      retries: 20
+    stop_grace_period: 10s
+
   postgres:
     image: postgres:18.4
     environment:
@@ -28,6 +43,10 @@ services:
       context: .
       dockerfile: backend/Dockerfile
     environment:
+      APP_REDIS_URL: redis://workcrew@redis:6379/0
+      APP_REDIS_NAMESPACE: ${APP_REDIS_NAMESPACE:-workcrew}
+      APP_READ_CACHE_ENABLED: ${APP_READ_CACHE_ENABLED:-false}
+      APP_READ_CACHE_FAMILIES: ${APP_READ_CACHE_FAMILIES:-[]}
       APP_AI_PROVIDER: ${APP_AI_PROVIDER:-disabled}
       APP_RETRIEVAL_ENABLED: ${APP_RETRIEVAL_ENABLED:-false}
       APP_RETRIEVAL_PROVIDER: ${APP_RETRIEVAL_PROVIDER:-disabled}
@@ -111,6 +130,10 @@ services:
       context: .
       dockerfile: backend/Dockerfile
     environment:
+      APP_REDIS_URL: redis://workcrew@redis:6379/0
+      APP_REDIS_NAMESPACE: ${APP_REDIS_NAMESPACE:-workcrew}
+      APP_READ_CACHE_ENABLED: ${APP_READ_CACHE_ENABLED:-false}
+      APP_READ_CACHE_FAMILIES: ${APP_READ_CACHE_FAMILIES:-[]}
       APP_AI_MODEL: ${APP_AI_MODEL:-}
       APP_AI_TITLE_MODEL: ${APP_AI_TITLE_MODEL:-gpt-4o-mini}
       APP_AI_TITLE_TIMEOUT_SECONDS: ${APP_AI_TITLE_TIMEOUT_SECONDS:-3}

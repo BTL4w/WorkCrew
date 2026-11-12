@@ -12,6 +12,7 @@ dependencies = [
     "pwdlib[argon2]>=0.3,<1.0",
     "pydantic-settings>=2.0,<3.0",
     "pypdf>=6,<7",
+    "redis>=8.1,<9",
     "sqlalchemy[asyncio]>=2.0,<2.1",
     "work-management-ai",
 ]
@@ -33,6 +34,7 @@ addopts = "--strict-config --strict-markers"
 pythonpath = ["."]
 testpaths = ["tests", "../ai/tests", "../ai/src/work_management_ai/agents"]
 markers = [
+    "redis_integration: requires explicitly enabled task-owned Redis/PostgreSQL",
     "integration: requires the local PostgreSQL container",
     "live_provider: requires explicit provider credentials and network access",
 ]

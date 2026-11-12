@@ -25,6 +25,10 @@ install:
 db-up:
 	docker compose up -d --wait --wait-timeout 60 postgres
 
+.PHONY: redis-up
+redis-up:
+	docker compose --profile redis up -d --wait --wait-timeout 60 redis
+
 backend-dev:
 	$(MAKE) --no-print-directory -C backend up
 

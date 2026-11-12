@@ -15,6 +15,7 @@ from app.modules.people_capacity.application.ports import (
     PeopleCapacityTransactionFactory,
     PeopleMutationResult,
 )
+from app.modules.people_capacity.application.workload_cache import WorkloadCacheReader
 from app.modules.people_capacity.application.workload_service import WorkloadService
 from app.modules.people_capacity.domain.availability import (
     AvailabilityError,
@@ -69,8 +70,14 @@ def _authorized_read_membership(
 
 
 class PeopleCapacityService:
-    def __init__(self, transaction_factory: PeopleCapacityTransactionFactory) -> None:
+    def __init__(
+        self,
+        transaction_factory: PeopleCapacityTransactionFactory,
+        *,
+        workload_cache: WorkloadCacheReader | None = None,
+    ) -> None:
         self._transactions = transaction_factory
+        self._workload_cache = workload_cache
 
     async def list_skills(self, *, actor: AuthenticatedActor) -> tuple[Skill, ...]:
         async with self._transactions() as repository:
@@ -1086,6 +1093,10 @@ class PeopleCapacityService:
         membership_id: UUID | None = None,
     ) -> tuple[WeeklyWorkload, ...]:
         membership_id = _authorized_read_membership(actor, membership_id)
+        if self._workload_cache is not None:
+            return await self._workload_cache.read(
+                actor=actor, week_start=week_start, membership_id=membership_id
+            )
         async with self._transactions() as repository:
             return await WorkloadService(repository).list_weekly_workload(
                 actor=actor,

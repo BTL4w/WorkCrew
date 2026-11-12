@@ -155,3 +155,33 @@ async def test_changed_fixture_rows_are_rejected_without_reset() -> None:
                 text("UPDATE capacity_entries SET hours=40 WHERE id=:id"), {"id": capacity}
             )
         await engine.dispose()
+
+
+@pytest.mark.asyncio
+@pytest.mark.skipif(os.getenv("RUN_REDIS_INTEGRATION") != "1", reason="requires Redis too")
+async def test_benchmark_compares_direct_and_cache_with_auth_cost_included() -> None:
+    from pydantic import SecretStr
+
+    target = validate_target(
+        os.environ["APP_DATABASE_URL"], os.environ["REDIS_BENCHMARK_INSTANCE_TOKEN"]
+    )
+    direct = await run_benchmark(
+        target,
+        FixtureSpec(),
+        cases=["workload.person"],
+        concurrencies=[2],
+        duration_seconds=0.2,
+        repetitions=1,
+    )
+    cached = await run_benchmark(
+        target,
+        FixtureSpec(),
+        cases=["workload.person"],
+        concurrencies=[2],
+        duration_seconds=0.2,
+        repetitions=1,
+        cache_url=SecretStr(os.environ["REDIS_TEST_URL"]),
+    )
+    assert direct[0]["errors"] == cached[0]["errors"] == 0
+    assert direct[0]["sql_statements_per_request"] == 15
+    assert cached[0]["sql_statements_per_request"] <= 7

@@ -24,12 +24,14 @@ from app.modules.assistant.application.service import AssistantService
 from app.modules.identity.adapters.runtime import create_auth_runtime
 from app.modules.identity.api.routes import router as auth_router
 from app.modules.identity.application.auth_service import AuthService
+from app.modules.optimization.adapters.redis_runtime import create_redis_runtime
 from app.modules.organization.adapters.member_repository import SqlAlchemyMemberTransactionFactory
 from app.modules.organization.api.members import router as member_router
 from app.modules.organization.application.member_service import MemberService
 from app.modules.people_capacity.adapters.repository import (
     SqlAlchemyPeopleCapacityTransactionFactory,
 )
+from app.modules.people_capacity.adapters.workload_cache import build_workload_cache
 from app.modules.people_capacity.api.routes import router as people_capacity_router
 from app.modules.people_capacity.application.service import PeopleCapacityService
 from app.modules.planning_runs.adapters.ai_runtime import PlanningAIRuntime, build_model_gateway
@@ -124,6 +126,7 @@ def create_app(
     """Build an isolated application instance for runtime or tests."""
 
     resolved_settings = settings or get_settings()
+    redis_runtime = create_redis_runtime(resolved_settings)
     database_engine: AsyncEngine | None = None
     resolved_auth_service = auth_service
     if resolved_auth_service is None:
@@ -154,7 +157,10 @@ def create_app(
         if database_engine is None:
             database_engine = create_database_engine(resolved_settings)
         resolved_people_capacity_service = PeopleCapacityService(
-            SqlAlchemyPeopleCapacityTransactionFactory(create_session_factory(database_engine))
+            SqlAlchemyPeopleCapacityTransactionFactory(create_session_factory(database_engine)),
+            workload_cache=build_workload_cache(
+                resolved_settings, create_session_factory(database_engine), redis_runtime
+            ),
         )
     resolved_team_requirement_service = team_requirement_service
     if resolved_team_requirement_service is None:
@@ -279,8 +285,11 @@ def create_app(
         try:
             yield
         finally:
-            if database_engine is not None:
-                await database_engine.dispose()
+            try:
+                await redis_runtime.aclose()
+            finally:
+                if database_engine is not None:
+                    await database_engine.dispose()
 
     app = FastAPI(
         title=resolved_settings.name,
@@ -288,6 +297,7 @@ def create_app(
         debug=resolved_settings.debug,
         lifespan=lifespan,
     )
+    app.state.redis_runtime = redis_runtime
     app.state.evidence_service = evidence_service
     if database_engine is None:
         database_engine = create_database_engine(resolved_settings)

@@ -95,6 +95,12 @@ class Settings(BaseSettings):
     database_url: str = (
         "postgresql+psycopg://work_management:work_management@localhost:5432/work_management"
     )
+    redis_url: SecretStr | None = None
+    redis_namespace: str = Field(default="workcrew", pattern=r"^[a-z0-9_-]{1,32}$")
+    read_cache_enabled: bool = False
+    read_cache_families: list[Literal["workload.weekly"]] = Field(
+        default_factory=lambda: list[Literal["workload.weekly"]]()
+    )
     local_auth_organization_slug: str = "demo"
     local_auth_organization_name: str = "Demo Organization"
     demo_seed_enabled: bool = False
@@ -195,6 +201,30 @@ class Settings(BaseSettings):
             msg = f"database_url must start with {_POSTGRESQL_ASYNC_URL_PREFIX}"
             raise ValueError(msg)
         return value
+
+    @model_validator(mode="after")
+    def validate_redis_configuration(self) -> "Settings":
+        value = self.redis_url.get_secret_value().strip() if self.redis_url is not None else ""
+        if self.read_cache_enabled and not value:
+            raise ValueError("REDIS_URL_REQUIRED")
+        if value:
+            try:
+                parsed = urlsplit(value)
+                valid = (
+                    parsed.scheme in {"redis", "rediss"}
+                    and parsed.hostname is not None
+                    and not parsed.query
+                    and not parsed.fragment
+                    and (parsed.port is None or 0 < parsed.port < 65536)
+                    and parsed.path in {"", "/", "/0"}
+                )
+            except ValueError:
+                raise ValueError("INVALID_REDIS_URL") from None
+            if not valid:
+                raise ValueError("INVALID_REDIS_URL")
+            if self.environment == "production" and parsed.scheme != "rediss":
+                raise ValueError("REDIS_TLS_REQUIRED")
+        return self
 
     @model_validator(mode="after")
     def require_secure_production_cookie(self) -> "Settings":

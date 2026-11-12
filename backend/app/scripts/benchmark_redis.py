@@ -538,6 +538,7 @@ async def run_benchmark(
     concurrencies: Sequence[int],
     duration_seconds: float,
     repetitions: int,
+    cache_url: SecretStr | None = None,
 ) -> list[dict[str, Any]]:
     from contextlib import AsyncExitStack
 
@@ -554,6 +555,10 @@ async def run_benchmark(
                     local_auth_organization_slug=f"redis-bench-{tenant}",
                     ai_provider="disabled",
                     langsmith_tracing=False,
+                    read_cache_enabled=cache_url is not None,
+                    read_cache_families=["workload.weekly"] if cache_url is not None else [],
+                    redis_url=cache_url,
+                    redis_namespace="bench-" + uuid4().hex[:20],
                 )
             )
             await stack.enter_async_context(app.router.lifespan_context(app))
@@ -623,6 +628,11 @@ async def _run(args: argparse.Namespace) -> int:
             concurrencies=args.concurrency,
             duration_seconds=args.duration,
             repetitions=args.repetitions,
+            cache_url=(
+                SecretStr(os.environ["APP_REDIS_URL"])
+                if args.cache and os.environ.get("APP_REDIS_URL")
+                else None
+            ),
         )
     finally:
         await engine.dispose()
@@ -631,6 +641,7 @@ async def _run(args: argparse.Namespace) -> int:
     ).strip()
     report = build_report(target=target, fixture=fixture, revision=revision, series=series)
     report["actual_cardinalities"] = cardinalities
+    report["read_cache_enabled"] = args.cache
     if baseline is not None:
         validate_comparison(baseline, report)
         report["mode"] = "compare"
@@ -645,11 +656,16 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--baseline", type=Path)
     parser.add_argument("--allow-fixture-setup", action="store_true")
+    parser.add_argument(
+        "--cache", action="store_true", help="explicitly measure enabled workload cache"
+    )
     parser.add_argument("--case", choices=_CASES, nargs="+", default=["workload.person"])
     parser.add_argument("--concurrency", type=int, nargs="+", default=[10, 50])
     parser.add_argument("--duration", type=float, default=60)
     parser.add_argument("--repetitions", type=int, default=3)
     args = parser.parse_args(argv)
+    if args.cache and not os.environ.get("APP_REDIS_URL"):
+        parser.error("APP_REDIS_URL required for --cache")
     if (
         not 0 < args.duration <= 300
         or not 1 <= args.repetitions <= 5

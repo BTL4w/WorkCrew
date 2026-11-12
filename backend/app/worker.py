@@ -52,11 +52,13 @@ from app.modules.feedback.application.retention_service import RetentionService
 from app.modules.identity.adapters.auth_repository import SqlAlchemyAuthTransactionFactory
 from app.modules.identity.adapters.current_actor import CurrentActorResolver
 from app.modules.identity.application.current_actor_service import CurrentActorService
+from app.modules.optimization.adapters.redis_runtime import RedisRuntime, create_redis_runtime
 from app.modules.organization.adapters.member_repository import SqlAlchemyMemberTransactionFactory
 from app.modules.organization.application.member_service import MemberService
 from app.modules.people_capacity.adapters.repository import (
     SqlAlchemyPeopleCapacityTransactionFactory,
 )
+from app.modules.people_capacity.adapters.workload_cache import build_workload_cache
 from app.modules.people_capacity.application.service import PeopleCapacityService
 from app.modules.planning_runs.adapters.ai_runtime import (
     PlanningAIRuntime,
@@ -256,16 +258,21 @@ async def process_tenant_once(
 
 
 async def _run_worker() -> None:
-    trace_adapter = build_trace_adapter(get_settings())
-    try:
-        with tracing_context(enabled=False):
-            await _run_worker_with_tracing(trace_adapter)
-    finally:
+    async with contextlib.AsyncExitStack() as resources:
+        trace_adapter = build_trace_adapter(get_settings())
         if trace_adapter is not None:
-            await trace_adapter.close()
+            resources.push_async_callback(trace_adapter.close)
+        redis_runtime = create_redis_runtime(get_settings())
+        resources.push_async_callback(redis_runtime.aclose)
+        with tracing_context(enabled=False):
+            await _run_worker_with_tracing(trace_adapter, redis_runtime, resources)
 
 
-async def _run_worker_with_tracing(trace_adapter: LangSmithTraceAdapter | None) -> None:
+async def _run_worker_with_tracing(
+    trace_adapter: LangSmithTraceAdapter | None,
+    redis_runtime: RedisRuntime,
+    resources: contextlib.AsyncExitStack,
+) -> None:
     settings = get_settings()
     worker_id = settings.worker_id
     organization_ids = settings.worker_organization_ids
@@ -284,6 +291,7 @@ async def _run_worker_with_tracing(trace_adapter: LangSmithTraceAdapter | None) 
         pool_size=10,
         max_overflow=20,
     )
+    resources.push_async_callback(engine.dispose)
     session_factory = async_sessionmaker(engine, expire_on_commit=False)
     retention_service = RetentionService(RetentionTransactions(session_factory))
     planning_transaction_factory = PostgreSQLPlanningRunTransactionFactory(
@@ -390,7 +398,8 @@ async def _run_worker_with_tracing(trace_adapter: LangSmithTraceAdapter | None) 
     )
     project_service = ProjectService(SqlAlchemyProjectTransactionFactory(session_factory))
     people_capacity_service = PeopleCapacityService(
-        SqlAlchemyPeopleCapacityTransactionFactory(session_factory)
+        SqlAlchemyPeopleCapacityTransactionFactory(session_factory),
+        workload_cache=build_workload_cache(settings, session_factory, redis_runtime),
     )
     requirement_service = TeamRequirementService(
         SqlAlchemyTeamRequirementTransactionFactory(session_factory)

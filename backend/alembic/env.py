@@ -19,6 +19,7 @@ from app.modules.automations.adapters import delivery_models
 from app.modules.feedback.adapters import database_models as feedback_models
 from app.modules.feedback.adapters import evaluation_models, payload_models
 from app.modules.identity.adapters import database_models as identity_models
+from app.modules.optimization.adapters import database_models as optimization_models
 from app.modules.organization.adapters import database_models as organization_models
 from app.modules.people_capacity.adapters import database_models as people_capacity_models
 from app.modules.planning_runs.adapters import database_models as planning_runs_models
@@ -41,6 +42,7 @@ from app.modules.work.planning.assignment.adapters import database_models as tea
 from app.modules.work.planning.assignment.adapters import recommendation_models
 
 _MODEL_MODULES = (
+    optimization_models,
     retrieval_models,
     reporting_usage_models,
     reporting_models,
