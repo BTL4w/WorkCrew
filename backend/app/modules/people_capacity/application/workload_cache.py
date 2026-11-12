@@ -6,7 +6,7 @@ import asyncio
 import hashlib
 import json
 import secrets
-from collections.abc import Callable
+from collections.abc import Awaitable, Callable
 from contextlib import AbstractAsyncContextManager
 from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal
@@ -22,7 +22,8 @@ from app.modules.optimization.application.cache_contracts import (
     CacheScope,
     ReadCacheKey,
 )
-from app.modules.optimization.application.cache_ports import ReadCachePort
+from app.modules.optimization.application.cache_ports import CACHE_OPERATION_DEADLINE, ReadCachePort
+from app.modules.optimization.application.single_flight import LeaseClaim, SingleFlight
 from app.modules.organization.domain.roles import MembershipRole
 from app.modules.people_capacity.domain.skills import PeopleSkillForbiddenError
 from app.modules.people_capacity.domain.workload import WeeklyWorkload
@@ -101,6 +102,25 @@ def _decode(raw: bytes, key: ReadCacheKey, now: datetime) -> tuple[WeeklyWorkloa
         return None
 
 
+class _CacheBudget:
+    def __init__(self) -> None:
+        self.remaining_seconds = 0.05
+
+    async def run[T](self, operation: Callable[[], Awaitable[T]], fallback: T) -> T:
+        if self.remaining_seconds <= 0:
+            return fallback
+        started = perf_counter()
+        token = CACHE_OPERATION_DEADLINE.set(started + self.remaining_seconds)
+        try:
+            async with asyncio.timeout(self.remaining_seconds):
+                return await operation()
+        except TimeoutError:
+            return fallback
+        finally:
+            self.remaining_seconds -= perf_counter() - started
+            CACHE_OPERATION_DEADLINE.reset(token)
+
+
 class WorkloadCacheReader:
     def __init__(
         self,
@@ -109,62 +129,93 @@ class WorkloadCacheReader:
         cache: ReadCachePort,
         namespace: str,
         clock: Callable[[], datetime] | None = None,
+        single_flight: SingleFlight | None = None,
     ) -> None:
         self._transactions = transactions
         self._cache = cache
         self._namespace = namespace
         self._clock = clock or (lambda: datetime.now(UTC))
+        self._single_flight = single_flight
 
     async def read(
         self, *, actor: AuthenticatedActor, week_start: date, membership_id: UUID | None
     ) -> tuple[WeeklyWorkload, ...]:
-        key: ReadCacheKey | None = None
-        remaining_cache_seconds = 0.05
-        async with self._transactions(actor) as snapshot:
-            current = snapshot.actor
-            if (
-                current.organization_id != actor.organization_id
-                or current.membership_id != actor.membership_id
-                or current.user_id != actor.user_id
-            ):
-                raise PeopleSkillForbiddenError
-            if current.role is MembershipRole.EMPLOYEE:
-                if membership_id is not None and membership_id != current.membership_id:
-                    raise PeopleSkillForbiddenError
-                membership_id = current.membership_id
-            if snapshot.revision is not None:
-                permission = hashlib.sha256(
-                    f"workload.read.v1:{current.role.value}".encode()
-                ).hexdigest()
-                query = json.dumps(
-                    {"week_start": str(week_start), "membership_id": str(membership_id)},
-                    sort_keys=True,
-                    separators=(",", ":"),
-                )
-                key = ReadCacheKey(
-                    self._namespace,
-                    "workload.weekly",
-                    "1",
-                    CacheScope(current.organization_id, current.membership_id, permission),
-                    snapshot.revision,
-                    hashlib.sha256(query.encode()).hexdigest(),
-                )
-                started = perf_counter()
-                try:
-                    async with asyncio.timeout(remaining_cache_seconds):
-                        raw = await self._cache.get(key.encode())
-                except TimeoutError:
-                    raw = None
-                remaining_cache_seconds -= perf_counter() - started
-                if raw is not None:
-                    cached = _decode(raw, key, self._clock())
-                    if cached is not None and (
-                        membership_id is None
-                        or all(row.membership_id == membership_id for row in cached)
+        budget = _CacheBudget()
+        flight = self._single_flight
+        owned: tuple[str, str] | None = None
+        try:
+            for attempt in range(2):
+                key: ReadCacheKey | None = None
+                value: tuple[WeeklyWorkload, ...] | None = None
+                wait = False
+                async with self._transactions(actor) as snapshot:
+                    current = snapshot.actor
+                    if (
+                        current.organization_id != actor.organization_id
+                        or current.membership_id != actor.membership_id
+                        or current.user_id != actor.user_id
                     ):
-                        return cached
-            value = await snapshot.load(week_start=week_start, membership_id=membership_id)
-        if key is not None and remaining_cache_seconds > 0 and len(value) <= 10_000:
+                        raise PeopleSkillForbiddenError
+                    selected = membership_id
+                    if current.role is MembershipRole.EMPLOYEE:
+                        if selected is not None and selected != current.membership_id:
+                            raise PeopleSkillForbiddenError
+                        selected = current.membership_id
+                    if snapshot.revision is not None:
+                        permission = hashlib.sha256(
+                            f"workload.read.v1:{current.role.value}".encode()
+                        ).hexdigest()
+                        query = json.dumps(
+                            {"week_start": str(week_start), "membership_id": str(selected)},
+                            sort_keys=True,
+                            separators=(",", ":"),
+                        )
+                        key = ReadCacheKey(
+                            self._namespace,
+                            "workload.weekly",
+                            "1",
+                            CacheScope(current.organization_id, current.membership_id, permission),
+                            snapshot.revision,
+                            hashlib.sha256(query.encode()).hexdigest(),
+                        )
+                        encoded = key.encode()
+                        raw = await budget.run(
+                            lambda encoded=encoded: self._cache.get(encoded), None
+                        )
+                        if raw is not None:
+                            cached = _decode(raw, key, self._clock())
+                            if cached is not None and (
+                                selected is None
+                                or all(row.membership_id == selected for row in cached)
+                            ):
+                                return cached
+                        if flight is not None and attempt == 0:
+                            claim = await budget.run(
+                                lambda encoded=encoded: flight.claim(encoded), LeaseClaim()
+                            )
+                            wait = claim.wait
+                            if claim.owner is not None:
+                                owned = encoded, claim.owner
+                    if not wait:
+                        value = await snapshot.load(week_start=week_start, membership_id=selected)
+                if wait and flight is not None:
+                    await flight.wait()
+                    continue
+                if value is None:
+                    raise RuntimeError("WORKLOAD_SOURCE_NOT_LOADED")
+                if key is not None:
+                    await self._store(key, value, budget)
+                return value
+            raise RuntimeError("WORKLOAD_CACHE_RETRY_LIMIT")
+        finally:
+            if owned is not None and flight is not None:
+                lease_key, owner = owned
+                await budget.run(lambda: flight.release(lease_key, owner), None)
+
+    async def _store(
+        self, key: ReadCacheKey, value: tuple[WeeklyWorkload, ...], budget: _CacheBudget
+    ) -> None:
+        if budget.remaining_seconds > 0 and len(value) <= 10_000:
             now = self._clock()
             ttl_ms = (_TTL_SECONDS * 1000) - secrets.randbelow(6_001)
             envelope = _Envelope(
@@ -178,9 +229,4 @@ class WorkloadCacheReader:
             )
             raw = envelope.model_dump_json().encode()
             if len(raw) <= _MAX_BYTES:
-                try:
-                    async with asyncio.timeout(remaining_cache_seconds):
-                        await self._cache.put(key.encode(), raw, ttl_ms=ttl_ms)
-                except TimeoutError:
-                    pass
-        return value
+                await budget.run(lambda: self._cache.put(key.encode(), raw, ttl_ms=ttl_ms), False)

@@ -14,6 +14,7 @@ from app.modules.identity.domain.auth import AuthenticatedActor
 from app.modules.optimization.adapters.generation import read_actor_revision
 from app.modules.optimization.adapters.redis_runtime import RedisRuntime
 from app.modules.optimization.application.cache_contracts import CacheRevision
+from app.modules.optimization.application.single_flight import SingleFlight
 from app.modules.people_capacity.adapters.repository import SqlAlchemyPeopleCapacityRepository
 from app.modules.people_capacity.application.workload_cache import (
     WorkloadCacheReader,
@@ -72,4 +73,5 @@ def build_workload_cache(
         transactions=SqlAlchemyWorkloadReadTransactions(sessions),
         cache=runtime.read_cache,
         namespace=runtime.namespace,
+        single_flight=SingleFlight(runtime.leases) if runtime.leases is not None else None,
     )

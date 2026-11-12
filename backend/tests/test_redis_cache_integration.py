@@ -76,3 +76,33 @@ async def test_redis_cache_unavailable_is_a_bounded_miss() -> None:
         assert not await runtime.read_cache.put(key, b"data", ttl_ms=1_000)
     finally:
         await runtime.aclose()
+
+
+@pytest.mark.asyncio
+async def test_exhausted_pool_falls_back_and_connections_can_be_reused() -> None:
+    import asyncio
+
+    from app.modules.optimization.adapters.redis_runtime import create_redis_runtime
+
+    runtime = create_redis_runtime(
+        Settings(
+            environment="test",
+            read_cache_enabled=True,
+            redis_url=SecretStr(os.environ["REDIS_TEST_URL"]),
+            redis_namespace="pool-" + uuid4().hex[:20],
+        )
+    )
+    assert runtime.client is not None
+    pool = runtime.client.connection_pool
+    held = [await pool.get_connection() for _ in range(20)]
+    try:
+        key = f"wm:{runtime.namespace}:redis-v1:pool-test"
+        async with asyncio.timeout(0.1):
+            assert await runtime.read_cache.get(key) is None
+        await pool.release(held.pop())
+        assert await runtime.read_cache.put(key, b"reused", ttl_ms=1000)
+        assert await runtime.read_cache.get(key) == b"reused"
+    finally:
+        for connection in held:
+            await pool.release(connection)
+        await runtime.aclose()

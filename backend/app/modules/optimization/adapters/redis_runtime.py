@@ -9,7 +9,9 @@ from redis.backoff import NoBackoff
 
 from app.core.config import Settings
 from app.modules.optimization.adapters.redis_cache import DisabledReadCache, RedisReadCache
+from app.modules.optimization.adapters.redis_lease import RedisCacheLeases
 from app.modules.optimization.application.cache_ports import ReadCachePort
+from app.modules.optimization.application.single_flight import CacheLeasePort
 
 
 @dataclass
@@ -17,6 +19,7 @@ class RedisRuntime:
     client: Redis | None
     namespace: str
     read_cache: ReadCachePort
+    leases: CacheLeasePort | None = None
 
     async def aclose(self) -> None:
         if self.client is not None:
@@ -42,4 +45,7 @@ def create_redis_runtime(settings: Settings) -> RedisRuntime:
         retry=Retry(NoBackoff(), 0),
         protocol=2,
     )
-    return RedisRuntime(client, namespace, RedisReadCache(client, namespace))
+    cache = RedisReadCache(client, namespace)
+    return RedisRuntime(
+        client, namespace, cache, RedisCacheLeases(client, namespace, available=cache.allow_leases)
+    )
