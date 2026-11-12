@@ -3,6 +3,7 @@
 from uuid import UUID
 
 from app.modules.identity.domain.auth import AuthenticatedActor
+from app.modules.optimization.application.admission import AdmissionError, AIAdmissionService
 from work_management_ai.agents.reporting.contracts import (
     ReportingContext,
     ReportingRequest,
@@ -16,8 +17,14 @@ from .ports import GenerationTransactionFactory
 
 
 class GenerationService:
-    def __init__(self, transactions: GenerationTransactionFactory):
+    def __init__(
+        self,
+        transactions: GenerationTransactionFactory,
+        *,
+        admission: AIAdmissionService | None = None,
+    ):
         self.transactions = transactions
+        self.admission = admission
 
     async def request(
         self,
@@ -37,10 +44,20 @@ class GenerationService:
         )
         try:
             async with self.transactions(actor) as repo:
+                admission = self.admission
+                if admission is not None:
+                    return await repo.request(
+                        report_id,
+                        command,
+                        expected_version,
+                        idempotency_key,
+                        fingerprint,
+                        before_new_work=lambda: admission.require_new_work(actor),
+                    )
                 return await repo.request(
                     report_id, command, expected_version, idempotency_key, fingerprint
                 )
-        except ReportError as exc:
+        except (ReportError, AdmissionError) as exc:
             await self.audit_rejection(
                 actor=actor, report_id=report_id, key=idempotency_key, reason_code=exc.code
             )

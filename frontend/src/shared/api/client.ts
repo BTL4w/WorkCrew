@@ -1,6 +1,6 @@
 import type { ZodType } from "zod";
 
-import { errorResponseSchema } from "./contracts";
+import { admissionRetryDetailsSchema, errorResponseSchema } from "./contracts";
 
 export class ApiError extends Error {
   constructor(
@@ -20,6 +20,19 @@ export function isDefinitiveMutationRejection(error: unknown): boolean {
   if (!(error instanceof ApiError)) return false;
   if (error.code === "INVALID_RESPONSE" || error.code === "UNEXPECTED_RESPONSE") return false;
   return error.status >= 400 && error.status < 500 && ![408, 425, 429].includes(error.status);
+}
+
+export function admissionErrorMessage(
+  error: unknown,
+  translate: (key: "rateLimited" | "aiAdmissionUnavailable", values: { seconds: number }) => string,
+): string | null {
+  if (!(error instanceof ApiError)) return null;
+  const limited = error.status === 429 && error.code === "RATE_LIMITED";
+  const unavailable = error.status === 503 && error.code === "AI_ADMISSION_UNAVAILABLE";
+  if (!limited && !unavailable) return null;
+  const parsed = admissionRetryDetailsSchema.safeParse(error.details);
+  const seconds = parsed.success ? parsed.data.retry_after_seconds : limited ? 60 : 5;
+  return translate(limited ? "rateLimited" : "aiAdmissionUnavailable", { seconds });
 }
 
 type RequestOptions<T> = {

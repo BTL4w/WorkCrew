@@ -4,7 +4,7 @@ import type { BlockerCommand } from "@/features/blockers/contracts";
 import { useQuery,useQueryClient } from "@tanstack/react-query";
 import { useTranslations } from "next-intl";
 import { useRef,useState } from "react";
-import { ApiError,isDefinitiveMutationRejection } from "@/shared/api/client";
+import { admissionErrorMessage,ApiError,isDefinitiveMutationRejection } from "@/shared/api/client";
 import { assessDailyDraft,getDailyAssessment,createDailyDraft,reviseDailyDraft,getReportingContext,getUpdateHistory,submitDailyDraft } from "./reporting-api";
 import { EvidenceAssessmentCard } from "./evidence-assessment-card";
 import { EvidencePicker } from "./evidence-picker";
@@ -13,6 +13,7 @@ import type { DailyDraft,Observation,ReportingItem,SelectedEvidence } from "./re
 
 export function DailyUpdateForm({taskId,taskVersion,organizationId,actorMembershipId,initialDraft}:{taskId:string;taskVersion:number;organizationId:string;actorMembershipId:string;initialDraft?:DailyDraft}){
  const t=useTranslations("dailyUpdate");const b=useTranslations("blocker");
+ const admissionText=useTranslations("common.error");
  const queryClient=useQueryClient();
  const scope=["work",organizationId,actorMembershipId,"daily-update",taskId];
  const context=useQuery({queryKey:[...scope,"context",taskVersion],queryFn:()=>getReportingContext(taskId)});
@@ -33,7 +34,7 @@ export function DailyUpdateForm({taskId,taskVersion,organizationId,actorMembersh
  const acknowledged=Boolean(assessment.data?.id)&&acknowledgedId===assessment.data?.id;
  function setAcknowledged(value:boolean){setAcknowledgedId(value?assessment.data?.id??null:null);}
  const attempt=useRef<{body:string;key:string}|null>(null);const confirmKey=useRef<string|null>(initialDraft?crypto.randomUUID():null);
- function showError(failure:unknown){const code=failure instanceof ApiError?failure.code:"UNKNOWN";setError(t.has(`error.${code}`)?t(`error.${code}`):t("error.UNKNOWN"));}
+ function showError(failure:unknown){const code=failure instanceof ApiError?failure.code:"UNKNOWN";setError(admissionErrorMessage(failure,admissionText)??(t.has(`error.${code}`)?t(`error.${code}`):t("error.UNKNOWN")));}
  if(context.isPending)return <p>{t("loading")}</p>;
  if(!context.data)return <p role="alert">{t("error.FORBIDDEN")} <button type="button" onClick={()=>void context.refetch()}>{t("reload")}</button></p>;
  const ctx=context.data;

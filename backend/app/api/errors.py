@@ -12,6 +12,8 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
+from app.modules.optimization.application.admission import AdmissionError
+
 logger = logging.getLogger(__name__)
 
 
@@ -37,6 +39,15 @@ class ErrorResponse(BaseModel):
     """Top-level error envelope."""
 
     error: ErrorDetail
+
+
+ADMISSION_ERROR_RESPONSES: dict[int | str, dict[str, Any]] = {
+    status: {
+        "model": ErrorResponse,
+        "headers": {"Retry-After": {"schema": {"type": "integer", "minimum": 1, "maximum": 60}}},
+    }
+    for status in (429, 503)
+}
 
 
 class ApplicationError(Exception):
@@ -77,6 +88,7 @@ def _response(
     message_key: str,
     field_errors: list[FieldError] | None = None,
     details: Mapping[str, Any] | None = None,
+    retry_after_seconds: int | None = None,
 ) -> JSONResponse:
     payload = ErrorResponse(
         error=ErrorDetail(
@@ -90,7 +102,14 @@ def _response(
     return JSONResponse(
         status_code=status_code,
         content=payload.model_dump(mode="json"),
-        headers={"X-Request-ID": _request_id(request)},
+        headers={
+            "X-Request-ID": _request_id(request),
+            **(
+                {"Retry-After": str(max(1, min(60, retry_after_seconds)))}
+                if retry_after_seconds is not None
+                else {}
+            ),
+        },
     )
 
 
@@ -128,6 +147,23 @@ def _audit_unavailable_response(request: Request) -> JSONResponse:
 
 def register_error_handlers(app: FastAPI) -> None:
     """Install the single public error contract for the FastAPI application."""
+
+    @app.exception_handler(AdmissionError)
+    async def handle_admission_error(  # pyright: ignore[reportUnusedFunction]
+        request: Request, exc: AdmissionError
+    ) -> JSONResponse:
+        if not await _audit_pending_mutation_rejection(request, reason_code=exc.code):
+            return _audit_unavailable_response(request)
+        return _response(
+            request=request,
+            status_code=exc.status,
+            code=exc.code,
+            message_key="common.error.rateLimited"
+            if exc.status == 429
+            else "common.error.aiAdmissionUnavailable",
+            details={"retry_after_seconds": exc.retry_after_seconds},
+            retry_after_seconds=exc.retry_after_seconds,
+        )
 
     @app.exception_handler(ApplicationError)
     async def handle_application_error(  # pyright: ignore[reportUnusedFunction]

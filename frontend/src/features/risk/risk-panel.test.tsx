@@ -28,6 +28,36 @@ it("does not display a numeric score for unavailable or stale results", async ()
  expect(screen.queryByText("83 / 100")).not.toBeInTheDocument();
 });
 
+it("keeps manual review usable after denied AI refresh and retains its retry key", async () => {
+ const refreshKeys: string[] = [];
+ let reviews = 0;
+ vi.stubGlobal("fetch", vi.fn(async (path: string, init?: RequestInit) => {
+  const response = (body: unknown, status = 200) => new Response(JSON.stringify(body), {status,headers:{"Content-Type":"application/json"}});
+  if (path.endsWith("/refresh")) {
+   refreshKeys.push(new Headers(init?.headers).get("Idempotency-Key")!);
+   return refreshKeys.length === 1 ? response({error:{code:"AI_ADMISSION_UNAVAILABLE",message_key:"safe",request_id:"reference",details:{retry_after_seconds:5}}},503) : response({...ready,state:"PENDING",judgment:null},202);
+  }
+  if (path.endsWith("/reviews")) {
+   if (init?.method === "POST") { reviews++; return response({id,risk_id:id,actor_membership_id:id,at:ready.evaluated_at,disposition:"NEEDS_FOLLOWUP",reason:"Discuss manually"}); }
+   return response([]);
+  }
+  return response(ready);
+ }));
+ mount(); await screen.findByText("83 / 100");
+ fireEvent.click(screen.getByRole("button",{name:"Refresh assessment"}));
+ await screen.findByRole("alert");
+ fireEvent.change(screen.getByLabelText("Review reason"),{target:{value:"Discuss manually"}});
+ const review=screen.getByRole("button",{name:"Record review"});
+ expect(review).toBeEnabled();
+ fireEvent.click(review);
+ await waitFor(()=>expect(reviews).toBe(1));
+ const refresh=screen.getByRole("button",{name:"Refresh assessment"});
+ await waitFor(()=>expect(refresh).toBeEnabled());
+ fireEvent.click(refresh);
+ await waitFor(()=>expect(refreshKeys).toHaveLength(2));
+ expect(refreshKeys[1]).toBe(refreshKeys[0]);
+});
+
 it.each(["UNAVAILABLE", "READY"])("shows confirmed report warnings independently of %s model citations", async state => {
  const warning = { id: "warning:confirmed", kind: "WARNING", values: { assessment_id: id, update_id: id, acknowledged_at: ready.evaluated_at, warnings: [{ id, code: "LOW_SUPPORT" }] } };
  vi.stubGlobal("fetch", vi.fn(async (path: string) => new Response(JSON.stringify(path.endsWith("/reviews") ? [] : { ...ready, state, judgment: state === "READY" ? ready.judgment : null, band: state === "READY" ? ready.band : null, input_snapshot: { ...ready.input_snapshot, facts: [...ready.input_snapshot.facts, warning] } }), { status: 200, headers: { "Content-Type": "application/json" } })));

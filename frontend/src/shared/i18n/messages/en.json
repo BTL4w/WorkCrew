@@ -90,6 +90,10 @@
     "description": "AI-native work management with a coordinated crew of agents"
   },
   "common": {
+    "error": {
+      "rateLimited": "AI request limit reached. Try again in {seconds} seconds. Manual work actions remain available.",
+      "aiAdmissionUnavailable": "New AI requests are temporarily unavailable. Try again in {seconds} seconds. Accepted requests and manual work remain available."
+    },
     "loadingSession": "Checking your session…",
     "redirectingToLogin": "Redirecting to sign in…",
     "sessionUnavailableTitle": "We could not check your session",

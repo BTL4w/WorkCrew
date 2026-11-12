@@ -2,29 +2,36 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslations } from "next-intl";
 import { useRef, useState } from "react";
-import { isDefinitiveMutationRejection } from "@/shared/api/client";
+import { admissionErrorMessage, isDefinitiveMutationRejection } from "@/shared/api/client";
 import { currentRisk, refreshRisk, riskReviews, recordReview } from "./api";
 import { confirmedWarningsSchema, type Review } from "./contracts";
 
 type Props = { taskId: string; organizationId: string; actorMembershipId: string };
 export function RiskPanel(props: Props) {
  const t = useTranslations("risk"); const client = useQueryClient();
+ const admissionText = useTranslations("common.error");
  const scope = ["work", props.organizationId, props.actorMembershipId, "risk", props.taskId];
  const query = useQuery({ queryKey: scope, queryFn: () => currentRisk(props.taskId), refetchInterval: q => q.state.data?.state === "PENDING" ? 2000 : 30000 });
  const result = query.data;
  const reviews = useQuery({ queryKey: [...scope, "reviews", result?.id], queryFn: () => riskReviews(result!.id), enabled: Boolean(result && result.state !== "PENDING") });
  const [reason, setReason] = useState(""); const [disposition, setDisposition] = useState<Review["disposition"]>("NEEDS_FOLLOWUP");
- const [busy, setBusy] = useState(false); const [error, setError] = useState(false); const [uncertain, setUncertain] = useState(false);
+ const [busy, setBusy] = useState(false); const [error, setError] = useState<unknown>(null); const [uncertain, setUncertain] = useState(false);
  const pending = useRef<null | { key: string; action: "refresh" | "review"; riskId?: string; body?: Pick<Review, "reason" | "disposition"> }>(null);
+ const rejectedRefreshKey = useRef<string | null>(null);
  async function mutate(action: "refresh" | "review") {
-  if (!pending.current) pending.current = { key: crypto.randomUUID(), action, riskId: result?.id, body: { reason, disposition } };
-  const request = pending.current; setBusy(true); setError(false);
+  if (!pending.current) pending.current = { key: action === "refresh" ? rejectedRefreshKey.current ?? crypto.randomUUID() : crypto.randomUUID(), action, riskId: result?.id, body: { reason, disposition } };
+  const request = pending.current; setBusy(true); setError(null);
   try {
-   if (request.action === "refresh") await refreshRisk(props.taskId, request.key);
+   if (request.action === "refresh") { await refreshRisk(props.taskId, request.key); rejectedRefreshKey.current = null; }
    else await recordReview(request.riskId!, request.body!, request.key);
    pending.current = null; setReason(""); await client.invalidateQueries({ queryKey: scope });
    await client.invalidateQueries({ queryKey: ["work", props.organizationId, props.actorMembershipId, "notifications"] });
-  } catch (failure) { setError(true); if (isDefinitiveMutationRejection(failure)) pending.current = null; }
+  } catch (failure) {
+   setError(failure);
+   if (request.action === "refresh" && admissionErrorMessage(failure, admissionText)) {
+    rejectedRefreshKey.current = request.key; pending.current = null;
+   } else if (isDefinitiveMutationRejection(failure)) pending.current = null;
+  }
   finally { setBusy(false); setUncertain(Boolean(pending.current)); }
  }
  const judgment = result?.state === "READY" ? result.judgment : null;
@@ -51,7 +58,7 @@ export function RiskPanel(props: Props) {
   {result?.input_snapshot?.missing.length ? <p>{t("missing")}: {result.input_snapshot.missing.map(kind => t(`kind.${kind}`)).join(", ")}</p> : null}
   {result?.limitation && <p>{t.has(`limitation.${result.limitation}`) ? t(`limitation.${result.limitation}`) : t("unknown")}</p>}
   {result && <time dateTime={result.evaluated_at}>{t("evaluatedAt")}: {result.evaluated_at}</time>}
-  {error && <p role="alert">{t("error")}</p>}
+  {Boolean(error) && <p role="alert">{admissionErrorMessage(error, admissionText) ?? t("error")}</p>}
   {uncertain && <button disabled={busy} onClick={() => void mutate(pending.current!.action)}>{t("retry")}</button>}
   <button type="button" disabled={blocked || result?.state === "PENDING"} onClick={() => void mutate("refresh")}>{t("refresh")}</button>
   {result && result.state !== "PENDING" && <><label>{t("disposition")}<select aria-label={t("disposition")} value={disposition} disabled={blocked} onChange={e => setDisposition(e.target.value as Review["disposition"])}>{(["NEEDS_FOLLOWUP", "ACCEPTED_EXPLANATION", "RESOLVED"] as const).map(value => <option key={value} value={value}>{t(`dispositionValue.${value}`)}</option>)}</select></label>

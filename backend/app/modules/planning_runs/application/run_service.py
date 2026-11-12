@@ -9,6 +9,7 @@ from typing import Literal
 from uuid import UUID, uuid4
 
 from app.modules.identity.domain.auth import AuthenticatedActor
+from app.modules.optimization.application.admission import AdmissionError, AIAdmissionService
 from app.modules.organization.domain.roles import MembershipRole
 from app.modules.planning_runs.application.ports import (
     PlanningRuntimePort,
@@ -47,7 +48,9 @@ class PlanningRunService:
         *,
         transaction_factory: Callable[[AuthenticatedActor], PlanningRunTransaction],
         runtime: PlanningRuntimePort,
+        admission: AIAdmissionService | None = None,
     ) -> None:
+        self._admission = admission
         self._transaction_factory = transaction_factory
         self._runtime = runtime
 
@@ -80,7 +83,9 @@ class PlanningRunService:
                 actor=actor,
                 action=action,
                 request_id=request_id,
-                reason_code=type(error).__name__,
+                reason_code=error.code
+                if isinstance(error, AdmissionError)
+                else type(error).__name__,
                 idempotency_key=idempotency_key,
                 resource_id=resource_id,
             )
@@ -127,6 +132,7 @@ class PlanningRunService:
                 "planning_run.create", {"message": normalized, "locale": locale}
             )
             async with self._transaction_factory(actor) as transaction:
+                admission = self._admission
                 return await transaction.repository.create_planning_run_mutation(
                     actor=actor,
                     run=run,
@@ -134,8 +140,11 @@ class PlanningRunService:
                     request_id=request_id,
                     idempotency_key=idempotency_key,
                     request_fingerprint=request_fingerprint,
+                    before_new_work=(lambda: admission.require_new_work(actor))
+                    if admission
+                    else None,
                 )
-        except (PlanningRunDomainError, ValueError) as error:
+        except (PlanningRunDomainError, ValueError, AdmissionError) as error:
             await self._audit_mutation_error(
                 actor=actor,
                 action="planning_run.created",
@@ -286,6 +295,7 @@ class PlanningRunService:
                         "expected_draft_version": expected_draft_version,
                     },
                 )
+                admission = self._admission
                 return await repository.resume_planning_run_mutation(
                     actor=actor,
                     run=updated_run,
@@ -294,8 +304,11 @@ class PlanningRunService:
                     request_id=request_id,
                     idempotency_key=idempotency_key,
                     request_fingerprint=request_fingerprint,
+                    before_new_work=(lambda: admission.require_new_work(actor))
+                    if admission
+                    else None,
                 )
-        except (PlanningRunDomainError, ValueError) as error:
+        except (PlanningRunDomainError, ValueError, AdmissionError) as error:
             await self._audit_mutation_error(
                 actor=actor,
                 action="planning_run.message_submitted",

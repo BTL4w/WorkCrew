@@ -10,6 +10,8 @@ from redis.backoff import NoBackoff
 from app.core.config import Settings
 from app.modules.optimization.adapters.redis_cache import DisabledReadCache, RedisReadCache
 from app.modules.optimization.adapters.redis_lease import RedisCacheLeases
+from app.modules.optimization.adapters.redis_limiter import RedisRateLimiter
+from app.modules.optimization.application.admission import RateLimitPort
 from app.modules.optimization.application.cache_ports import ReadCachePort
 from app.modules.optimization.application.single_flight import CacheLeasePort
 
@@ -20,6 +22,7 @@ class RedisRuntime:
     namespace: str
     read_cache: ReadCachePort
     leases: CacheLeasePort | None = None
+    limiter: RateLimitPort | None = None
 
     async def aclose(self) -> None:
         if self.client is not None:
@@ -28,7 +31,10 @@ class RedisRuntime:
 
 def create_redis_runtime(settings: Settings) -> RedisRuntime:
     namespace = f"{settings.environment}:{settings.redis_namespace}"
-    if not settings.read_cache_enabled or settings.redis_url is None:
+    if (
+        not (settings.read_cache_enabled or settings.ai_admission_enabled)
+        or settings.redis_url is None
+    ):
         return RedisRuntime(None, namespace, DisabledReadCache())
     url = urlsplit(settings.redis_url.get_secret_value())
     client = Redis(
@@ -47,5 +53,11 @@ def create_redis_runtime(settings: Settings) -> RedisRuntime:
     )
     cache = RedisReadCache(client, namespace)
     return RedisRuntime(
-        client, namespace, cache, RedisCacheLeases(client, namespace, available=cache.allow_leases)
+        client,
+        namespace,
+        cache if settings.read_cache_enabled else DisabledReadCache(),
+        RedisCacheLeases(client, namespace, available=cache.allow_leases)
+        if settings.read_cache_enabled
+        else None,
+        RedisRateLimiter(client, namespace),
     )

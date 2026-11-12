@@ -9,7 +9,7 @@ from uuid import UUID
 from fastapi import APIRouter, Header, Path, Query, Request, Response, status
 from fastapi.responses import StreamingResponse
 
-from app.api.errors import ApplicationError, ErrorResponse
+from app.api.errors import ADMISSION_ERROR_RESPONSES, ApplicationError, ErrorResponse
 from app.modules.identity.api.dependencies import ActorDependency
 from app.modules.planning_runs.api.dependencies import (
     ApprovalServiceDependency,
@@ -142,7 +142,7 @@ def _raise_planning_error(error: Exception) -> NoReturn:
     "/ai/planning-runs",
     response_model=WorkflowRunReferenceResponse,
     status_code=status.HTTP_202_ACCEPTED,
-    responses=_ERROR_RESPONSES,
+    responses={**_ERROR_RESPONSES, **ADMISSION_ERROR_RESPONSES},
 )
 async def create_planning_run(
     payload: PlanningRunCreateRequest,
@@ -208,7 +208,7 @@ async def get_workflow_run(
     "/workflow-runs/{run_id}/messages",
     response_model=WorkflowRunReferenceResponse,
     status_code=status.HTTP_202_ACCEPTED,
-    responses=_ERROR_RESPONSES,
+    responses={**_ERROR_RESPONSES, **ADMISSION_ERROR_RESPONSES},
 )
 async def post_manager_message(
     run_id: UUID,

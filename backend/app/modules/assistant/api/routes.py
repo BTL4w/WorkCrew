@@ -28,7 +28,7 @@ from uuid import UUID
 from fastapi import APIRouter, Header, Query, Request, Response, status
 from fastapi.responses import StreamingResponse
 
-from app.api.errors import ApplicationError, ErrorResponse
+from app.api.errors import ADMISSION_ERROR_RESPONSES, ApplicationError, ErrorResponse
 from app.modules.assistant.api.dependencies import (
     AssistantEventServiceDependency,
     AssistantServiceDependency,
@@ -227,7 +227,7 @@ async def get_conversation(
     "/ai/conversations/{conversation_id}/messages",
     response_model=AssistantTurnAcceptedResponse,
     status_code=status.HTTP_202_ACCEPTED,
-    responses=_ERROR_RESPONSES,
+    responses={**_ERROR_RESPONSES, **ADMISSION_ERROR_RESPONSES},
 )
 async def post_message(
     conversation_id: UUID,

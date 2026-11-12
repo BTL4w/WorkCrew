@@ -35,3 +35,7 @@ export const errorDetailSchema = z.object({
 export const errorResponseSchema = z.object({
   error: errorDetailSchema,
 });
+
+export const admissionRetryDetailsSchema = z.object({
+  retry_after_seconds: z.number().int().min(1).max(60),
+});

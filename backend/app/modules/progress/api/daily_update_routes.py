@@ -10,7 +10,7 @@ from fastapi import APIRouter, Header, Request, Response
 from fastapi.routing import APIRoute
 from pydantic import BaseModel, ConfigDict, Field
 
-from app.api.errors import ApplicationError, ErrorResponse
+from app.api.errors import ADMISSION_ERROR_RESPONSES, ApplicationError, ErrorResponse
 from app.core.config import Settings
 from app.modules.identity.api.dependencies import ActorDependency, get_authenticated_actor
 from app.modules.identity.application.auth_service import AuthService
@@ -217,7 +217,7 @@ class AssessmentRequest(BaseModel):
     "/daily-updates/{draft_id}/assess",
     response_model=AssessmentJobRef,
     status_code=202,
-    responses=_ERRORS,
+    responses={**_ERRORS, **ADMISSION_ERROR_RESPONSES},
 )
 async def assess_update(
     draft_id: UUID,

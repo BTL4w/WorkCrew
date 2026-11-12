@@ -362,6 +362,34 @@ describe("AssistantShell", () => {
     expect(keys[1]).toBe(keys[0]);
   });
 
+  it.each([
+    ["vi", 429, "RATE_LIMITED", "Đã đạt hạn mức yêu cầu AI"],
+    ["en", 429, "RATE_LIMITED", "AI request limit reached"],
+    ["vi", 503, "AI_ADMISSION_UNAVAILABLE", "Tạm thời chưa thể nhận yêu cầu AI mới"],
+    ["en", 503, "AI_ADMISSION_UNAVAILABLE", "New AI requests are temporarily unavailable"],
+  ] as const)("%s admission %s retains text and the exact retry key", async (locale, status, code, text) => {
+    const keys: string[] = [];
+    vi.stubGlobal("fetch", vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const path = String(input);
+      if (path === "/api/v1/ai/conversations") return response({ items: [conversation] });
+      if (!init?.method) return response({ conversation, messages: [] });
+      keys.push(new Headers(init.headers).get("Idempotency-Key") ?? "");
+      if (keys.length === 1) return response({ error: { code, message_key: "untrusted.key", request_id: "safe-reference", details: { retry_after_seconds: 5 } } }, status);
+      return response({ conversation_id: conversationId, message_id: messageId, turn_id: workflowRunId, orchestration_run_id: workflowRunId, status: "QUEUED" }, 202);
+    }));
+    renderWithAppProviders(<AssistantShell actor={managerActor} connectEvents={noEvents} />, locale);
+    const composer = await screen.findByRole("textbox", { name: locale === "vi" ? "Nhắn cho Trợ lý AI" : "Message the AI Assistant" });
+    fireEvent.change(composer, { target: { value: "Plan a launch" } });
+    const send = screen.getByRole("button", { name: locale === "vi" ? "Gửi" : "Send" });
+    fireEvent.click(send);
+    expect(await screen.findByRole("alert")).toHaveTextContent(text);
+    expect(composer).toHaveValue("Plan a launch");
+    expect(keys).toHaveLength(1);
+    fireEvent.click(send);
+    await waitFor(() => expect(keys).toHaveLength(2));
+    expect(keys[1]).toBe(keys[0]);
+  });
+
   it("shows a manager question as plain chat text and sends a linked answer", async () => {
     const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       if (String(input) === "/api/v1/ai/conversations") return response({ items: [conversation] });

@@ -9,7 +9,7 @@ import type { ProposalContent } from "@/features/ai-proposals/contracts";
 import { decideRecommendation, recordRecommendationFeedback, reviseRecommendation } from "@/features/project-team/api";
 import type { CandidateOverrideInput, RecommendationVersion } from "@/features/project-team/contracts";
 import type { MeResponse } from "@/shared/api/contracts";
-import { ApiError, isDefinitiveMutationRejection } from "@/shared/api/client";
+import { admissionErrorMessage, ApiError, isDefinitiveMutationRejection } from "@/shared/api/client";
 import { navigateWorkspace } from "@/shared/navigation/workspace-location";
 
 import { assistantKeys, createConversation, getConversation, listConversations, manageConversation, postAssistantMessage } from "./api";
@@ -82,6 +82,7 @@ export function AssistantShell({
   connectEvents?: ConnectEvents;
 }) {
   const t = useTranslations("assistant");
+  const admissionText = useTranslations("common.error");
   const locale = useLocale() as "vi" | "en";
   const queryClient = useQueryClient();
   const organizationId = actor.membership.organization_id;
@@ -335,7 +336,7 @@ export function AssistantShell({
     />
     {assistantActive ? <div className="assistant-main-pane">
         <header className="assistant-header"><div><p>{t("eyebrow")}</p><h1 id="assistant-title">{t("title")}</h1></div></header>
-        {visibleError ? <div className="assistant-safe-notice" role="alert"><p>{t("error.safe")}</p>{visibleError instanceof ApiError && visibleError.requestId ? <p>{t("error.reference", { requestId: visibleError.requestId })}</p> : null}</div> : null}
+        {visibleError ? <div className="assistant-safe-notice" role="alert"><p>{admissionErrorMessage(visibleError, admissionText) ?? t("error.safe")}</p>{visibleError instanceof ApiError && visibleError.requestId ? <p>{t("error.reference", { requestId: visibleError.requestId })}</p> : null}</div> : null}
         {teamFeedbackWarning ? <div className="assistant-safe-notice" role="status"><p>{t("teamRecommendation.feedbackWarning")}</p></div> : null}
         {snapshot.isPending && activeConversationId ? <p role="status">{t("loading")}</p> : <Transcript
           messages={snapshot.data?.messages ?? []}

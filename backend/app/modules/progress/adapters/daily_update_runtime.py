@@ -4,6 +4,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from app.core.config import Settings
 from app.modules.assistant.adapters.daily_update_usage import SqlAlchemyDailyUsageStore
+from app.modules.optimization.application.admission import AIAdmissionService
 from app.modules.progress.adapters.assessment_repository import SqlAlchemyAssessmentTransactions
 from app.modules.progress.adapters.daily_update_comparison import OriginalEvidenceComparison
 from app.modules.progress.adapters.daily_update_repository import SqlAlchemyDailyUpdateTransactions
@@ -35,11 +36,13 @@ def build_daily_services(
     settings: Settings,
     evidence: EvidenceService,
     gateway: ModelGateway,
+    admission: AIAdmissionService | None = None,
 ) -> tuple[DailyUpdateService, AssessmentService, SqlAlchemyDailyUsageStore]:
     store = SqlAlchemyDailyUsageStore(sessions)
     budgeted = BudgetedDailyGateway(gateway, store, image_token_bound=image_token_bound(settings))
     assessments = AssessmentService(
         SqlAlchemyAssessmentTransactions(sessions),
+        admission=admission,
         budget=ComparisonBudget(timeout_seconds=60),
         comparison_factory=lambda actor, run_id: OriginalEvidenceComparison(
             gateway=budgeted, evidence=evidence, actor=actor, run_id=run_id

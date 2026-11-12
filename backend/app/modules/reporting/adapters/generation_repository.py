@@ -13,6 +13,7 @@ from app.modules.audit.adapters.database_models import AuditEventModel
 from app.modules.audit.domain.events import AuditOutcome
 from app.modules.feedback.adapters.payload_repository import assert_context_live
 from app.modules.identity.domain.auth import AuthenticatedActor
+from app.modules.optimization.application.admission import NewWorkGuard
 from app.modules.planning_runs.adapters.database_models import OutboxEventModel
 from app.modules.work.adapters.database_models import (
     IdempotencyRecordModel,
@@ -145,6 +146,7 @@ class SQLGenerationRepository:
         expected: int,
         key: str,
         fingerprint: str,
+        before_new_work: NewWorkGuard | None = None,
     ) -> ReportResult:
         reports = await self.authenticate()
         await self.session.execute(
@@ -187,6 +189,8 @@ class SQLGenerationRepository:
         )
         if active:
             raise ReportError("REPORT_GENERATION_PENDING", 409)
+        if before_new_work is not None:
+            await before_new_work()
         row.version += 1
         row.narrative_requested = True
         result = result.model_copy(

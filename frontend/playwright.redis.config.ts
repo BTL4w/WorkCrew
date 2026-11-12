@@ -6,7 +6,7 @@ const { apiPort, frontendPort } = requireRedisTestTarget(process.env);
 
 export default defineConfig({
   testDir: "./e2e",
-  testMatch: "redis-workload-flow.spec.ts",
+  testMatch: process.env.REDIS_E2E_ADMISSION === "1" ? "redis-admission-flow.spec.ts" : "redis-workload-flow.spec.ts",
   workers: 1,
   timeout: 90_000,
   expect: { timeout: 20_000 },

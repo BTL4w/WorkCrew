@@ -1,7 +1,7 @@
 "use client";
 import { useRef, useState } from "react";
 import { useTranslations } from "next-intl";
-import { isDefinitiveMutationRejection } from "@/shared/api/client";
+import { admissionErrorMessage, isDefinitiveMutationRejection } from "@/shared/api/client";
 import { generateNarrative } from "./api";
 import type { ReportResult } from "./contracts";
 import {NarrativeEditor} from "./narrative-editor";
@@ -9,8 +9,9 @@ import styles from "./reports.module.css";
 
 export function NarrativeView({data,readOnly=false,onUpdated,onStale,generate=generateNarrative}:{readOnly?:boolean;data:ReportResult;onUpdated:(data:ReportResult)=>void;onStale:()=>void;generate?:typeof generateNarrative}) {
   const t=useTranslations("reports");
+  const admissionText=useTranslations("common.error");
   const [pending,setPending]=useState(false);
-  const [error,setError]=useState(false);
+  const [error,setError]=useState<unknown>(null);
   const [stale,setStale]=useState(false);
   const intent=useRef<{binding:string;key:string}|null>(null);
   const state=data.generation_state;
@@ -19,9 +20,9 @@ export function NarrativeView({data,readOnly=false,onUpdated,onStale,generate=ge
     const body={base_version_id:data.selected_version.id,snapshot_hash:data.snapshot.snapshot_hash};
     const binding=JSON.stringify([data.report.id,data.report.version,body]);
     if(intent.current?.binding!==binding) intent.current={binding,key:crypto.randomUUID()};
-    setPending(true);setError(false);
+    setPending(true);setError(null);
     try {onUpdated(await generate(data.report.id,body,data.report.version,intent.current.key));intent.current=null;}
-    catch(cause) {setError(true);if(isDefinitiveMutationRejection(cause)) intent.current=null;
+    catch(cause) {setError(cause);if(isDefinitiveMutationRejection(cause)) intent.current=null;
       if(typeof cause==="object"&&cause!==null&&"status" in cause&&cause.status===412){setStale(true);onStale();}}
     finally {setPending(false);}
   }
@@ -44,6 +45,6 @@ export function NarrativeView({data,readOnly=false,onUpdated,onStale,generate=ge
     </div>}
     {!readOnly&&data.selected_version.narrative&&<NarrativeEditor key={data.selected_version.id} data={data} onUpdated={onUpdated} onStale={onStale}/>}
     {!readOnly&&(["NOT_REQUESTED","AI_UNAVAILABLE","FAILED"].includes(state)||data.review_state==="REJECTED"||data.review_state==="ACCEPTED")&&!["QUEUED","RUNNING"].includes(state)&&<button className="secondary-button" type="button" disabled={pending||stale} onClick={()=>void retry()}>{t(pending?"generationSubmitting":"retryNarrative")}</button>}
-    {error&&<p role="alert">{t(stale?"generationStale":"generationError")}</p>}
+    {Boolean(error)&&<p role="alert">{admissionErrorMessage(error,admissionText)??t(stale?"generationStale":"generationError")}</p>}
   </section>;
 }

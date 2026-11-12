@@ -6,6 +6,7 @@ from typing import Protocol
 from uuid import UUID
 
 from app.modules.identity.domain.auth import AuthenticatedActor
+from app.modules.optimization.application.admission import NewWorkGuard
 from work_management_ai.agents.reporting.contracts import (
     ReportingContext,
     ReportingProposal,
@@ -83,6 +84,7 @@ class GenerationRepository(Protocol):
         expected: int,
         key: str,
         fingerprint: str,
+        before_new_work: NewWorkGuard | None = None,
     ) -> ReportResult: ...
     async def context(
         self, request: ReportingRequest, scope: ReportingUsageScope

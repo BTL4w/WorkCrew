@@ -90,6 +90,10 @@
     "description": "Nền tảng quản lý công việc AI-native với đội ngũ agent phối hợp"
   },
   "common": {
+    "error": {
+      "rateLimited": "Đã đạt hạn mức yêu cầu AI. Hãy thử lại sau {seconds} giây. Bạn vẫn có thể thao tác công việc thủ công.",
+      "aiAdmissionUnavailable": "Tạm thời chưa thể nhận yêu cầu AI mới. Hãy thử lại sau {seconds} giây. Các yêu cầu đã nhận và thao tác thủ công vẫn được giữ nguyên."
+    },
     "loadingSession": "Đang kiểm tra phiên đăng nhập…",
     "redirectingToLogin": "Đang chuyển đến trang đăng nhập…",
     "sessionUnavailableTitle": "Chưa thể kiểm tra phiên đăng nhập",

@@ -10,6 +10,7 @@ from uuid import UUID, uuid4
 from pydantic import Field
 
 from app.modules.identity.domain.auth import AuthenticatedActor
+from app.modules.optimization.application.admission import AdmissionError, AIAdmissionService
 from app.modules.progress.domain.daily_updates import (
     DailyUpdateDraft,
     DailyUpdateError,
@@ -123,7 +124,9 @@ class AssessmentService:
         budget: ComparisonBudget | None = None,
         comparison_factory: Callable[[AuthenticatedActor, UUID], EvidenceComparisonPort]
         | None = None,
+        admission: AIAdmissionService | None = None,
     ):
+        self.admission = admission
         self.comparison_factory = comparison_factory
         self.transactions = transactions
         self.comparison = comparison or UnavailableComparison()
@@ -150,6 +153,8 @@ class AssessmentService:
                 draft = await repo.draft(draft_id)
                 if draft.version != expected_version or draft.confirmed_update_id:
                     raise DailyUpdateError("STALE_DRAFT")
+                if self.admission is not None:
+                    await self.admission.require_new_work(actor)
                 pending, sources = await repo.start(draft)
                 assert pending.id is not None
                 ref = AssessmentJobRef(id=pending.id, draft_id=draft_id, state=pending.state)
@@ -245,7 +250,7 @@ class AssessmentService:
                 terminal = await repo.finish(draft, terminal)
                 await repo.audit("daily_update.assessment_finished", request_id, key, draft_id)
             return ref
-        except DailyUpdateError as error:
+        except (DailyUpdateError, AdmissionError) as error:
             async with self.transactions(actor) as repo:
                 await repo.audit(
                     "daily_update.rejected",

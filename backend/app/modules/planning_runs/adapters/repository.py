@@ -7,7 +7,7 @@ from datetime import UTC, date, datetime, timedelta
 from typing import Any, cast
 from uuid import UUID, uuid4
 
-from sqlalchemy import CursorResult, func, select, update
+from sqlalchemy import CursorResult, func, select, text, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules.audit.adapters.database_models import AuditEventModel
@@ -18,6 +18,7 @@ from app.modules.feedback.adapters.payload_repository import (
     live_payload,
 )
 from app.modules.identity.domain.auth import AuthenticatedActor
+from app.modules.optimization.application.admission import NewWorkGuard
 from app.modules.organization.adapters.database_models import MembershipModel
 from app.modules.organization.domain.roles import MembershipRole
 from app.modules.planning_runs.adapters.database_models import (
@@ -168,6 +169,10 @@ class PostgreSQLPlanningRunRepository(PlanningRunRepository):
         idempotency_key: str,
         request_fingerprint: str,
     ) -> dict[str, Any] | None:
+        await self._session.execute(
+            text("SELECT pg_advisory_xact_lock(hashtextextended(:key,0))"),
+            {"key": f"{actor.organization_id}:{actor.membership_id}:{operation}:{idempotency_key}"},
+        )
         record = await self._session.scalar(
             select(IdempotencyRecordModel).where(
                 IdempotencyRecordModel.organization_id == actor.organization_id,
@@ -1164,6 +1169,9 @@ class PostgreSQLPlanningRunRepository(PlanningRunRepository):
             if existing is None:
                 raise PlanningRunDomainError("idempotency replay resource is unavailable")
             return WorkflowRunMutationResult(run=existing, replayed=True)
+        before_new_work = cast(NewWorkGuard | None, values.get("before_new_work"))
+        if before_new_work is not None:
+            await before_new_work()
         now = datetime.now(UTC)
         record = self._new_idempotency(
             actor=actor,
@@ -1379,6 +1387,9 @@ class PostgreSQLPlanningRunRepository(PlanningRunRepository):
             or latest.node != checkpoint.node
         ):
             raise InvalidTransitionError("manager-input checkpoint changed")
+        before_new_work = cast(NewWorkGuard | None, values.get("before_new_work"))
+        if before_new_work is not None:
+            await before_new_work()
         now = datetime.now(UTC)
         record = self._new_idempotency(
             actor=actor,

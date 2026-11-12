@@ -98,6 +98,9 @@ class Settings(BaseSettings):
     redis_url: SecretStr | None = None
     redis_namespace: str = Field(default="workcrew", pattern=r"^[a-z0-9_-]{1,32}$")
     read_cache_enabled: bool = False
+    ai_admission_enabled: bool = False
+    ai_admission_actor_limit: int = Field(default=20, ge=1, le=1_000_000)
+    ai_admission_org_limit: int = Field(default=200, ge=1, le=1_000_000)
     read_cache_families: list[Literal["workload.weekly"]] = Field(
         default_factory=lambda: list[Literal["workload.weekly"]]()
     )
@@ -205,7 +208,7 @@ class Settings(BaseSettings):
     @model_validator(mode="after")
     def validate_redis_configuration(self) -> "Settings":
         value = self.redis_url.get_secret_value().strip() if self.redis_url is not None else ""
-        if self.read_cache_enabled and not value:
+        if (self.read_cache_enabled or self.ai_admission_enabled) and not value:
             raise ValueError("REDIS_URL_REQUIRED")
         if value:
             try:

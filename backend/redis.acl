@@ -1,2 +1,2 @@
 user default off
-user workcrew on nopass ~wm:* &wm:* -@all +ping +hello +get +set +del +eval +evalsha +script|load +client|setinfo +client|setname +publish +subscribe +unsubscribe +psubscribe +punsubscribe
+user workcrew on nopass ~wm:* &wm:* -@all +ping +hello +get +set +del +eval +evalsha +script|load +time +pttl +client|setinfo +client|setname +publish +subscribe +unsubscribe +psubscribe +punsubscribe

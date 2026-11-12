@@ -5,6 +5,7 @@ from datetime import UTC, datetime
 from uuid import NAMESPACE_URL, UUID, uuid5
 
 from app.modules.identity.domain.auth import AuthenticatedActor
+from app.modules.optimization.application.admission import AIAdmissionService
 from app.modules.progress.domain.blockers import BlockerError
 from app.modules.risk.application.ports import RiskAssessmentPort, RiskTransactionPort
 from app.modules.risk.domain.assessments import RiskAssessment, risk_band, validate_risk_judgment
@@ -16,9 +17,16 @@ def validate_key(key: str) -> None:
 
 
 class RiskService:
-    def __init__(self, transactions: RiskTransactionPort, model: RiskAssessmentPort):
+    def __init__(
+        self,
+        transactions: RiskTransactionPort,
+        model: RiskAssessmentPort,
+        *,
+        admission: AIAdmissionService | None = None,
+    ):
         self.transactions = transactions
         self.model = model
+        self.admission = admission
 
     async def refresh(
         self, actor: AuthenticatedActor, task_id: UUID, cause_event_id: UUID
@@ -37,6 +45,8 @@ class RiskService:
             replay = await repo.replay("risk.refresh", key, str(task_id))
             if replay:
                 return RiskAssessment.model_validate(replay)
+            if self.admission is not None:
+                await self.admission.require_new_work(actor)
             cause = uuid5(NAMESPACE_URL, f"{actor.organization_id}:{actor.membership_id}:{key}")
             result = await repo.enqueue(task_id, cause)
             await repo.remember("risk.refresh", key, str(task_id), result.model_dump(mode="json"))

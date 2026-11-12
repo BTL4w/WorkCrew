@@ -31,6 +31,7 @@ from app.modules.assistant.domain.models import (
     OrchestrationRun,
 )
 from app.modules.identity.domain.auth import AuthenticatedActor
+from app.modules.optimization.application.admission import AdmissionError, AIAdmissionService
 from app.modules.planning_runs.application.draft_service import PlanningDraftService
 from app.modules.planning_runs.domain.models import PlanningRunDomainError
 
@@ -151,7 +152,9 @@ class AssistantService:
         orchestrator_version: str,
         orchestrator_fingerprint: str,
         retrieval_enabled: bool = False,
+        admission: AIAdmissionService | None = None,
     ) -> None:
+        self._admission = admission
         self._retrieval_enabled = retrieval_enabled
         self._transactions = transaction_factory
         self.block_projector = block_projector
@@ -169,6 +172,7 @@ class AssistantService:
         resource_id: UUID | None,
         request_id: str,
         reason_code: str,
+        require_audit: bool = False,
     ) -> None:
         try:
             async with self._transactions(actor) as transaction:
@@ -181,7 +185,9 @@ class AssistantService:
                     reason_code=reason_code,
                 )
                 await transaction.commit()
-        except Exception:
+        except Exception as error:
+            if require_audit:
+                raise AssistantServiceError("AUDIT_UNAVAILABLE") from error
             return
 
     # ------------------------------------------------------------------
@@ -323,26 +329,15 @@ class AssistantService:
     # post_message
     # ------------------------------------------------------------------
 
-    async def post_message(
+    async def _validate_new_card(
         self,
         *,
         actor: AuthenticatedActor,
         conversation_id: UUID,
-        message: str,
-        locale: Literal["vi", "en"],
         card_action: dict[str, Any] | None,
         if_match_version: int | None,
-        request_id: str,
-        idempotency_key: str,
-    ) -> AssistantTurnMutationResult:
-        # Normalize and validate If-Match / card action semantics
-        normalized_message = message.strip()
+    ) -> None:
         card_kind = card_action.get("kind") if card_action else None
-
-        # Plain message: If-Match FORBIDDEN
-        if card_kind is None and if_match_version is not None:
-            raise AssistantServiceError("IF_MATCH_FORBIDDEN")
-
         if card_kind in {"PLANNING_DRAFT_UPDATE", "PLANNING_DRAFT_PREPARE"}:
             if if_match_version is None:
                 raise AssistantServiceError("IF_MATCH_REQUIRED")
@@ -403,6 +398,26 @@ class AssistantService:
                 raise ResourceNotFoundError()
             if current_version != if_match_version:
                 raise AssistantServiceError("RESOURCE_VERSION_MISMATCH")
+
+    async def post_message(
+        self,
+        *,
+        actor: AuthenticatedActor,
+        conversation_id: UUID,
+        message: str,
+        locale: Literal["vi", "en"],
+        card_action: dict[str, Any] | None,
+        if_match_version: int | None,
+        request_id: str,
+        idempotency_key: str,
+    ) -> AssistantTurnMutationResult:
+        # Normalize and validate If-Match / card action semantics
+        normalized_message = message.strip()
+        card_kind = card_action.get("kind") if card_action else None
+
+        # Plain message: If-Match FORBIDDEN
+        if card_kind is None and if_match_version is not None:
+            raise AssistantServiceError("IF_MATCH_FORBIDDEN")
 
         fingerprint = _message_fingerprint(
             conversation_id=conversation_id,
@@ -508,6 +523,16 @@ class AssistantService:
             dedupe_key=f"turn.queued:{turn_id}",
         )
 
+        async def before_new_work() -> None:
+            await self._validate_new_card(
+                actor=actor,
+                conversation_id=conversation_id,
+                card_action=card_action,
+                if_match_version=if_match_version,
+            )
+            if self._admission is not None:
+                await self._admission.require_new_work(actor)
+
         try:
             async with self._transactions(actor) as txn:
                 result = await txn.repository.submit_message_mutation(
@@ -520,9 +545,24 @@ class AssistantService:
                     request_id=request_id,
                     idempotency_key=idempotency_key,
                     request_fingerprint=fingerprint,
+                    **(
+                        {"before_new_work": before_new_work}
+                        if self._admission is not None or card_kind is not None
+                        else {}
+                    ),
                 )
                 await txn.commit()
                 return result
+        except AdmissionError as error:
+            await self._record_rejection(
+                actor=actor,
+                action="assistant.message.submit",
+                resource_id=conversation_id,
+                request_id=request_id,
+                reason_code=error.code,
+                require_audit=True,
+            )
+            raise
         except AssistantIdempotencyKeyReusedError as error:
             await self._record_rejection(
                 actor=actor,

@@ -19,6 +19,7 @@ from app.modules.assistant.domain.models import (
     ToolInvocation,
 )
 from app.modules.identity.domain.auth import AuthenticatedActor
+from app.modules.optimization.application.admission import NewWorkGuard
 from app.modules.planning_runs.domain.models import WorkflowEvent
 
 
@@ -109,6 +110,7 @@ class AssistantRepository(Protocol):
         request_id: str,
         idempotency_key: str,
         request_fingerprint: str,
+        before_new_work: NewWorkGuard | None = None,
     ) -> AssistantTurnMutationResult: ...
 
     async def get_conversation_snapshot(

@@ -55,6 +55,7 @@ from app.modules.audit.adapters.database_models import AuditEventModel
 from app.modules.audit.domain.events import AuditOutcome
 from app.modules.feedback.adapters.payload_repository import assert_context_live, live_payload
 from app.modules.identity.domain.auth import AuthenticatedActor
+from app.modules.optimization.application.admission import NewWorkGuard
 from app.modules.planning_runs.adapters.database_models import OutboxEventModel, WorkflowEventModel
 from app.modules.planning_runs.domain.models import WorkflowEvent
 from app.modules.work.adapters.database_models import IdempotencyRecordModel, IdempotencyState
@@ -634,8 +635,14 @@ class PostgreSQLAssistantRepository:
         request_id: str,
         idempotency_key: str,
         request_fingerprint: str,
+        before_new_work: NewWorkGuard | None = None,
     ) -> AssistantTurnMutationResult:
         operation = f"assistant.message.submit:{message.conversation_id}"
+        # Serialize the exact SQL receipt before admission, including across API processes.
+        await self._session.execute(
+            text("SELECT pg_advisory_xact_lock(hashtextextended(:key,0))"),
+            {"key": f"{actor.organization_id}:{actor.membership_id}:{operation}:{idempotency_key}"},
+        )
         replay = await self._idempotency(
             actor=actor,
             operation=operation,
@@ -693,6 +700,8 @@ class PostgreSQLAssistantRepository:
             or event.orchestration_run_id != run.id
         ):
             raise AssistantDomainLookupError("ASSISTANT_GRAPH_IDENTITY_INVALID")
+        if before_new_work is not None:
+            await before_new_work()
         now = datetime.now(UTC)
         record = self._new_idempotency(
             actor=actor,

@@ -38,6 +38,7 @@ from app.modules.assistant.domain.models import (
     OrchestrationRun,
 )
 from app.modules.identity.domain.auth import AuthenticatedActor
+from app.modules.optimization.application.admission import NewWorkGuard
 from app.modules.organization.domain.roles import MembershipRole
 
 # ---------------------------------------------------------------------------
@@ -119,6 +120,7 @@ class FakeRepository:
         request_id: str,
         idempotency_key: str,
         request_fingerprint: str,
+        before_new_work: NewWorkGuard | None = None,
     ) -> AssistantTurnMutationResult:
         self._bump("submit_message")
         key = (
@@ -151,6 +153,8 @@ class FakeRepository:
 
             raise AssistantDomainLookupError("ASSISTANT_CONVERSATION_NOT_FOUND")
 
+        if before_new_work is not None:
+            await before_new_work()
         message = replace(message, sequence=conv.last_message_sequence + 1)
         event = replace(event, sequence=conv.last_event_sequence + 1)
         self.messages.append(message)

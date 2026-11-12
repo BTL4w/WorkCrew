@@ -10,7 +10,7 @@ from fastapi import APIRouter, Depends, Header, Request
 from fastapi.responses import Response
 from fastapi.routing import APIRoute
 
-from app.api.errors import ApplicationError, ErrorResponse
+from app.api.errors import ADMISSION_ERROR_RESPONSES, ApplicationError, ErrorResponse
 from app.core.config import Settings
 from app.modules.identity.api.dependencies import ActorDependency, get_authenticated_actor
 from app.modules.identity.application.auth_service import AuthService
@@ -73,7 +73,12 @@ def error(exc: BlockerError) -> ApplicationError:
     )
 
 
-@router.post("/risks/refresh", response_model=RiskAssessment, status_code=202, responses=_ERRORS)
+@router.post(
+    "/risks/refresh",
+    response_model=RiskAssessment,
+    status_code=202,
+    responses={**_ERRORS, **ADMISSION_ERROR_RESPONSES},
+)
 async def refresh(
     body: RiskRefreshRequest, actor: ActorDependency, service: Service, idempotency_key: Key = None
 ) -> RiskAssessment:

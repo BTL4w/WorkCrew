@@ -25,6 +25,7 @@ from app.modules.identity.adapters.runtime import create_auth_runtime
 from app.modules.identity.api.routes import router as auth_router
 from app.modules.identity.application.auth_service import AuthService
 from app.modules.optimization.adapters.redis_runtime import create_redis_runtime
+from app.modules.optimization.application.admission import AIAdmissionService
 from app.modules.organization.adapters.member_repository import SqlAlchemyMemberTransactionFactory
 from app.modules.organization.api.members import router as member_router
 from app.modules.organization.application.member_service import MemberService
@@ -127,6 +128,16 @@ def create_app(
 
     resolved_settings = settings or get_settings()
     redis_runtime = create_redis_runtime(resolved_settings)
+    ai_admission = (
+        AIAdmissionService(
+            redis_runtime.limiter,
+            namespace=redis_runtime.namespace,
+            actor_limit=resolved_settings.ai_admission_actor_limit,
+            org_limit=resolved_settings.ai_admission_org_limit,
+        )
+        if resolved_settings.ai_admission_enabled and redis_runtime.limiter is not None
+        else None
+    )
     database_engine: AsyncEngine | None = None
     resolved_auth_service = auth_service
     if resolved_auth_service is None:
@@ -226,6 +237,7 @@ def create_app(
             )
         if resolved_planning_run_service is None:
             resolved_planning_run_service = PlanningRunService(
+                admission=ai_admission,
                 transaction_factory=planning_transaction_factory,
                 runtime=runtime,
             )
@@ -257,6 +269,7 @@ def create_app(
                 "work_management_ai.agents.orchestrator", "agent.yaml", AgentManifest
             )
             resolved_assistant_service = AssistantService(
+                admission=ai_admission,
                 transaction_factory=assistant_transaction_factory,
                 planning_drafts=resolved_planning_draft_service,
                 planning_snapshot=PostgreSQLPlanningSnapshot(
@@ -326,6 +339,7 @@ def create_app(
             create_session_factory(database_engine), resolved_settings.reporting_timezone
         ),
         GatewayRiskAssessment(build_model_gateway(resolved_settings)),
+        admission=ai_admission,
     )
     app.include_router(risk_router, prefix="/api/v1")
     from app.modules.automations.adapters.digest_repository import DigestTransactions
@@ -339,7 +353,8 @@ def create_app(
     app.state.reporting_service = reporting_service or ReportService(
         ReportTransactions(
             create_session_factory(database_engine), resolved_settings.reporting_timezone
-        )
+        ),
+        admission=ai_admission,
     )
     from app.modules.assistant.adapters.report_projection import ReportStatusContexts
     from app.modules.assistant.adapters.reporting_tools import ReportBlockProjector
@@ -374,7 +389,8 @@ def create_app(
     app.state.report_generation_service = GenerationService(
         GenerationTransactions(
             create_session_factory(database_engine), resolved_settings.reporting_timezone
-        )
+        ),
+        admission=ai_admission,
     )
     from app.modules.feedback.adapters.transaction import FeedbackTransactions
     from app.modules.feedback.api.routes import router as feedback_router
@@ -428,6 +444,7 @@ def create_app(
     )
     app.include_router(blocker_router, prefix="/api/v1")
     app.state.daily_update_service, app.state.assessment_service, _ = build_daily_services(
+        admission=ai_admission,
         sessions=create_session_factory(database_engine),
         settings=resolved_settings,
         evidence=evidence_service,

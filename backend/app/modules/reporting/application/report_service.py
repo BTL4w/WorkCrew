@@ -5,6 +5,7 @@ from uuid import UUID, uuid4
 from zoneinfo import ZoneInfo
 
 from app.modules.identity.domain.auth import AuthenticatedActor
+from app.modules.optimization.application.admission import AdmissionError, AIAdmissionService
 
 from ..domain.commands import CaptureReportCommand, CreateReportCommand, PublishReportCommand
 from ..domain.periods import ReportKind, normalize_period
@@ -22,8 +23,11 @@ from .snapshot_service import ReportSnapshotService
 
 
 class ReportService:
-    def __init__(self, transactions: ReportTransactionFactory):
+    def __init__(
+        self, transactions: ReportTransactionFactory, *, admission: AIAdmissionService | None = None
+    ):
         self.transactions = transactions
+        self.admission = admission
 
     async def create(
         self,
@@ -35,6 +39,7 @@ class ReportService:
     ) -> ReportResult:
         request_id = request_id or str(uuid4())
         fingerprint = canonical_hash(command.model_dump(mode="json"))
+        admitted = False
         try:
             for attempt in range(3):
                 try:
@@ -44,6 +49,13 @@ class ReportService:
                         replay = await repo.replay(idempotency_key, fingerprint)
                         if replay is not None:
                             return await repo.get(replay, replayed=True)
+                        if (
+                            command.narrative_enabled
+                            and self.admission is not None
+                            and not admitted
+                        ):
+                            await self.admission.require_new_work(actor)
+                            admitted = True
                         at = await repo.captured_at()
                         timezone = (
                             command.timezone
@@ -73,7 +85,7 @@ class ReportService:
                     if attempt == 2:
                         raise ReportError("REPORT_CAPTURE_RETRY", 409) from None
             raise ReportError("REPORT_CAPTURE_RETRY", 409)
-        except ReportError as exc:
+        except (ReportError, AdmissionError) as exc:
             async with self.transactions(actor) as repo:
                 await repo.audit_rejection(
                     request_id, idempotency_key, exc.code, command.project_id

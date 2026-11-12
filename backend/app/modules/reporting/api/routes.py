@@ -10,7 +10,7 @@ from uuid import UUID
 from fastapi import APIRouter, Header, Query, Request, Response
 from fastapi.routing import APIRoute
 
-from app.api.errors import ApplicationError, ErrorResponse
+from app.api.errors import ADMISSION_ERROR_RESPONSES, ApplicationError, ErrorResponse
 from app.core.config import Settings
 from app.modules.identity.api.dependencies import ActorDependency, get_authenticated_actor
 from app.modules.identity.application.auth_service import AuthService
@@ -103,7 +103,12 @@ def _raise(error: ReportError) -> NoReturn:
     ) from error
 
 
-@router.post("", response_model=ReportResponse, status_code=201, responses=_ERRORS)
+@router.post(
+    "",
+    response_model=ReportResponse,
+    status_code=201,
+    responses={**_ERRORS, **ADMISSION_ERROR_RESPONSES},
+)
 async def create_report(
     body: ReportCreateRequest,
     actor: ActorDependency,
@@ -241,7 +246,10 @@ async def publish_report(
 
 
 @router.post(
-    "/{report_id}/generate", response_model=ReportResponse, status_code=202, responses=_ERRORS
+    "/{report_id}/generate",
+    response_model=ReportResponse,
+    status_code=202,
+    responses={**_ERRORS, **ADMISSION_ERROR_RESPONSES},
 )
 async def generate_report(
     report_id: UUID,
