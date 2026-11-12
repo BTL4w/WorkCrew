@@ -48,6 +48,15 @@ def test_admission_requires_explicit_url_and_positive_trusted_limits() -> None:
         Settings(retrieval_admission_org_limit=0)
     assert not Settings().ai_admission_enabled
     assert not Settings().retrieval_admission_enabled
+    assert not Settings().login_throttle_enabled
+    with pytest.raises(ValidationError, match="RATE_LIMIT_HASH_KEY_REQUIRED"):
+        Settings(login_throttle_enabled=True, redis_url=SecretStr("redis://localhost:1/0"))
+    with pytest.raises(ValidationError):
+        Settings(
+            login_throttle_enabled=True,
+            redis_url=SecretStr("redis://localhost:1/0"),
+            rate_limit_hash_key=SecretStr("short"),
+        )
 
 
 @pytest.mark.asyncio

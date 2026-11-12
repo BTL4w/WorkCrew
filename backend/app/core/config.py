@@ -104,6 +104,8 @@ class Settings(BaseSettings):
     retrieval_admission_enabled: bool = False
     retrieval_admission_actor_limit: int = Field(default=30, ge=1, le=1_000_000)
     retrieval_admission_org_limit: int = Field(default=300, ge=1, le=1_000_000)
+    login_throttle_enabled: bool = False
+    rate_limit_hash_key: SecretStr | None = None
     read_cache_families: list[Literal["workload.weekly"]] = Field(
         default_factory=lambda: list[Literal["workload.weekly"]]()
     )
@@ -212,9 +214,17 @@ class Settings(BaseSettings):
     def validate_redis_configuration(self) -> "Settings":
         value = self.redis_url.get_secret_value().strip() if self.redis_url is not None else ""
         if (
-            self.read_cache_enabled or self.ai_admission_enabled or self.retrieval_admission_enabled
+            self.read_cache_enabled
+            or self.ai_admission_enabled
+            or self.retrieval_admission_enabled
+            or self.login_throttle_enabled
         ) and not value:
             raise ValueError("REDIS_URL_REQUIRED")
+        if self.login_throttle_enabled and (
+            self.rate_limit_hash_key is None
+            or len(self.rate_limit_hash_key.get_secret_value().strip().encode()) < 32
+        ):
+            raise ValueError("RATE_LIMIT_HASH_KEY_REQUIRED")
         if value:
             try:
                 parsed = urlsplit(value)

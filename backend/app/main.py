@@ -26,6 +26,7 @@ from app.modules.identity.api.routes import router as auth_router
 from app.modules.identity.application.auth_service import AuthService
 from app.modules.optimization.adapters.redis_runtime import create_redis_runtime
 from app.modules.optimization.application.admission import AIAdmissionService
+from app.modules.optimization.application.login_throttle import LoginThrottle
 from app.modules.organization.adapters.member_repository import SqlAlchemyMemberTransactionFactory
 from app.modules.organization.api.members import router as member_router
 from app.modules.organization.application.member_service import MemberService
@@ -141,7 +142,20 @@ def create_app(
     database_engine: AsyncEngine | None = None
     resolved_auth_service = auth_service
     if resolved_auth_service is None:
-        resolved_auth_service, database_engine = create_auth_runtime(resolved_settings)
+        login_throttle = None
+        if resolved_settings.login_throttle_enabled:
+            assert (
+                redis_runtime.limiter is not None
+                and resolved_settings.rate_limit_hash_key is not None
+            )
+            login_throttle = LoginThrottle(
+                redis_runtime.limiter,
+                namespace=redis_runtime.namespace,
+                hash_key=resolved_settings.rate_limit_hash_key.get_secret_value().encode(),
+            )
+        resolved_auth_service, database_engine = create_auth_runtime(
+            resolved_settings, login_throttle=login_throttle
+        )
     resolved_project_service = project_service
     if resolved_project_service is None:
         if database_engine is None:

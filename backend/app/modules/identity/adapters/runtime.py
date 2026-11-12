@@ -10,14 +10,21 @@ from app.modules.identity.adapters.security import (
     OpaqueSessionTokenCodec,
 )
 from app.modules.identity.application.auth_service import AuthService
+from app.modules.identity.application.ports import LoginThrottlePort
 
 
-def create_auth_runtime(settings: Settings) -> tuple[AuthService, AsyncEngine]:
+def create_auth_runtime(
+    settings: Settings, *, login_throttle: LoginThrottlePort | None = None
+) -> tuple[AuthService, AsyncEngine]:
     """Compose the auth use cases with PostgreSQL and local security adapters."""
+
+    if settings.login_throttle_enabled and login_throttle is None:
+        raise ValueError("LOGIN_THROTTLE_REQUIRED")
 
     engine = create_database_engine(settings)
     transaction_factory = SqlAlchemyAuthTransactionFactory(create_session_factory(engine))
     service = AuthService(
+        login_throttle=login_throttle,
         transaction_factory=transaction_factory,
         password_verifier=Argon2PasswordVerifier(),
         token_codec=OpaqueSessionTokenCodec(),

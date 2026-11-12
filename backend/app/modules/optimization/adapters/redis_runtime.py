@@ -36,6 +36,7 @@ def create_redis_runtime(settings: Settings) -> RedisRuntime:
             settings.read_cache_enabled
             or settings.ai_admission_enabled
             or settings.retrieval_admission_enabled
+            or settings.login_throttle_enabled
         )
         or settings.redis_url is None
     ):

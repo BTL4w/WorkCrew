@@ -4,7 +4,7 @@ from typing import Any
 
 from fastapi import APIRouter, Request, Response, status
 
-from app.api.errors import ApplicationError, ErrorResponse
+from app.api.errors import ADMISSION_ERROR_RESPONSES, ApplicationError, ErrorResponse
 from app.modules.identity.api.dependencies import (
     ActorDependency,
     AuthServiceDependency,
@@ -12,12 +12,14 @@ from app.modules.identity.api.dependencies import (
 )
 from app.modules.identity.api.schemas import LoginRequest, MeResponse
 from app.modules.identity.domain.auth import InvalidCredentialsError
+from app.modules.optimization.application.login_throttle import LoginThrottled
 
 router = APIRouter(tags=["authentication"])
 
 _AUTH_ERROR_RESPONSES: dict[int | str, dict[str, Any]] = {
     401: {"model": ErrorResponse},
     422: {"model": ErrorResponse},
+    429: ADMISSION_ERROR_RESPONSES[429],
 }
 
 
@@ -38,7 +40,16 @@ async def login(
             email=payload.email,
             password=payload.password.get_secret_value(),
             request_id=str(request.state.request_id),
+            client_ip=request.client.host if request.client is not None else "unknown",
         )
+    except LoginThrottled as exc:
+        raise ApplicationError(
+            status_code=429,
+            code="LOGIN_RATE_LIMITED",
+            message_key="auth.login.rateLimited",
+            details={"retry_after_seconds": exc.retry_after_seconds},
+            retry_after_seconds=exc.retry_after_seconds,
+        ) from exc
     except InvalidCredentialsError as exc:
         raise ApplicationError(
             status_code=401,

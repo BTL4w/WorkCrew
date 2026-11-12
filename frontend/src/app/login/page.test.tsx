@@ -59,6 +59,21 @@ describe("LoginPage", () => {
     );
   });
 
+  it.each(["vi", "en"] as const)("%s explains login throttling and keeps entered fields", async (locale) => {
+    vi.stubGlobal("fetch", vi.fn()
+      .mockResolvedValueOnce(jsonResponse(authError("AUTHENTICATION_REQUIRED"), 401))
+      .mockResolvedValueOnce(jsonResponse({ error: { code: "LOGIN_RATE_LIMITED", message_key: "auth.login.rateLimited", request_id: "safe-reference", details: { retry_after_seconds: 12 } } }, 429)));
+    renderWithAppProviders(<LoginPage />, locale);
+    const email = await screen.findByLabelText("Email");
+    const password = screen.getByLabelText(locale === "vi" ? "Mật khẩu" : "Password");
+    fireEvent.change(email, { target: { value: "user@example.test" } });
+    fireEvent.change(password, { target: { value: "test-password" } });
+    fireEvent.click(screen.getByRole("button", { name: locale === "vi" ? "Đăng nhập" : "Sign in" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent(locale === "vi" ? "Quá nhiều lần thử đăng nhập. Hãy thử lại sau 12 giây." : "Too many sign-in attempts. Try again in 12 seconds.");
+    expect(email).toHaveValue("user@example.test");
+    expect(password).toHaveValue("test-password");
+  });
+
   it("logs in through the same-origin API and redirects home", async () => {
     const fetchMock = vi
       .fn()

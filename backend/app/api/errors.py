@@ -61,6 +61,7 @@ class ApplicationError(Exception):
         message_key: str,
         field_errors: list[FieldError] | None = None,
         details: Mapping[str, Any] | None = None,
+        retry_after_seconds: int | None = None,
     ) -> None:
         super().__init__(code)
         self.status_code = status_code
@@ -68,6 +69,7 @@ class ApplicationError(Exception):
         self.message_key = message_key
         self.field_errors = list(field_errors or [])
         self.details = dict(details or {})
+        self.retry_after_seconds = retry_after_seconds
 
 
 def _request_id(request: Request) -> str:
@@ -178,6 +180,7 @@ def register_error_handlers(app: FastAPI) -> None:
             message_key=exc.message_key,
             field_errors=exc.field_errors,
             details=exc.details,
+            retry_after_seconds=exc.retry_after_seconds,
         )
 
     @app.exception_handler(RequestValidationError)

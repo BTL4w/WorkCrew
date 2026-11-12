@@ -20,3 +20,17 @@ def test_admission_openapi_matches_frontend_and_retry_headers() -> None:
                 "$ref": "#/components/schemas/ErrorResponse"
             }
             assert responses[status]["headers"]["Retry-After"]["schema"]["type"] == "integer"
+
+
+def test_login_throttle_uses_the_existing_envelope_and_safe_retry_header() -> None:
+    schema = app.openapi()
+    manifest = json.loads(
+        (
+            Path(__file__).resolve().parents[2] / "frontend/src/features/work/openapi-contract.json"
+        ).read_text()
+    )["loginThrottle"]
+    response = schema["paths"][manifest["path"]]["post"]["responses"][str(manifest["status"])]
+    assert response["content"]["application/json"]["schema"] == {
+        "$ref": "#/components/schemas/ErrorResponse"
+    }
+    assert response["headers"][manifest["header"]]["schema"]["maximum"] == 60

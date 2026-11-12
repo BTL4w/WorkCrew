@@ -9,6 +9,13 @@ from typing import Protocol
 from uuid import UUID
 
 from app.modules.identity.domain.auth import AuthenticatedActor, LoginIdentity
+from app.modules.optimization.application.admission import AdmissionDecision
+
+
+class LoginThrottlePort(Protocol):
+    async def check(
+        self, *, trusted_organization_id: UUID, normalized_account: str, client_ip: str
+    ) -> AdmissionDecision: ...
 
 
 class PasswordVerifier(Protocol):

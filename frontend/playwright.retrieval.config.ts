@@ -23,7 +23,7 @@ export default defineConfig({
   use: {baseURL: "http://127.0.0.1:3100", trace: "retain-on-failure"},
   projects: [{name: "chromium", use: {...devices["Desktop Chrome"]}}],
   webServer: [
-    {command: "cd ../backend && uv run --locked fastapi run app/main.py --host 127.0.0.1 --port 8100", env, url: "http://127.0.0.1:8100/openapi.json", reuseExistingServer: false, timeout: 120000},
+    {command: "cd ../backend && uv run --locked fastapi run app/main.py --host 127.0.0.1 --port 8100 --no-proxy-headers", env, url: "http://127.0.0.1:8100/openapi.json", reuseExistingServer: false, timeout: 120000},
     {command: "cd ../backend && uv run --locked python -m app.worker", env, wait: {stderr: /Worker .* started/}, reuseExistingServer: false, timeout: 120000},
     {command: "corepack pnpm@10 start --hostname 127.0.0.1 --port 3100", env: {API_ORIGIN:"http://127.0.0.1:8100",NEXT_DIST_DIR:".next-retrieval-e2e"}, url:"http://127.0.0.1:3100/login",reuseExistingServer:false,timeout:120000},
   ],

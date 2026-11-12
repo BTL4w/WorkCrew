@@ -115,6 +115,7 @@
       "submit": "Sign in",
       "submitting": "Signing in…",
       "invalidCredentials": "The email or password is incorrect.",
+      "rateLimited": "Too many sign-in attempts. Try again in {seconds} seconds.",
       "unexpectedError": "Sign in is unavailable right now. Please try again.",
       "sessionExpired": "Your session has expired. Please sign in again.",
       "demoTitle": "Demo accounts",

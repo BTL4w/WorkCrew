@@ -8,7 +8,7 @@ LOCAL_ENV := $(if $(wildcard ../.env),--env-file ../.env,)
 .PHONY: up dev sync migrate seed lint format-check typecheck test test-ai test-integration migration-check worker-dev
 
 up: sync
-	$(UV) run $(LOCAL_ENV) fastapi dev app/main.py
+	$(UV) run $(LOCAL_ENV) fastapi dev app/main.py --no-proxy-headers
 
 dev: up
 

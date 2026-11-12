@@ -7,6 +7,7 @@ import { useEffect, useState, type FormEvent } from "react";
 import { loginInputSchema } from "@/features/auth/api";
 import { useAuth } from "@/features/auth/auth-provider";
 import { ApiError } from "@/shared/api/client";
+import { admissionRetryDetailsSchema } from "@/shared/api/contracts";
 import { LocaleSwitcher } from "@/shared/i18n/locale-switcher";
 
 type FieldErrors = {
@@ -57,6 +58,11 @@ export default function LoginPage() {
       await login(parsed.data);
       router.replace("/");
     } catch (error) {
+      if (error instanceof ApiError && error.code === "LOGIN_RATE_LIMITED" && error.status === 429) {
+        const parsed = admissionRetryDetailsSchema.safeParse(error.details);
+        setFormError(t("rateLimited", { seconds: parsed.success ? parsed.data.retry_after_seconds : 60 }));
+        return;
+      }
       if (error instanceof ApiError && error.code === "INVALID_CREDENTIALS") {
         setFormError(t("invalidCredentials"));
         return;

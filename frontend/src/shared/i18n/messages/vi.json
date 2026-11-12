@@ -115,6 +115,7 @@
       "submit": "Đăng nhập",
       "submitting": "Đang đăng nhập…",
       "invalidCredentials": "Email hoặc mật khẩu không đúng.",
+      "rateLimited": "Quá nhiều lần thử đăng nhập. Hãy thử lại sau {seconds} giây.",
       "unexpectedError": "Không thể đăng nhập lúc này. Vui lòng thử lại.",
       "sessionExpired": "Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.",
       "demoTitle": "Tài khoản demo",
