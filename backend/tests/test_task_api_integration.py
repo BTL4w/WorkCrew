@@ -576,26 +576,26 @@ async def test_task_flow_assignment_status_visibility_and_audit() -> None:
                     "skills",
                     "projects",
                 ):
+                    # Cascading source deletes run owner-side RI triggers.
+                    # Supply each fixture tenant rather than bypassing FORCE RLS.
+                    for tenant in (organization_id, foreign_organization_id):
+                        await connection.execute(
+                            text("SELECT set_config('app.organization_id',:org,true)"),
+                            {"org": str(tenant)},
+                        )
+                        await connection.execute(
+                            text(f"DELETE FROM {table} WHERE organization_id=:org"),
+                            {"org": tenant},
+                        )
+                for tenant in (organization_id, foreign_organization_id):
                     await connection.execute(
-                        text(
-                            f"DELETE FROM {table} WHERE organization_id "
-                            "IN (:organization_id, :foreign_organization_id)"
-                        ),
-                        {
-                            "organization_id": organization_id,
-                            "foreign_organization_id": foreign_organization_id,
-                        },
+                        text("SELECT set_config('app.organization_id',:org,true)"),
+                        {"org": str(tenant)},
                     )
-                await connection.execute(
-                    text(
-                        "DELETE FROM memberships WHERE organization_id "
-                        "IN (:organization_id, :foreign_organization_id)"
-                    ),
-                    {
-                        "organization_id": organization_id,
-                        "foreign_organization_id": foreign_organization_id,
-                    },
-                )
+                    await connection.execute(
+                        text("DELETE FROM memberships WHERE organization_id=:org"),
+                        {"org": tenant},
+                    )
                 await connection.execute(
                     text("DELETE FROM users WHERE id IN (:a, :b, :c, :d, :e)"),
                     {

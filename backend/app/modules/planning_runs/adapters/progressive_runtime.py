@@ -419,7 +419,12 @@ async def execute_progressive_job(
         result = await graph.run_progressive(state)
     if result.safe_error_code is not None:
         async with transactions(actor) as transaction:
-            current = await transaction.repository.get_workflow_run(actor=actor, run_id=run.id)
+            # Operational failure-finalization must survive owner revocation.
+            # The accepted job's tenant/run identity stays bound by SQL/RLS;
+            # streamed/user reads retain their separate current-actor checks.
+            current = await transaction.repository.get_workflow_run_by_scope(
+                organization_id=job.organization_id, run_id=job.workflow_run_id
+            )
             if current is not None and current.status is WorkflowRunStatus.RUNNING:
                 await transaction.repository.update_workflow_run(
                     actor=actor, run=current.mark_failed(result.safe_error_code)

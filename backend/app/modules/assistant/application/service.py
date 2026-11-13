@@ -40,6 +40,10 @@ from app.modules.planning_runs.domain.models import PlanningRunDomainError
 # ---------------------------------------------------------------------------
 
 
+class _CardValidationRequired(Exception):
+    """Release the replay transaction before reading external card sources."""
+
+
 class AssistantServiceError(Exception):
     """Stable, safe application-level service error."""
 
@@ -523,17 +527,15 @@ class AssistantService:
             dedupe_key=f"turn.queued:{turn_id}",
         )
 
+        card_validated = card_kind is None
+
         async def before_new_work() -> None:
-            await self._validate_new_card(
-                actor=actor,
-                conversation_id=conversation_id,
-                card_action=card_action,
-                if_match_version=if_match_version,
-            )
+            if not card_validated:
+                raise _CardValidationRequired
             if self._admission is not None:
                 await self._admission.require_new_work(actor)
 
-        try:
+        async def submit() -> AssistantTurnMutationResult:
             async with self._transactions(actor) as txn:
                 result = await txn.repository.submit_message_mutation(
                     actor=actor,
@@ -553,6 +555,24 @@ class AssistantService:
                 )
                 await txn.commit()
                 return result
+
+        try:
+            try:
+                return await submit()
+            except _CardValidationRequired:
+                # The first attempt checked exact durable replay and rolled back
+                # without writes/admission. Never hold a pool connection while
+                # the source ports acquire their own read transactions.
+                await self._validate_new_card(
+                    actor=actor,
+                    conversation_id=conversation_id,
+                    card_action=card_action,
+                    if_match_version=if_match_version,
+                )
+                card_validated = True
+                # Reacquire the original locks and recheck replay before any
+                # admission/write; concurrent retries still create one receipt.
+                return await submit()
         except AdmissionError as error:
             await self._record_rejection(
                 actor=actor,
