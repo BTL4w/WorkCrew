@@ -105,6 +105,7 @@ class Settings(BaseSettings):
     retrieval_admission_actor_limit: int = Field(default=30, ge=1, le=1_000_000)
     retrieval_admission_org_limit: int = Field(default=300, ge=1, le=1_000_000)
     login_throttle_enabled: bool = False
+    redis_wakeup_enabled: bool = False
     rate_limit_hash_key: SecretStr | None = None
     read_cache_families: list[Literal["workload.weekly"]] = Field(
         default_factory=lambda: list[Literal["workload.weekly"]]()
@@ -218,6 +219,7 @@ class Settings(BaseSettings):
             or self.ai_admission_enabled
             or self.retrieval_admission_enabled
             or self.login_throttle_enabled
+            or self.redis_wakeup_enabled
         ) and not value:
             raise ValueError("REDIS_URL_REQUIRED")
         if self.login_throttle_enabled and (

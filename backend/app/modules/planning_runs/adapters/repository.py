@@ -17,6 +17,7 @@ from app.modules.feedback.adapters.payload_repository import (
     context_expired,
     live_payload,
 )
+from app.modules.identity.adapters.active_scope import active_actor_scope
 from app.modules.identity.domain.auth import AuthenticatedActor
 from app.modules.optimization.application.admission import NewWorkGuard
 from app.modules.organization.adapters.database_models import MembershipModel
@@ -1289,6 +1290,7 @@ class PostgreSQLPlanningRunRepository(PlanningRunRepository):
         stmt = select(WorkflowRunModel).where(
             WorkflowRunModel.id == run_id,
             WorkflowRunModel.organization_id == actor.organization_id,
+            active_actor_scope(actor),
         )
         result = await self._session.execute(stmt)
         model = result.scalar_one_or_none()
@@ -2740,6 +2742,7 @@ class PostgreSQLPlanningRunRepository(PlanningRunRepository):
                 WorkflowEventModel.workflow_run_id == run_id,
                 WorkflowEventModel.organization_id == actor.organization_id,
                 WorkflowEventModel.sequence > after_sequence,
+                active_actor_scope(actor, manager=True),
                 live_payload(WorkflowEventModel, "workflow_events"),
             )
             .order_by(WorkflowEventModel.sequence.asc())

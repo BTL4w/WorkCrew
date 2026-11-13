@@ -11,6 +11,7 @@ from app.core.config import Settings
 from app.modules.optimization.adapters.redis_cache import DisabledReadCache, RedisReadCache
 from app.modules.optimization.adapters.redis_lease import RedisCacheLeases
 from app.modules.optimization.adapters.redis_limiter import RedisRateLimiter
+from app.modules.optimization.adapters.redis_wakeup import RedisWakeup
 from app.modules.optimization.application.admission import RateLimitPort
 from app.modules.optimization.application.cache_ports import ReadCachePort
 from app.modules.optimization.application.single_flight import CacheLeasePort
@@ -23,8 +24,11 @@ class RedisRuntime:
     read_cache: ReadCachePort
     leases: CacheLeasePort | None = None
     limiter: RateLimitPort | None = None
+    wakeup: RedisWakeup | None = None
 
     async def aclose(self) -> None:
+        if self.wakeup is not None:
+            await self.wakeup.aclose()
         if self.client is not None:
             await self.client.aclose()
 
@@ -37,6 +41,7 @@ def create_redis_runtime(settings: Settings) -> RedisRuntime:
             or settings.ai_admission_enabled
             or settings.retrieval_admission_enabled
             or settings.login_throttle_enabled
+            or settings.redis_wakeup_enabled
         )
         or settings.redis_url is None
     ):
@@ -57,6 +62,23 @@ def create_redis_runtime(settings: Settings) -> RedisRuntime:
         protocol=2,
     )
     cache = RedisReadCache(client, namespace)
+    wakeup = None
+    if settings.redis_wakeup_enabled:
+        subscriber = Redis(
+            host=url.hostname or "localhost",
+            port=url.port or 6379,
+            db=0,
+            username=unquote(url.username) if url.username is not None else None,
+            password=unquote(url.password) if url.password is not None else None,
+            ssl=url.scheme == "rediss",
+            decode_responses=False,
+            socket_timeout=None,
+            socket_connect_timeout=0.05,
+            max_connections=2,
+            retry=Retry(NoBackoff(), 0),
+            protocol=2,
+        )
+        wakeup = RedisWakeup(client, subscriber, namespace)
     return RedisRuntime(
         client,
         namespace,
@@ -65,4 +87,5 @@ def create_redis_runtime(settings: Settings) -> RedisRuntime:
         if settings.read_cache_enabled
         else None,
         RedisRateLimiter(client, namespace),
+        wakeup,
     )

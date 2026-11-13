@@ -1,7 +1,8 @@
 """Persisted SSE event service for Assistant conversations — Task 6.
 
 Replays committed assistant_events in ascending sequence. Never enqueues
-new work on reconnect. Uses PostgreSQL as the source of truth (no Redis/broker).
+new work on reconnect. PostgreSQL is the source of truth; optional Redis hints
+only reduce the wait before the next authorized SQL read.
 """
 
 from __future__ import annotations
@@ -17,7 +18,9 @@ from anyio import CancelScope
 
 from app.modules.assistant.application.service import ResourceNotFoundError
 from app.modules.assistant.domain.models import AssistantEvent, ConversationStatus
+from app.modules.identity.application.ports import CurrentActorReadPort
 from app.modules.identity.domain.auth import AuthenticatedActor
+from app.modules.optimization.application.wakeup import WakeupPort, WakeupScope, subscribe_or_poll
 
 
 def _sanitize(value: object) -> object:
@@ -73,13 +76,35 @@ class AssistantEventService:
         transaction_factory: Any,
         heartbeat_seconds: float = 15.0,
         block_projector: Any = None,
+        wakeup: WakeupPort | None = None,
+        actors: CurrentActorReadPort | None = None,
     ) -> None:
         self.block_projector = block_projector
         self._transactions = transaction_factory
         self._heartbeat_seconds = heartbeat_seconds
+        self._wakeup = wakeup
+        self._actors = actors
+
+    async def _current_actor(self, actor: AuthenticatedActor) -> AuthenticatedActor | None:
+        if self._actors is None:
+            return actor
+        current = await self._actors.resolve(
+            organization_id=actor.organization_id, membership_id=actor.membership_id
+        )
+        if current is None or (current.organization_id, current.membership_id, current.user_id) != (
+            actor.organization_id,
+            actor.membership_id,
+            actor.user_id,
+        ):
+            return None
+        return current
 
     async def authorize(self, *, actor: AuthenticatedActor, conversation_id: UUID) -> None:
         """Verify actor owns the conversation; raise ResourceNotFoundError otherwise."""
+        current = await self._current_actor(actor)
+        if current is None:
+            raise ResourceNotFoundError()
+        actor = current
         async with self._transactions(actor) as txn:
             snapshot = await txn.repository.get_conversation_snapshot(
                 actor=actor, conversation_id=conversation_id
@@ -96,6 +121,10 @@ class AssistantEventService:
         after_sequence: int,
     ) -> tuple[bool, list[AssistantEvent]]:
         """Returns (conversation_is_terminal, events_after_sequence)."""
+        current = await self._current_actor(actor)
+        if current is None:
+            return True, []
+        actor = current
         async with self._transactions(actor) as txn:
             snapshot = await txn.repository.get_conversation_snapshot(
                 actor=actor, conversation_id=conversation_id
@@ -140,24 +169,26 @@ class AssistantEventService:
     ) -> AsyncGenerator[str]:
         """Async generator that yields SSE frames and keepalive comments."""
         cursor = after_sequence
-        while True:
-            is_terminal = False
-            events: list[AssistantEvent] = []
-            # Starlette cancels this generator as soon as the browser closes an
-            # EventSource.  Do not let that cancellation interrupt psycopg while
-            # it is checking out or querying a pooled connection: psycopg cannot
-            # safely return a connection whose protocol state is still ACTIVE.
-            # Each read is short and bounded; cancellation is observed at the
-            # sleep/send boundary immediately after the transaction is closed.
-            with CancelScope(shield=True):
-                is_terminal, events = await self._read_events(
-                    actor=actor, conversation_id=conversation_id, after_sequence=cursor
-                )
-            for event in events:
-                cursor = event.sequence
-                yield _frame(event)
-            if is_terminal:
-                return
-            if not events:
-                yield ": heartbeat\n\n"
-            await asyncio.sleep(self._heartbeat_seconds)
+        clock = asyncio.get_running_loop().time
+        heartbeat_at = clock()
+        scope = WakeupScope(actor.organization_id, "assistant.events", conversation_id)
+        async with subscribe_or_poll(self._wakeup, scope) as subscription:
+            while True:
+                is_terminal = False
+                events: list[AssistantEvent] = []
+                # Release every SQL transaction before a wait/send/cancellation boundary.
+                with CancelScope(shield=True):
+                    is_terminal, events = await self._read_events(
+                        actor=actor, conversation_id=conversation_id, after_sequence=cursor
+                    )
+                for event in events:
+                    cursor = event.sequence
+                    yield _frame(event)
+                if is_terminal:
+                    return
+                if events:
+                    heartbeat_at = clock() + self._heartbeat_seconds
+                elif clock() >= heartbeat_at:
+                    yield ": heartbeat\n\n"
+                    heartbeat_at = clock() + self._heartbeat_seconds
+                await subscription.wait(timeout_seconds=min(15, max(0, heartbeat_at - clock())))

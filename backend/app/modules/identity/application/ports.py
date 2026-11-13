@@ -18,6 +18,12 @@ class LoginThrottlePort(Protocol):
     ) -> AdmissionDecision: ...
 
 
+class CurrentActorReadPort(Protocol):
+    async def resolve(
+        self, *, organization_id: UUID, membership_id: UUID
+    ) -> AuthenticatedActor | None: ...
+
+
 class PasswordVerifier(Protocol):
     """Verify a password without exposing provider-specific hash APIs."""
 

@@ -21,9 +21,11 @@ from app.modules.assistant.adapters.transaction import PostgreSQLAssistantTransa
 from app.modules.assistant.api.routes import router as assistant_router
 from app.modules.assistant.application.event_service import AssistantEventService
 from app.modules.assistant.application.service import AssistantService
+from app.modules.identity.adapters.auth_repository import SqlAlchemyAuthTransactionFactory
 from app.modules.identity.adapters.runtime import create_auth_runtime
 from app.modules.identity.api.routes import router as auth_router
 from app.modules.identity.application.auth_service import AuthService
+from app.modules.identity.application.current_actor_service import CurrentActorService
 from app.modules.optimization.adapters.redis_runtime import create_redis_runtime
 from app.modules.optimization.application.admission import AIAdmissionService
 from app.modules.optimization.application.login_throttle import LoginThrottle
@@ -240,6 +242,7 @@ def create_app(
         planning_transaction_factory = PostgreSQLPlanningRunTransactionFactory(
             create_session_factory(database_engine),
             reporting_timezone=resolved_settings.reporting_timezone,
+            wakeup=redis_runtime.wakeup,
         )
         if resolved_planning_draft_service is None:
             resolved_planning_draft_service = PlanningDraftService(
@@ -262,7 +265,11 @@ def create_app(
             )
         if resolved_workflow_event_service is None:
             resolved_workflow_event_service = WorkflowEventService(
-                transaction_factory=planning_transaction_factory
+                transaction_factory=planning_transaction_factory,
+                wakeup=redis_runtime.wakeup,
+                actors=CurrentActorService(
+                    SqlAlchemyAuthTransactionFactory(create_session_factory(database_engine))
+                ),
             )
         if resolved_approval_service is None:
             resolved_approval_service = ApprovalService(
@@ -276,7 +283,8 @@ def create_app(
         if database_engine is None:
             database_engine = create_database_engine(resolved_settings)
         assistant_transaction_factory = PostgreSQLAssistantTransactionFactory(
-            create_session_factory(database_engine)
+            create_session_factory(database_engine),
+            wakeup=redis_runtime.wakeup,
         )
         if resolved_assistant_service is None:
             orchestrator_manifest = load_yaml_resource(
@@ -305,6 +313,10 @@ def create_app(
         if resolved_assistant_event_service is None:
             resolved_assistant_event_service = AssistantEventService(
                 transaction_factory=assistant_transaction_factory,
+                wakeup=redis_runtime.wakeup,
+                actors=CurrentActorService(
+                    SqlAlchemyAuthTransactionFactory(create_session_factory(database_engine))
+                ),
             )
 
     @asynccontextmanager

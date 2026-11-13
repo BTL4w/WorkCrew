@@ -128,8 +128,8 @@ async def retrieval_harness() -> AsyncGenerator[RetrievalHarness]:
         await connection.execute(
             text(
                 "INSERT INTO assistant_conversations(id,organization_id,owner_membership_"
-                "id,locale) "
-                "VALUES (:conversation,:org,:member,'en')"
+                "id,locale,last_message_sequence) "
+                "VALUES (:conversation,:org,:member,'en',1)"
             ),
             values,
         )

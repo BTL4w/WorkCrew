@@ -8,6 +8,8 @@ from sqlalchemy.ext.asyncio import AsyncSession, AsyncSessionTransaction, async_
 
 from app.core.config import get_settings
 from app.modules.identity.domain.auth import AuthenticatedActor
+from app.modules.optimization.adapters.event_hints import EventHints
+from app.modules.optimization.application.wakeup import WakeupPort
 from app.modules.planning_runs.adapters.repository import PostgreSQLPlanningRunRepository
 from app.modules.planning_runs.application.ports import (
     PlanningRunRepository,
@@ -24,12 +26,14 @@ class PostgreSQLPlanningRunTransaction(PlanningRunTransaction):
         organization_id: UUID,
         membership_id: UUID | None = None,
         reporting_timezone: str = "UTC",
+        wakeup: WakeupPort | None = None,
     ) -> None:
         self._session = session
         self._organization_id = organization_id
         self._membership_id = membership_id
         self._repository = PostgreSQLPlanningRunRepository(session, reporting_timezone)
         self._transaction: AsyncSessionTransaction | None = None
+        self._hints = EventHints(session, wakeup)
 
     @property
     def repository(self) -> PlanningRunRepository:
@@ -47,11 +51,13 @@ class PostgreSQLPlanningRunTransaction(PlanningRunTransaction):
         if self._transaction is None:
             raise RuntimeError("Planning run transaction is not active.")
         await self._transaction.commit()
+        await self._hints.committed()
 
     async def rollback(self) -> None:
         if self._transaction is None:
             raise RuntimeError("Planning run transaction is not active.")
         await self._transaction.rollback()
+        self._hints.discard()
 
     async def __aenter__(self) -> Self:
         if self._transaction is not None:
@@ -85,6 +91,10 @@ class PostgreSQLPlanningRunTransaction(PlanningRunTransaction):
             raise RuntimeError("Planning run transaction was not entered.")
         try:
             await transaction.__aexit__(exc_type, exc_val, exc_tb)
+            if exc_type is None:
+                await self._hints.committed()
+            else:
+                self._hints.discard()
         finally:
             await self._session.close()
 
@@ -93,10 +103,15 @@ class PostgreSQLPlanningRunTransactionFactory:
     """Factory creating tenant-scoped planning run transactions."""
 
     def __init__(
-        self, session_factory: async_sessionmaker[AsyncSession], reporting_timezone: str = "UTC"
+        self,
+        session_factory: async_sessionmaker[AsyncSession],
+        reporting_timezone: str = "UTC",
+        *,
+        wakeup: WakeupPort | None = None,
     ) -> None:
         self._reporting_timezone = reporting_timezone
         self._session_factory = session_factory
+        self._wakeup = wakeup
 
     def __call__(self, context: AuthenticatedActor | UUID) -> PlanningRunTransaction:
         session = self._session_factory(close_resets_only=False)
@@ -106,9 +121,11 @@ class PostgreSQLPlanningRunTransactionFactory:
                 organization_id=context.organization_id,
                 membership_id=context.membership_id,
                 reporting_timezone=self._reporting_timezone,
+                wakeup=self._wakeup,
             )
         return PostgreSQLPlanningRunTransaction(
             session=session,
             organization_id=context,
             reporting_timezone=self._reporting_timezone,
+            wakeup=self._wakeup,
         )

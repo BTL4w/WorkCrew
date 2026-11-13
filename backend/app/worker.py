@@ -295,9 +295,13 @@ async def _run_worker_with_tracing(
     session_factory = async_sessionmaker(engine, expire_on_commit=False)
     retention_service = RetentionService(RetentionTransactions(session_factory))
     planning_transaction_factory = PostgreSQLPlanningRunTransactionFactory(
-        session_factory, reporting_timezone=settings.reporting_timezone
+        session_factory,
+        reporting_timezone=settings.reporting_timezone,
+        wakeup=redis_runtime.wakeup,
     )
-    assistant_transaction_factory = PostgreSQLAssistantTransactionFactory(session_factory)
+    assistant_transaction_factory = PostgreSQLAssistantTransactionFactory(
+        session_factory, wakeup=redis_runtime.wakeup
+    )
     actor_resolver = CurrentActorResolver(
         CurrentActorService(SqlAlchemyAuthTransactionFactory(session_factory))
     )

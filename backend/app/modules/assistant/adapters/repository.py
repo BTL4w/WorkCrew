@@ -54,6 +54,7 @@ from app.modules.assistant.domain.models import (
 from app.modules.audit.adapters.database_models import AuditEventModel
 from app.modules.audit.domain.events import AuditOutcome
 from app.modules.feedback.adapters.payload_repository import assert_context_live, live_payload
+from app.modules.identity.adapters.active_scope import active_actor_scope
 from app.modules.identity.domain.auth import AuthenticatedActor
 from app.modules.optimization.application.admission import NewWorkGuard
 from app.modules.planning_runs.adapters.database_models import OutboxEventModel, WorkflowEventModel
@@ -903,6 +904,7 @@ class PostgreSQLAssistantRepository:
                 AssistantConversationModel.owner_membership_id == actor.membership_id,
                 AssistantConversationModel.status == "ACTIVE",
                 AssistantConversationModel.id == conversation_id,
+                active_actor_scope(actor),
             )
         )
         if conversation_model is None:
@@ -1012,6 +1014,7 @@ class PostgreSQLAssistantRepository:
                 AssistantConversationModel.owner_membership_id == actor.membership_id,
                 AssistantConversationModel.status == "ACTIVE",
                 AssistantConversationModel.id == conversation_id,
+                active_actor_scope(actor),
             )
         )
         if conv is None:
@@ -1023,6 +1026,7 @@ class PostgreSQLAssistantRepository:
                 AssistantEventModel.conversation_id == conversation_id,
                 live_payload(AssistantEventModel, "assistant_events"),
                 AssistantEventModel.sequence > after_sequence,
+                active_actor_scope(actor),
             )
             .order_by(AssistantEventModel.sequence)
         )

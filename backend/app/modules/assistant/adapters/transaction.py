@@ -12,6 +12,8 @@ from app.core.config import get_settings
 from app.modules.assistant.adapters.repository import PostgreSQLAssistantRepository
 from app.modules.assistant.application.ports import AssistantRepository, AssistantTransaction
 from app.modules.identity.domain.auth import AuthenticatedActor
+from app.modules.optimization.adapters.event_hints import EventHints
+from app.modules.optimization.application.wakeup import WakeupPort
 
 
 class PostgreSQLAssistantTransaction(AssistantTransaction):
@@ -21,12 +23,14 @@ class PostgreSQLAssistantTransaction(AssistantTransaction):
         session: AsyncSession,
         organization_id: UUID,
         membership_id: UUID | None,
+        wakeup: WakeupPort | None = None,
     ) -> None:
         self._session = session
         self._organization_id = organization_id
         self._membership_id = membership_id
         self._repository = PostgreSQLAssistantRepository(session)
         self._transaction: AsyncSessionTransaction | None = None
+        self._hints = EventHints(session, wakeup)
 
     @property
     def repository(self) -> AssistantRepository:
@@ -75,28 +79,38 @@ class PostgreSQLAssistantTransaction(AssistantTransaction):
         if self._transaction is None:
             raise RuntimeError("Assistant transaction is not active.")
         await self._transaction.commit()
+        await self._hints.committed()
 
     async def rollback(self) -> None:
         if self._transaction is None:
             raise RuntimeError("Assistant transaction is not active.")
         await self._transaction.rollback()
+        self._hints.discard()
 
     async def __aexit__(self, exc_type: object, exc_val: object, exc_tb: object) -> None:
         if self._transaction is None:
             raise RuntimeError("Assistant transaction was not entered.")
         with CancelScope(shield=True):
             if isinstance(exc_val, asyncio.CancelledError):
+                self._hints.discard()
                 await self._session.invalidate()
             else:
                 try:
                     await self._transaction.__aexit__(exc_type, exc_val, exc_tb)
+                    if exc_type is None:
+                        await self._hints.committed()
+                    else:
+                        self._hints.discard()
                 finally:
                     await self._session.close()
 
 
 class PostgreSQLAssistantTransactionFactory:
-    def __init__(self, session_factory: async_sessionmaker[AsyncSession]) -> None:
+    def __init__(
+        self, session_factory: async_sessionmaker[AsyncSession], *, wakeup: WakeupPort | None = None
+    ) -> None:
         self._session_factory = session_factory
+        self._wakeup = wakeup
 
     def __call__(self, context: AuthenticatedActor | UUID) -> PostgreSQLAssistantTransaction:
         session = self._session_factory(close_resets_only=False)
@@ -105,9 +119,11 @@ class PostgreSQLAssistantTransactionFactory:
                 session=session,
                 organization_id=context.organization_id,
                 membership_id=context.membership_id,
+                wakeup=self._wakeup,
             )
         return PostgreSQLAssistantTransaction(
             session=session,
             organization_id=context,
             membership_id=None,
+            wakeup=self._wakeup,
         )

@@ -36,6 +36,10 @@ async def verify() -> Settings:
         read_cache_families=["workload.weekly"],
         redis_url=SecretStr(os.environ["REDIS_TEST_URL"]),
         redis_namespace=os.environ.get("REDIS_E2E_NAMESPACE", "browser-test"),
+        redis_wakeup_enabled=(
+            os.environ.get("REDIS_E2E_WAKEUP") == "1"
+            and os.environ.get("REDIS_E2E_WAKEUP_MODE") != "disabled"
+        ),
         ai_admission_enabled=os.environ.get("REDIS_E2E_ADMISSION") == "1",
         ai_admission_actor_limit=1 if os.environ.get("REDIS_E2E_ADMISSION") == "1" else 20,
         login_throttle_enabled=os.environ.get("REDIS_E2E_LOGIN") == "1",
