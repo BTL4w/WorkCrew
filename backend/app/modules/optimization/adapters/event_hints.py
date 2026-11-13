@@ -1,4 +1,4 @@
-"""Capture actual flushed event identities; transaction adapters publish after commit."""
+"""Capture actual flushed event/job identities; transaction adapters publish after commit."""
 
 import asyncio
 
@@ -6,9 +6,9 @@ from sqlalchemy import event
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import Session
 
-from app.modules.assistant.adapters.database_models import AssistantEventModel
+from app.modules.assistant.adapters.database_models import AssistantEventModel, AssistantJobModel
 from app.modules.optimization.application.wakeup import PendingWakeups, WakeupHint, WakeupPort
-from app.modules.planning_runs.adapters.database_models import WorkflowEventModel
+from app.modules.planning_runs.adapters.database_models import WorkflowEventModel, WorkflowJobModel
 
 
 class EventHints:
@@ -36,6 +36,11 @@ class EventHints:
                     WakeupHint(
                         1, row.organization_id, "workflow.events", row.workflow_run_id, row.sequence
                     )
+                )
+
+            elif isinstance(row, (AssistantJobModel, WorkflowJobModel)) and row.status == "QUEUED":
+                self._pending.add(
+                    WakeupHint(1, row.organization_id, "job.ready", row.organization_id, None)
                 )
 
     def _rolled_back(self, session: Session) -> None:

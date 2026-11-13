@@ -5,6 +5,7 @@ import contextlib
 import logging
 import signal
 import sys
+from collections.abc import AsyncGenerator, Sequence
 from datetime import UTC, datetime
 from typing import NoReturn, Protocol
 from uuid import UUID
@@ -53,6 +54,12 @@ from app.modules.identity.adapters.auth_repository import SqlAlchemyAuthTransact
 from app.modules.identity.adapters.current_actor import CurrentActorResolver
 from app.modules.identity.application.current_actor_service import CurrentActorService
 from app.modules.optimization.adapters.redis_runtime import RedisRuntime, create_redis_runtime
+from app.modules.optimization.application.wakeup import (
+    WakeupPort,
+    WakeupScope,
+    WakeupSubscription,
+    subscribe_or_poll,
+)
 from app.modules.organization.adapters.member_repository import SqlAlchemyMemberTransactionFactory
 from app.modules.organization.application.member_service import MemberService
 from app.modules.people_capacity.adapters.repository import (
@@ -255,6 +262,53 @@ async def process_tenant_once(
         except Exception:
             logger.exception("Error processing naming jobs for organization %s", organization_id)
     return processed
+
+
+class WorkerWakeups:
+    """Bounded coalesced wake-up; a signal only schedules another allowed SQL scan."""
+
+    def __init__(self, subscriptions: Sequence[WakeupSubscription]):
+        self._subscriptions = subscriptions
+
+    async def wait(self, *, timeout_seconds: float) -> None:
+        if not self._subscriptions:
+            await asyncio.sleep(timeout_seconds)
+            return
+        clock = asyncio.get_running_loop().time
+        deadline = clock() + timeout_seconds
+        tasks = {
+            asyncio.create_task(
+                sub.wait(timeout_seconds=timeout_seconds), name="worker-wakeup-wait"
+            )
+            for sub in self._subscriptions
+        }
+        try:
+            done, _ = await asyncio.wait(
+                tasks, timeout=timeout_seconds, return_when=asyncio.FIRST_COMPLETED
+            )
+            if not any(not task.cancelled() and task.exception() is None for task in done):
+                await asyncio.sleep(max(0, deadline - clock()))
+        finally:
+            for task in tasks:
+                task.cancel()
+            await asyncio.gather(*tasks, return_exceptions=True)
+
+
+@contextlib.asynccontextmanager
+async def worker_wakeups(
+    port: WakeupPort | None, organization_ids: Sequence[UUID]
+) -> AsyncGenerator[WorkerWakeups]:
+    async with contextlib.AsyncExitStack() as subscriptions:
+        waits: list[WakeupSubscription] = []
+        if port is not None:
+            # Remaining allowed tenants still participate in the regular SQL scan.
+            for org in tuple(dict.fromkeys(organization_ids))[:1000]:
+                waits.append(
+                    await subscriptions.enter_async_context(
+                        subscribe_or_poll(port, WakeupScope(org, "job.ready", org))
+                    )
+                )
+        yield WorkerWakeups(waits)
 
 
 async def _run_worker() -> None:
@@ -609,9 +663,12 @@ async def _run_worker_with_tracing(
     for sig in (signal.SIGINT, signal.SIGTERM):
         loop.add_signal_handler(sig, _handle_shutdown)
 
+    wakeups = await resources.enter_async_context(
+        worker_wakeups(redis_runtime.wakeup, organization_ids)
+    )
     while running:
         if not organization_ids:
-            await asyncio.sleep(poll_interval)
+            await wakeups.wait(timeout_seconds=poll_interval)
             continue
 
         processed_any = False
@@ -639,7 +696,7 @@ async def _run_worker_with_tracing(
             )
 
         if not processed_any and running:
-            await asyncio.sleep(poll_interval)
+            await wakeups.wait(timeout_seconds=poll_interval)
 
     logger.info("Worker %s stopped", worker_id)
 
